@@ -14,6 +14,7 @@ export const MIN_THROW_SPEED = 360;
 export const MAX_THROW_SPEED = 500;
 export const THROW_COOLDOWN = 0.12;
 export const PACK_TIME = 0.92;
+export const INTRO_TIME = 3;
 export const MARGIN = 34;
 export const SAVE_KEY = "snowcraft-v1";
 export const MAX_ENEMIES = 15;

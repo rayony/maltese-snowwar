@@ -1,6 +1,5 @@
 /**
- * HTTP room bus: same /api/rtc rendezvous as WebRTC signaling, but game
- * messages ride the poll so NAT / iframe / missing TURN cannot block a join.
+ * Room bus: SSE push when the server supports it, HTTP poll as fallback.
  */
 export interface RoomPeer {
   id: string;
@@ -26,6 +25,8 @@ export class RoomChannel {
   private closed = false;
   private fast = false;
   private sawJoin = false;
+  private es: EventSource | null = null;
+  private abort: AbortController | null = null;
 
   constructor(opts: RoomChannelOptions) {
     this.opts = opts;
@@ -41,12 +42,16 @@ export class RoomChannel {
     } catch (err) {
       this.opts.onError?.(err instanceof Error ? err.message : "Room server unreachable");
     }
-    if (!this.closed) this.schedule(this.fast ? PLAY_MS : LOBBY_MS);
+    if (this.closed) return;
+    if (!this.openSse()) this.schedule(this.fast ? PLAY_MS : LOBBY_MS);
   }
 
   close() {
     this.closed = true;
     if (this.timer) clearTimeout(this.timer);
+    this.es?.close();
+    this.es = null;
+    this.abort?.abort();
     void fetch("/api/rtc", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -58,6 +63,45 @@ export class RoomChannel {
   send(data: unknown) {
     if (this.closed) return;
     void this.postData(data);
+  }
+
+  private openSse() {
+    try {
+      const params = new URLSearchParams({
+        sse: "1",
+        room: this.opts.room,
+        peer: this.opts.selfId,
+        name: this.opts.name,
+        bus: String(this.cursor),
+      });
+      const es = new EventSource(`/api/rtc?${params}`);
+      this.es = es;
+      es.onmessage = (ev) => {
+        if (this.closed) return;
+        try {
+          const body = JSON.parse(ev.data) as {
+            peers?: RoomPeer[];
+            bus?: { id: number; from: string; payload: unknown }[];
+          };
+          this.opts.onPeers((body.peers ?? []).filter((p) => p.id !== this.opts.selfId));
+          for (const msg of body.bus ?? []) {
+            this.cursor = Math.max(this.cursor, msg.id);
+            this.opts.onMessage(msg.from, msg.payload);
+          }
+        } catch {
+          /* skip */
+        }
+      };
+      es.onerror = () => {
+        if (this.closed) return;
+        es.close();
+        this.es = null;
+        if (!this.timer) this.schedule(this.fast ? PLAY_MS : LOBBY_MS);
+      };
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   private async postData(data: unknown) {
@@ -78,13 +122,13 @@ export class RoomChannel {
   }
 
   private schedule(delay: number) {
-    if (this.closed) return;
+    if (this.closed || this.es) return;
     if (this.timer) clearTimeout(this.timer);
     this.timer = setTimeout(() => void this.poll(), delay);
   }
 
   private async poll() {
-    if (this.closed) return;
+    if (this.closed || this.es) return;
     try {
       await this.pollOnce();
     } catch {

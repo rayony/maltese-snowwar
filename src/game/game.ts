@@ -13,7 +13,7 @@ import {
   type NetMsg,
 } from "./net";
 import { render, worldFromClient } from "./render";
-import { aimFromKid, clamp, createState, isOut, living, stepSim, throwSnowball } from "./sim";
+import { aimFromKid, burst, clamp, createState, isOut, living, puffMissingBalls, snapCombatFx, stepPresentation, stepSim, throwSnowball } from "./sim";
 import type {
   AllyMode,
   GameState,
@@ -71,6 +71,11 @@ export class SnowCraftGame {
   private hbAcc = 0;
   private lastMoveSend = 0;
   private keepBallsUntil = 0;
+  private lastAiSend = 0;
+  private round = 0;
+  private lastCount = -1;
+  private lastOver: Extract<NetMsg, { t: "over" }> | null = null;
+  private overAcc = 0;
 
   constructor(canvas: HTMLCanvasElement, onUi: (s: UiSnapshot) => void) {
     this.canvas = canvas;
@@ -272,6 +277,8 @@ export class SnowCraftGame {
 
   private startLevel(level: number, versus = this.versus) {
     this.versus = versus;
+    this.round += 1;
+    this.lastCount = -1;
     this.state = createState(level, versus);
     this.grab = null;
     this.grabGuest = null;
@@ -279,6 +286,7 @@ export class SnowCraftGame {
     this.versusResult = null;
     this.rematchMine = false;
     this.rematchTheirs = false;
+    this.lastOver = null;
     this.audio.level();
     if (!versus && level > this.best) {
       this.best = level;
@@ -311,6 +319,7 @@ export class SnowCraftGame {
       this.screen = "playing";
       this.startLevel(1, true);
       this.sendNet({ t: "start" });
+      this.sendNet({ t: "start" });
       this.sendSnap();
     }
   }
@@ -330,10 +339,20 @@ export class SnowCraftGame {
     this.guestAlly = "off";
     this.grabGuest = null;
     this.seat = "red";
+    this.lastOver = null;
   }
 
   private sendNet(msg: NetMsg) {
-    this.p2p?.send(msg, "event");
+    const pose =
+      msg.t === "allypose" || msg.t === "hb" || (msg.t === "input" && msg.kind === "move");
+    this.p2p?.send(msg, pose ? "pose" : "event");
+  }
+
+  private sendOver() {
+    const winner: Team = this.state.phase === "won" ? "red" : "green";
+    this.lastOver = { t: "over", winner, s: packState(this.state), round: this.round };
+    this.overAcc = 0;
+    this.sendNet(this.lastOver);
   }
 
   private sendSnap() {
@@ -380,15 +399,43 @@ export class SnowCraftGame {
         if (this.netRole === "guest") {
           this.matchStarted = true;
           this.netStatus = "live";
-          this.screen = "playing";
-          this.audio.startMusic();
           this.versus = true;
+          this.lastOver = null;
+          this.audio.startMusic();
+          if (this.screen !== "playing") this.startLevel(1, true);
+          this.screen = "playing";
+        }
+        break;
+      case "over":
+        if (this.netRole === "guest" && !this.botTakeover) {
+          if (this.rematchMine || this.rematchTheirs) break;
+          if (this.screen === "playing" && this.netStatus === "live") break;
+          if (data.round != null && data.round !== this.round && this.round > 0) break;
+          this.lastPeerAt = performance.now();
+          this.lastOver = data;
+          applyState(this.state, data.s, { hard: true });
+          this.grab = null;
+          this.keepBallsUntil = 0;
+          if (this.screen !== "gameover") {
+            this.outcomeHandled = false;
+            this.handleOutcome();
+          }
         }
         break;
       case "snap":
         if (this.netRole === "guest" && !this.botTakeover) {
+          const rematchGo = this.rematchMine && this.rematchTheirs;
+          if (this.screen === "gameover" && !rematchGo) break;
+          if (this.netStatus === "rematch" && !rematchGo) break;
           this.lastPeerAt = performance.now();
           this.p2p?.setFast(true);
+          if (rematchGo && this.screen === "gameover") {
+            this.startLevel(1, true);
+            this.netStatus = "live";
+            this.screen = "playing";
+            this.audio.startMusic();
+            this.versus = true;
+          }
           if (!this.matchStarted) {
             this.matchStarted = true;
             this.netStatus = "live";
@@ -396,10 +443,21 @@ export class SnowCraftGame {
             this.audio.startMusic();
             this.versus = true;
           }
+          if (performance.now() >= this.keepBallsUntil) {
+            const mine = puffMissingBalls(this.state, data.s, this.seat);
+            const fx = snapCombatFx(this.state, data.s, this.seat);
+            for (let i = 0; i < mine + fx.hits; i++) {
+              this.audio.hit();
+              this.audio.splat();
+            }
+            for (let i = 0; i < fx.lands; i++) this.audio.splat();
+          }
           applyState(this.state, data.s, {
             grabId: this.grab?.id ?? null,
             keepTeam: this.seat,
             keepBallsUntil: this.keepBallsUntil,
+            predictTeam: this.seat,
+            rttMs: this.p2p?.rttMs,
           });
           this.maybeOutcomeFromSnap();
         }
@@ -407,13 +465,29 @@ export class SnowCraftGame {
       case "input":
         if (this.netRole === "host") this.applyGuestInput(data);
         break;
+      case "allypose":
+        if (this.netRole === "host") this.applyAllyPose(data);
+        break;
+      case "allythrow":
+        if (this.netRole === "host") this.applyAllyThrow(data);
+        break;
       case "ally":
         this.guestAlly = data.mode;
         break;
       case "rematch":
+        this.lastPeerAt = performance.now();
         this.rematchTheirs = data.yes;
         if (!data.yes) {
           this.netError = "Friend left the rematch.";
+          this.leaveRoom();
+          break;
+        }
+        this.netStatus = "rematch";
+        if (this.screen === "playing" || this.screen === "paused") {
+          this.screen = "gameover";
+          if (!this.versusResult) {
+            this.versusResult = this.seat === "green" ? "lose" : "win";
+          }
         }
         this.tryRematch();
         break;
@@ -486,6 +560,40 @@ export class SnowCraftGame {
     this.audio.throw(power);
   }
 
+  private applyAllyPose(msg: Extract<NetMsg, { t: "allypose" }>) {
+    if (this.botTakeover) return;
+    const grabbed = this.grabGuest?.id;
+    for (const p of msg.kids) {
+      const kid = this.state.kids.find((k) => k.id === p.id && k.team === "green");
+      if (!kid || isOut(kid) || kid.id === grabbed) continue;
+      if (kid.state === "hurt" || kid.state === "buried" || kid.state === "grabbed") continue;
+      kid.x = clamp(p.x, MARGIN, WORLD_W - MARGIN);
+      kid.y = clamp(p.y, MARGIN, WORLD_H - MARGIN);
+    }
+  }
+
+  private applyAllyThrow(msg: Extract<NetMsg, { t: "allythrow" }>) {
+    if (this.botTakeover) return;
+    const kid = this.state.kids.find((k) => k.id === msg.id && k.team === "green");
+    if (!kid || isOut(kid) || kid.id === this.grabGuest?.id) return;
+    if (kid.packT > 0 || kid.state === "pack" || kid.state === "hurt" || kid.state === "buried") return;
+    kid.x = clamp(msg.x, MARGIN, WORLD_W - MARGIN);
+    kid.y = clamp(msg.y, MARGIN, WORLD_H - MARGIN);
+    const power = throwSnowball(this.state, kid, Math.max(0, msg.hold), msg.dx, msg.dy);
+    if (power > 0) this.audio.throw(power);
+  }
+
+  private sendAllyPose() {
+    if (this.allyMode === "off" || this.netRole !== "guest") return;
+    const t = performance.now();
+    if (t - this.lastAiSend < 50) return;
+    this.lastAiSend = t;
+    const kids = this.state.kids
+      .filter((k) => k.team === "green" && !isOut(k) && k.id !== this.grab?.id)
+      .map((k) => ({ id: k.id, x: k.x, y: k.y }));
+    if (kids.length) this.sendNet({ t: "allypose", kids });
+  }
+
   private enterDisconnect() {
     if (this.botTakeover) return;
     this.netStatus = "disconnect";
@@ -536,12 +644,16 @@ export class SnowCraftGame {
   };
 
   private toWorld(e: PointerEvent) {
-    return worldFromClient(this.canvas, e.clientX, e.clientY);
+    return worldFromClient(this.canvas, e.clientX, e.clientY, this.mirrored());
+  }
+
+  private mirrored() {
+    return this.versus && this.seat === "green" && !this.botTakeover;
   }
 
   private onDown = (e: PointerEvent) => {
     this.audio.unlock();
-    if (this.screen !== "playing" || this.state.phase !== "fight") return;
+    if (this.screen !== "playing" || (this.state.phase !== "fight" && this.state.phase !== "intro")) return;
     if (this.netStatus === "disconnect") return;
     if (this.grab) return;
     const w = this.toWorld(e);
@@ -636,7 +748,7 @@ export class SnowCraftGame {
     }
     const seconds = Math.max(0, (performance.now() - grab.startedAt) / 1000 - grab.packLeft);
     const { dx, dy } = aimFromKid(kid, this.state.kids, grab.vx, grab.vy);
-    const power = throwSnowball(this.state, kid, seconds, dx, dy);
+    const power = throwSnowball(this.state, kid, seconds, dx, dy, this.netRole === "guest");
     this.audio.throw(power);
   }
 
@@ -697,16 +809,56 @@ export class SnowCraftGame {
 
     if (this.netRole === "host" && this.netStatus === "live" && this.screen === "playing") {
       this.snapAcc += dt;
-      const interval = this.p2p?.rtcOpen ? 0.05 : 0.08;
+      const interval = this.p2p?.rtcOpen ? 0.25 : 0.33;
       if (this.snapAcc >= interval) {
         this.snapAcc = 0;
         this.sendSnap();
       }
     }
 
+    if (this.netRole === "host" && this.lastOver && this.screen === "gameover") {
+      this.overAcc += dt;
+      if (this.overAcc >= 1) {
+        this.overAcc = 0;
+        this.sendNet(this.lastOver);
+      }
+    }
+
     this.audio.tick(dt);
+    this.tickCount();
     this.draw();
   };
+
+  private tickCount() {
+    if (this.screen !== "playing" || this.state.phase !== "intro") return;
+    if (this.state.introT <= 0) {
+      if (this.lastCount !== 0) {
+        this.lastCount = 0;
+        this.audio.go();
+      }
+      return;
+    }
+    const n = Math.max(1, Math.ceil(this.state.introT));
+    if (n !== this.lastCount) {
+      this.lastCount = n;
+      this.audio.count(n);
+    }
+  }
+
+  private flyPredictedBalls(dt: number) {
+    for (const b of this.state.balls) {
+      if (!b.alive || !b.local || b.team !== this.seat) continue;
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      b.traveled += Math.hypot(b.vx, b.vy) * dt;
+      b.spin += dt * 10;
+      if (b.traveled >= b.range || b.x < -40 || b.x > WORLD_W + 40 || b.y < -20 || b.y > WORLD_H + 20) {
+        b.alive = false;
+        burst(this.state, b.x, b.y, 0, 12, "spark");
+        this.audio.splat();
+      }
+    }
+  }
 
   private greenControl(): GreenControl {
     if (!this.versus) return "enemy";
@@ -714,32 +866,43 @@ export class SnowCraftGame {
       if (this.seat === "red") return "enemy";
       return this.allyMode;
     }
-    if (this.netRole === "host") return this.guestAlly;
-    return "off";
+    if (this.netRole === "host") return "off";
+    return this.allyMode;
   }
 
   private step(dt: number) {
     const guestView = this.netRole === "guest" && !this.botTakeover;
     if (guestView) {
-      const phase = this.state.phase;
-      stepSim(
+      stepAi(
         this.state,
         dt,
-        (heavy) => {
-          if (heavy) this.audio.bury();
-          else {
-            this.audio.hit();
-            this.audio.splat();
-          }
+        (power, kid, hold, dx, dy) => {
+          this.audio.throw(power);
+          this.keepBallsUntil = performance.now() + 220;
+          this.sendNet({
+            t: "allythrow",
+            id: kid.id,
+            x: kid.x,
+            y: kid.y,
+            hold,
+            dx,
+            dy,
+          });
         },
-        {
-          onClash: () => this.audio.clash(),
-          onFort: () => this.audio.fort(),
-        },
+        "off",
+        this.allyMode,
+        true,
       );
-      if (phase === "fight" && (this.state.phase === "won" || this.state.phase === "lost")) {
-        this.state.phase = phase;
+      for (const kid of this.state.kids) {
+        if (kid.team !== this.seat) continue;
+        const dist = Math.hypot(kid.x - kid.lastX, kid.y - kid.lastY);
+        kid.moving = dist > 0.55 && kid.state !== "buried";
+        kid.lastX = kid.x;
+        kid.lastY = kid.y;
       }
+      this.flyPredictedBalls(dt);
+      stepPresentation(this.state, dt);
+      this.sendAllyPose();
       return;
     }
 
@@ -773,6 +936,7 @@ export class SnowCraftGame {
         this.versusResult = this.myTeam() === "red" ? "win" : "lose";
         this.screen = "gameover";
         this.netStatus = this.p2p && !this.botTakeover ? "rematch" : this.netStatus;
+        if (this.netRole === "host") this.sendOver();
         this.emit();
         return;
       }
@@ -787,6 +951,7 @@ export class SnowCraftGame {
       this.versusResult = this.versus ? (this.myTeam() === "red" ? "lose" : "win") : "lose";
       this.screen = "gameover";
       if (this.versus && this.p2p && !this.botTakeover) this.netStatus = "rematch";
+      if (this.versus && this.netRole === "host") this.sendOver();
       this.emit();
     }
   }
@@ -803,6 +968,8 @@ export class SnowCraftGame {
       buriedSize: feel.buried,
       pickRadius: feel.pick,
       ballSize: feel.ball,
+      mirror: this.mirrored(),
+      pvp: this.versus,
     };
     render(this.ctx, this.canvas, this.state, this.assets, view);
   }

@@ -50,6 +50,7 @@ export interface Snowball {
   alive: boolean;
   range: number;
   traveled: number;
+  local?: boolean;
 }
 
 export interface Fort {
@@ -143,4 +144,6 @@ export interface View {
   buriedSize: number;
   pickRadius: number;
   ballSize: number;
+  mirror: boolean;
+  pvp: boolean;
 }

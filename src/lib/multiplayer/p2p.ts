@@ -77,7 +77,7 @@ interface PeerSlot {
 const FAST_POLL_MS = 400;
 const IDLE_POLL_MS = 2000;
 const PING_INTERVAL_MS = 2000;
-const STALL_MS = 10_000;
+const STALL_MS = 2_000;
 const MAX_RECOVERY_ATTEMPTS = 3;
 const SIGNAL_RETRY_DELAYS_MS = [250, 750];
 
@@ -160,6 +160,19 @@ export class P2PRoom {
     const targets = peerId ? [this.peers.get(peerId)] : [...this.peers.values()];
     for (const slot of targets) {
       if (slot?.reliable?.readyState === "open") slot.reliable.send(wire);
+    }
+  }
+
+  restartIce(): void {
+    for (const slot of this.peers.values()) {
+      if (slot.terminal) continue;
+      const live = slot.pc.connectionState;
+      if (live === "connected" || live === "closed") continue;
+      try {
+        slot.pc.restartIce();
+      } catch {
+        /* older browsers */
+      }
     }
   }
 

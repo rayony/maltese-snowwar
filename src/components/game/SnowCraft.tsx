@@ -49,6 +49,7 @@ export function SnowCraft() {
   const [portraitPhone, setPortraitPhone] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [copied, setCopied] = useState(false);
+  const [vsGate, setVsGate] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -86,6 +87,7 @@ export function SnowCraft() {
   const playing = ui.screen === "playing";
   const versus = ui.net.role !== "solo" || ui.net.status !== "off";
   const myTeam = ui.net.team;
+  const rematchOpen = ui.net.status === "rematch" || ui.net.rematchTheirs || ui.net.rematchMine;
 
   const copyCode = async () => {
     if (!ui.net.code) return;
@@ -112,7 +114,7 @@ export function SnowCraft() {
           <header className="pointer-events-none flex items-start justify-between gap-3 p-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-4">
             <div className="rounded-xl bg-ink/70 px-3 py-2 backdrop-blur-sm">
               <p className="font-display text-lg font-semibold leading-tight tracking-tight">
-                {ui.net.status !== "off" && ui.net.code ? `VS ${ui.net.code}` : `Level ${ui.level}`}
+                {ui.net.status !== "off" && ui.net.code ? `VS ${ui.net.code}` : ui.net.role !== "solo" ? "PVP mode" : `Level ${ui.level}`}
               </p>
               <p className="text-xs text-ice">
                 {ui.net.team === "green" ? "Retrievers" : ui.net.status !== "off" ? "Maltese" : `Best ${ui.best}`}
@@ -173,81 +175,117 @@ export function SnowCraft() {
 
       {ui.screen === "title" && (
         <div
-          className="absolute inset-0 flex items-center justify-center bg-ink bg-cover bg-center p-4"
+          className="absolute inset-0 flex items-center justify-center overflow-y-auto bg-ink bg-cover bg-center p-3 sm:p-4"
           style={{ backgroundImage: "url(/images/title-bg.jpg?v=2)" }}
         >
           <div className="absolute inset-0 bg-ink/45" />
-          <div className="relative w-full max-w-md rounded-xl border border-surface/15 bg-ink/80 p-6 shadow-xl backdrop-blur-md sm:p-8">
-            <p className="text-xs font-medium uppercase tracking-[0.22em] text-ice">
-              Season's Greetings
-            </p>
-            <h1 className="mt-2 font-display text-4xl font-semibold tracking-tight text-surface sm:text-5xl">
-              SnowCraft
-            </h1>
-            <p className="mt-1 font-display text-xl text-ice">打雪仗</p>
-            <p className="mt-4 text-sm leading-relaxed text-surface/80">
-              Command three 線條小狗 Maltese in a snowball brawl against the golden
-              retrievers. Hold to move, release to throw — a tap drops nearby, a long
-              hold flies across the field. Hide behind snow forts. Two hits and
-              you're buried.
-            </p>
-            <ol className="mt-4 space-y-1.5 text-sm text-surface/75">
-              <li>1. Press and hold a white Maltese</li>
-              <li>2. Drag to dodge and line up your lane</li>
-              <li>3. Tap for a short toss, hold longer to throw farther</li>
-              <li>4. After a throw, pack snow before the next one</li>
-              <li>5. Duck behind forts — snowballs splat on the mound</li>
-            </ol>
-            <div className="mt-6 flex flex-col gap-3">
-              <Button
-                size="lg"
-                className="w-full"
-                disabled={!ui.ready}
-                onClick={() => g?.play()}
-              >
-                <Play />
-                {ui.ready ? "Play vs AI" : "Loading…"}
-              </Button>
-              <Button
-                size="lg"
-                variant="secondary"
-                className="w-full"
-                disabled={!ui.ready}
-                onClick={() => g?.createVersus()}
-              >
-                <Users />
-                Versus — create room
-              </Button>
-              <form
-                className="flex gap-2"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  g?.joinVersus(joinCode);
-                }}
-              >
-                <input
-                  value={joinCode}
-                  onChange={(e) => setJoinCode(normalizeCode(e.target.value))}
-                  maxLength={6}
-                  placeholder="CODE"
-                  aria-label="Room code"
-                  autoCapitalize="characters"
-                  className="h-12 min-w-0 flex-1 rounded-xl border border-surface/20 bg-ink/60 px-3 font-mono text-lg tracking-[0.28em] text-surface placeholder:text-surface/35"
-                />
-                <Button type="submit" variant="secondary" disabled={!ui.ready || joinCode.length !== 6}>
-                  Join
-                </Button>
-              </form>
-              {ui.net.error && <p className="text-center text-xs text-primary">{ui.net.error}</p>}
-              <p className="text-center text-xs text-ice">
-                {ui.best > 0 ? `Best level ${ui.best}` : "A remake of the 1998 classic"}
-              </p>
+          <div className="relative my-auto flex w-full max-w-lg max-h-[min(92dvh,680px)] flex-col overflow-hidden rounded-xl border border-surface/15 bg-ink/80 shadow-xl backdrop-blur-md landscape:max-md:max-w-3xl landscape:max-md:flex-row">
+            <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-8 landscape:max-md:w-[55%] landscape:max-md:p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-ice sm:text-xs">
+                    Season's Greetings
+                  </p>
+                  <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight text-surface sm:text-5xl">
+                    Maltese Snow War
+                  </h1>
+                </div>
+                <div className="flex shrink-0 -space-x-2 pt-1" aria-hidden>
+                  <DogHead src="/sprites/red/idle-1.png" alt="" className="z-10" />
+                  <DogHead src="/sprites/green/idle-1.png" alt="" />
+                </div>
+              </div>
+              {!vsGate && (
+                <>
+                  <p className="mt-3 text-sm leading-relaxed text-surface/80 landscape:max-md:mt-2 landscape:max-md:text-xs">
+                    Command three Maltese in a snowball brawl against the golden retrievers. Hold
+                    to move, release to throw — a tap drops nearby, a long hold flies across the
+                    field.
+                  </p>
+                  <ol className="mt-3 space-y-1 text-sm text-surface/75 landscape:max-md:mt-2 landscape:max-md:text-xs">
+                    <li>1. Press and hold a white Maltese</li>
+                    <li>2. Drag to dodge and line up your lane</li>
+                    <li>3. Tap for a short toss, hold longer to throw farther</li>
+                  </ol>
+                </>
+              )}
+              {vsGate && (
+                <div className="mt-3 landscape:max-md:mt-2">
+                  <h2 className="font-display text-2xl font-semibold text-surface sm:text-3xl">
+                    Versus a friend
+                  </h2>
+                  <p className="mt-2 text-sm leading-relaxed text-surface/80 landscape:max-md:text-xs">
+                    Create a room and share the 6-letter code, or join with theirs. You play the
+                    Maltese; they play the retrievers.
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="shrink-0 border-t border-surface/10 p-4 sm:p-6 landscape:max-md:w-[45%] landscape:max-md:border-l landscape:max-md:border-t-0 landscape:max-md:p-4">
+              {!vsGate ? (
+                <div className="flex flex-col gap-2.5 sm:gap-3">
+                  <Button size="lg" className="w-full" disabled={!ui.ready} onClick={() => g?.play()}>
+                    <Play />
+                    {ui.ready ? "Play vs AI" : "Loading…"}
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant="secondary"
+                    className="w-full"
+                    disabled={!ui.ready}
+                    onClick={() => setVsGate(true)}
+                  >
+                    <Users />
+                    VS friend
+                  </Button>
+                  {ui.net.error && <p className="text-center text-xs text-primary">{ui.net.error}</p>}
+                  <p className="text-center text-xs text-ice">
+                    {ui.best > 0 ? `Best level ${ui.best}` : "A remake of the 1998 classic"}
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2.5 sm:gap-3">
+                  <Button
+                    size="lg"
+                    className="w-full"
+                    disabled={!ui.ready}
+                    onClick={() => g?.createVersus()}
+                  >
+                    <Users />
+                    Create room
+                  </Button>
+                  <form
+                    className="flex gap-2"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      g?.joinVersus(joinCode);
+                    }}
+                  >
+                    <input
+                      value={joinCode}
+                      onChange={(e) => setJoinCode(normalizeCode(e.target.value))}
+                      maxLength={6}
+                      placeholder="CODE"
+                      aria-label="Room code"
+                      autoCapitalize="characters"
+                      className="h-12 min-w-0 flex-1 rounded-xl border border-surface/20 bg-ink/60 px-3 font-mono text-lg tracking-[0.28em] text-surface placeholder:text-surface/35"
+                    />
+                    <Button type="submit" variant="secondary" disabled={!ui.ready || joinCode.length !== 6}>
+                      Join
+                    </Button>
+                  </form>
+                  {ui.net.error && <p className="text-center text-xs text-primary">{ui.net.error}</p>}
+                  <Button variant="ghost" className="w-full text-surface" onClick={() => setVsGate(false)}>
+                    Back
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
           {portraitPhone && (
-            <p className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full bg-ink/75 px-3.5 py-2 text-xs text-surface shadow-md backdrop-blur-sm">
+            <p className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full bg-ink/75 px-3.5 py-2 text-xs text-surface shadow-md backdrop-blur-sm">
               <Smartphone className="size-4 rotate-90" aria-hidden />
-              Rotate your phone · 橫向遊玩更順手
+              Rotate your phone for a wider field
             </p>
           )}
         </div>
@@ -346,7 +384,7 @@ export function SnowCraft() {
         </Modal>
       )}
 
-      {ui.screen === "gameover" && (
+      {(ui.screen === "gameover" || ui.net.status === "rematch") && (
         <Modal>
           <h2 className="font-display text-3xl font-semibold">
             {ui.net.result === "win" ? "Victory" : "Buried"}
@@ -354,29 +392,29 @@ export function SnowCraft() {
           <p className="mt-2 text-sm leading-relaxed text-muted">
             {versusGameoverCopy(ui)}
           </p>
-          {ui.net.status === "rematch" && ui.net.rematchTheirs && !ui.net.rematchMine && (
+          {ui.net.rematchTheirs && !ui.net.rematchMine && (
             <p className="mt-3 rounded-lg bg-leaf/30 px-3 py-2 text-sm">
               Your friend wants a rematch.
             </p>
           )}
-          {ui.net.status === "rematch" && ui.net.rematchMine && !ui.net.rematchTheirs && (
+          {ui.net.rematchMine && !ui.net.rematchTheirs && (
             <p className="mt-3 text-sm text-muted">Waiting for your friend to accept…</p>
           )}
           <div className="mt-6 flex flex-col gap-2">
             <Button
               size="lg"
-              onClick={() => (ui.net.status === "rematch" ? g?.voteRematch(true) : g?.retry())}
-              disabled={ui.net.status === "rematch" && ui.net.rematchMine}
+              onClick={() => (rematchOpen ? g?.voteRematch(true) : g?.retry())}
+              disabled={ui.net.rematchMine}
             >
               <RotateCcw />
-              {ui.net.status === "rematch" ? "Rematch" : "Fight again"}
+              {rematchOpen ? "Rematch" : "Fight again"}
             </Button>
-            {ui.net.status === "rematch" && (
+            {rematchOpen && (
               <Button variant="secondary" onClick={() => g?.voteRematch(false)}>
                 Decline
               </Button>
             )}
-            {ui.net.status !== "rematch" && ui.net.status !== "off" && (
+            {!rematchOpen && ui.net.status !== "off" && ui.net.code && (
               <Button variant="secondary" onClick={() => g?.leaveRoom()}>
                 Leave room
               </Button>
@@ -400,6 +438,23 @@ function versusGameoverCopy(ui: UiSnapshot) {
       : "The retrievers buried you. Ask your friend for a rematch — you both have to accept.";
   }
   return `The retrievers buried you at level ${ui.level}. Best ${ui.best}.`;
+}
+
+function DogHead({ src, alt, className }: { src: string; alt: string; className?: string }) {
+  return (
+    <span
+      className={cn(
+        "relative size-12 overflow-hidden rounded-full border border-surface/25 bg-[#c5d6e2] sm:size-16",
+        className,
+      )}
+    >
+      <img
+        src={src}
+        alt={alt}
+        className="pointer-events-none absolute left-1/2 top-[-6%] h-[175%] w-[175%] max-w-none -translate-x-1/2 select-none object-cover object-[50%_8%]"
+      />
+    </span>
+  );
 }
 
 function AllyToggle({ mode, onChange }: { mode: AllyMode; onChange: (m: AllyMode) => void }) {

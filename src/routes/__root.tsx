@@ -3,7 +3,7 @@ import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import appCss from "../styles.css?url";
 
-const APP_NAME = "SnowCraft";
+const APP_NAME = "Maltese Snow War";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -14,7 +14,7 @@ export const Route = createRootRoute({
       { name: "theme-color", content: "#15202B" },
       {
         name: "description",
-        content: "SnowCraft — 打雪仗. Hold a fighter, dodge, and throw. A remake of the classic snowball fight.",
+        content: "Maltese Snow War. Hold a Maltese, dodge, and throw. A remake of the classic snowball fight.",
       },
     ],
     links: [

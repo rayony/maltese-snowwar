@@ -1,4 +1,4 @@
-import { holdPower, PACK_TIME, throwRange, WORLD_H, WORLD_W } from "./constants";
+import { holdPower, isCompactPlay, PACK_TIME, throwRange, WORLD_H, WORLD_W } from "./constants";
 import type { Assets } from "./assets";
 import { aimFromKid, inFort, isOut } from "./sim";
 import type { Fort, GameState, Grab, Kid, Snowball, View } from "./types";
@@ -36,19 +36,39 @@ function snowField() {
   return c;
 }
 
+export function playLayout(
+  cssW: number,
+  cssH: number,
+  mirror = false,
+  compact = false,
+) {
+  let scale = Math.min(cssW / WORLD_W, cssH / WORLD_H);
+  if (compact) scale *= 1.12;
+  const worldWcss = WORLD_W * scale;
+  const worldHcss = WORLD_H * scale;
+  let ox = (cssW - worldWcss) / 2;
+  let oy = (cssH - worldHcss) / 2;
+  if (compact && worldWcss > cssW + 1) {
+    const minOx = cssW - worldWcss;
+    ox = minOx * 0.84;
+  }
+  return { scale, ox, oy, mirror };
+}
+
 export function worldFromClient(
   canvas: HTMLCanvasElement,
   clientX: number,
   clientY: number,
+  mirror = false,
 ) {
   const rect = canvas.getBoundingClientRect();
   const cssW = rect.width;
   const cssH = rect.height;
-  const scale = Math.min(cssW / WORLD_W, cssH / WORLD_H);
-  const ox = (cssW - WORLD_W * scale) / 2;
-  const oy = (cssH - WORLD_H * scale) / 2;
+  const { scale, ox, oy } = playLayout(cssW, cssH, mirror, isCompactPlay(cssW));
+  let x = (clientX - rect.left - ox) / scale;
+  if (mirror) x = WORLD_W - x;
   return {
-    x: (clientX - rect.left - ox) / scale,
+    x,
     y: (clientY - rect.top - oy) / scale,
   };
 }
@@ -166,9 +186,8 @@ export function render(
     canvas.height = bh;
   }
 
-  const scale = Math.min(cssW / WORLD_W, cssH / WORLD_H);
-  const ox = (cssW - WORLD_W * scale) / 2;
-  const oy = (cssH - WORLD_H * scale) / 2;
+  const compact = isCompactPlay(cssW);
+  const { scale, ox, oy } = playLayout(cssW, cssH, view.mirror, compact);
 
   let shakeX = 0;
   let shakeY = 0;
@@ -184,6 +203,10 @@ export function render(
 
   ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * (ox + shakeX), dpr * (oy + shakeY));
   ctx.save();
+  if (view.mirror) {
+    ctx.translate(WORLD_W, 0);
+    ctx.scale(-1, 1);
+  }
   ctx.beginPath();
   ctx.rect(0, 0, WORLD_W, WORLD_H);
   ctx.clip();
@@ -268,31 +291,33 @@ export function render(
   }
   ctx.globalAlpha = 1;
 
-  if (view.grab) {
+  if (view.grab && state.phase === "fight") {
     const kid = state.kids.find((k) => k.id === view.grab!.id);
     if (kid && !isOut(kid)) {
       drawThrowPreview(ctx, kid, view.grab, state.kids);
     }
   }
 
-  if (state.phase === "intro") {
-    drawBanner(ctx, `Level ${state.level}`);
-  } else if (state.phase === "won") {
-    drawBanner(ctx, "Clear");
-  }
-
   ctx.restore();
+
+  if (state.phase === "intro") {
+    const n = Math.max(1, Math.ceil(state.introT));
+    drawCountdown(ctx, view.pvp ? "PVP mode" : `Level ${state.level}`, String(n));
+  }
 }
 
-function drawBanner(ctx: CanvasRenderingContext2D, text: string) {
+function drawCountdown(ctx: CanvasRenderingContext2D, kicker: string, n: string) {
   ctx.save();
-  ctx.fillStyle = "rgba(21,32,43,0.45)";
-  ctx.fillRect(0, WORLD_H / 2 - 44, WORLD_W, 88);
-  ctx.fillStyle = "#f4f7fa";
-  ctx.font = "600 42px Fraunces, Georgia, serif";
+  ctx.fillStyle = "rgba(21,32,43,0.4)";
+  ctx.fillRect(0, WORLD_H / 2 - 88, WORLD_W, 176);
+  ctx.fillStyle = "rgba(244,247,250,0.85)";
+  ctx.font = "600 22px Fraunces, Georgia, serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(text, WORLD_W / 2, WORLD_H / 2);
+  ctx.fillText(kicker, WORLD_W / 2, WORLD_H / 2 - 52);
+  ctx.fillStyle = "#f4f7fa";
+  ctx.font = "700 96px Fraunces, Georgia, serif";
+  ctx.fillText(n, WORLD_W / 2, WORLD_H / 2 + 18);
   ctx.restore();
 }
 

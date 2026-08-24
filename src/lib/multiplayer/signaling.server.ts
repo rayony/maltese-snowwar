@@ -124,6 +124,90 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
+async function handleSse(url: URL, request: Request): Promise<Response> {
+  const parsed = z
+    .object({
+      room: ID,
+      peer: ID,
+      name: z.string().max(64).default(""),
+      bus: z.coerce.number().int().min(-1).default(0),
+    })
+    .safeParse({
+      room: url.searchParams.get("room"),
+      peer: url.searchParams.get("peer"),
+      name: url.searchParams.get("name") ?? "",
+      bus: url.searchParams.get("bus") ?? 0,
+    });
+  if (!parsed.success) return json({ error: "invalid query" }, 400);
+  const { room, peer, name } = parsed.data;
+  let cursor = parsed.data.bus;
+  const encoder = new TextEncoder();
+  let closed = false;
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (obj: unknown) => {
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
+        } catch {
+          closed = true;
+        }
+      };
+      request.signal.addEventListener("abort", () => {
+        closed = true;
+        try {
+          controller.close();
+        } catch {
+          /* already closed */
+        }
+      });
+      let lastTouch = 0;
+      let lastRoster = 0;
+      try {
+        const sql = await getSql();
+        await ensureSchema(sql);
+        await touchPeer(sql, room, peer, name);
+        lastTouch = Date.now();
+        send({ peers: await roster(sql, room), bus: [] });
+        while (!closed && !request.signal.aborted) {
+          const now = Date.now();
+          if (now - lastTouch > 1500) {
+            await touchPeer(sql, room, peer, name);
+            lastTouch = now;
+          }
+          const busRows = await sql.query<{ id: number; from_peer: string; payload: unknown }>(
+            `SELECT id, from_peer, payload FROM webrtc_bus
+             WHERE room = $1 AND id > $2 AND from_peer <> $3
+             ORDER BY id LIMIT 80`,
+            [room, cursor, peer],
+          );
+          const mapped = busRows.map((r) => ({ id: r.id, from: r.from_peer, payload: r.payload }));
+          for (const row of mapped) cursor = Math.max(cursor, row.id);
+          if (mapped.length || now - lastRoster > 1200) {
+            lastRoster = now;
+            send({ peers: await roster(sql, room), bus: mapped });
+          }
+          await new Promise((r) => setTimeout(r, 28));
+        }
+      } catch {
+        closed = true;
+      }
+      try {
+        controller.close();
+      } catch {
+        /* */
+      }
+    },
+  });
+  return new Response(stream, {
+    headers: {
+      "content-type": "text/event-stream; charset=utf-8",
+      "cache-control": "no-cache, no-transform",
+      connection: "keep-alive",
+    },
+  });
+}
+
 async function handleGet(url: URL): Promise<Response> {
   const parsed = z
     .object({
@@ -215,7 +299,11 @@ async function handlePost(request: Request): Promise<Response> {
 
 export async function handleSignaling(request: Request): Promise<Response> {
   try {
-    if (request.method === "GET") return await handleGet(new URL(request.url));
+    if (request.method === "GET") {
+      const url = new URL(request.url);
+      if (url.searchParams.get("sse") === "1") return await handleSse(url, request);
+      return await handleGet(url);
+    }
     if (request.method === "POST") return await handlePost(request);
     return json({ error: "method not allowed" }, 405);
   } catch (error) {

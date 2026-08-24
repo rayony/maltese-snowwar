@@ -7,9 +7,10 @@ export type GreenControl = "enemy" | AllyMode;
 export function stepAi(
   state: GameState,
   dt: number,
-  onThrow: (power: number) => void,
+  onThrow: (power: number, kid: Kid, hold: number, dx: number, dy: number) => void,
   allyMode: AllyMode = "off",
   greenControl: GreenControl = "enemy",
+  localBalls = false,
 ) {
   if (state.phase !== "fight" || state.freeze > 0) return;
   const level = state.level;
@@ -81,8 +82,9 @@ export function stepAi(
       if (kid.ai.t <= 0) {
         const { dx, dy } = aimFromKid(kid, state.kids);
         const holdScale = stance === "defend" ? 0.42 + 0.35 * kid.ai.charge : 0.58 + 0.42 * kid.ai.charge;
-        const power = throwSnowball(state, kid, MAX_CHARGE * holdScale, dx, dy);
-        onThrow(power);
+        const hold = MAX_CHARGE * holdScale;
+        const power = throwSnowball(state, kid, hold, dx, dy, localBalls);
+        onThrow(power, kid, hold, dx, dy);
         kid.ai.phase = "idle";
         kid.ai.t = (stance === "attack" ? 0.55 : 1) * aiInterval(level) * rand(0.7, 1.15) + PACK_TIME * 0.25;
         kid.ai.charge = 0;

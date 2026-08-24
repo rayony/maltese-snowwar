@@ -105,6 +105,15 @@ export class GameAudio {
     });
   }
 
+  count(n: number) {
+    const f = n <= 1 ? 660 : n === 2 ? 494 : 392;
+    this.tone(f, 0.18, "triangle", 0.12);
+  }
+
+  go() {
+    this.tone(784, 0.22, "triangle", 0.14);
+  }
+
   level() {
     this.tone(392, 0.16, "triangle", 0.1);
     window.setTimeout(() => this.tone(523, 0.2, "triangle", 0.1), 90);
