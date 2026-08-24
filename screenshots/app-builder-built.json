@@ -1,0 +1,38 @@
+{
+  "url": "http://127.0.0.1:8081/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "SnowCraft",
+      "hasCanvas": true,
+      "bodyTextLen": 365,
+      "bodyTextHash": "24c182550eca0c777fd27036bd1392840139d121a4869b10c945d2b0c8601206",
+      "bodyTextPrefix": "SEASON'S GREETINGS SnowCraft 打雪仗 Command three crimson fighters ",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "SnowCraft",
+      "hasCanvas": true,
+      "bodyTextLen": 365,
+      "bodyTextHash": "24c182550eca0c777fd27036bd1392840139d121a4869b10c945d2b0c8601206",
+      "bodyTextPrefix": "SEASON'S GREETINGS SnowCraft 打雪仗 Command three crimson fighters ",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-built.json",
+  "divergesFromBaseline": false,
+  "baselineReasons": []
+}

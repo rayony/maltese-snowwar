@@ -1,0 +1,64 @@
+{
+  "target": "asset",
+  "mode": "sheet",
+  "prompt": "",
+  "role": "",
+  "input": "/workspace/assets/sprites/fort/raw-sheet.png",
+  "threshold": 100,
+  "edge_threshold": 150,
+  "duration": 200,
+  "rows": 1,
+  "cols": 1,
+  "cell_size": 128,
+  "fit_scale": 0.85,
+  "trim_border": 4,
+  "edge_clean_depth": 3,
+  "align": "center",
+  "shared_scale": false,
+  "component_mode": "largest",
+  "component_padding": 0,
+  "min_component_area": 1,
+  "edge_touch_margin": 0,
+  "frame_labels": [
+    "sheet-1"
+  ],
+  "frames": [
+    {
+      "grid": [
+        0,
+        0
+      ],
+      "source_box": [
+        0,
+        0,
+        1792,
+        1008
+      ],
+      "component_mode": "largest",
+      "component_count": 23,
+      "selected_component_area": 406032,
+      "selected_component_bbox": [
+        446,
+        199,
+        1340,
+        797
+      ],
+      "crop_bbox": [
+        446,
+        199,
+        1340,
+        797
+      ],
+      "edge_touch": false,
+      "output_size": [
+        108,
+        72
+      ],
+      "paste_position": [
+        10,
+        28
+      ]
+    }
+  ],
+  "edge_touch_frames": []
+}

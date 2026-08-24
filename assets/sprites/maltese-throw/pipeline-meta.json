@@ -1,0 +1,192 @@
+{
+  "target": "player",
+  "mode": "shoot",
+  "prompt": "",
+  "role": "",
+  "input": "/workspace/assets/sprites/maltese-throw/raw-sheet.png",
+  "threshold": 100,
+  "edge_threshold": 150,
+  "duration": 200,
+  "rows": 2,
+  "cols": 2,
+  "cell_size": 128,
+  "fit_scale": 0.85,
+  "trim_border": 4,
+  "edge_clean_depth": 3,
+  "align": "feet",
+  "shared_scale": true,
+  "component_mode": "largest",
+  "component_padding": 0,
+  "min_component_area": 1,
+  "edge_touch_margin": 0,
+  "frame_labels": [
+    "shoot-1",
+    "shoot-2",
+    "shoot-3",
+    "shoot-4"
+  ],
+  "frames": [
+    {
+      "grid": [
+        0,
+        0
+      ],
+      "source_box": [
+        0,
+        0,
+        704,
+        704
+      ],
+      "component_mode": "largest",
+      "component_count": 126,
+      "selected_component_area": 464132,
+      "selected_component_bbox": [
+        0,
+        0,
+        696,
+        696
+      ],
+      "crop_bbox": [
+        0,
+        0,
+        696,
+        696
+      ],
+      "edge_touch": true,
+      "output_size": [
+        108,
+        108
+      ],
+      "paste_position": [
+        10,
+        11
+      ]
+    },
+    {
+      "grid": [
+        0,
+        1
+      ],
+      "source_box": [
+        704,
+        0,
+        1408,
+        704
+      ],
+      "component_mode": "largest",
+      "component_count": 31,
+      "selected_component_area": 478055,
+      "selected_component_bbox": [
+        0,
+        0,
+        696,
+        696
+      ],
+      "crop_bbox": [
+        0,
+        0,
+        696,
+        696
+      ],
+      "edge_touch": true,
+      "output_size": [
+        108,
+        108
+      ],
+      "paste_position": [
+        10,
+        11
+      ]
+    },
+    {
+      "grid": [
+        1,
+        0
+      ],
+      "source_box": [
+        0,
+        704,
+        704,
+        1408
+      ],
+      "component_mode": "largest",
+      "component_count": 507,
+      "selected_component_area": 411004,
+      "selected_component_bbox": [
+        0,
+        0,
+        696,
+        696
+      ],
+      "crop_bbox": [
+        0,
+        0,
+        696,
+        696
+      ],
+      "edge_touch": true,
+      "output_size": [
+        108,
+        108
+      ],
+      "paste_position": [
+        10,
+        11
+      ]
+    },
+    {
+      "grid": [
+        1,
+        1
+      ],
+      "source_box": [
+        704,
+        704,
+        1408,
+        1408
+      ],
+      "component_mode": "largest",
+      "component_count": 13,
+      "selected_component_area": 481711,
+      "selected_component_bbox": [
+        0,
+        0,
+        696,
+        696
+      ],
+      "crop_bbox": [
+        0,
+        0,
+        696,
+        696
+      ],
+      "edge_touch": true,
+      "output_size": [
+        108,
+        108
+      ],
+      "paste_position": [
+        10,
+        11
+      ]
+    }
+  ],
+  "edge_touch_frames": [
+    [
+      0,
+      0
+    ],
+    [
+      0,
+      1
+    ],
+    [
+      1,
+      0
+    ],
+    [
+      1,
+      1
+    ]
+  ]
+}
