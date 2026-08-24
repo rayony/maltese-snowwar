@@ -1,7 +1,7 @@
-import { holdPower, KID_RADIUS, throwRange, WORLD_H, WORLD_W } from "./constants";
+import { holdPower, PACK_TIME, throwRange, WORLD_H, WORLD_W } from "./constants";
 import type { Assets } from "./assets";
-import { aimFromKid, isOut } from "./sim";
-import type { GameState, Grab, Kid, Snowball, View } from "./types";
+import { aimFromKid, inFort, isOut } from "./sim";
+import type { Fort, GameState, Grab, Kid, Snowball, View } from "./types";
 
 let field: HTMLCanvasElement | null = null;
 
@@ -70,7 +70,83 @@ function kidFrame(kid: Kid, assets: Assets) {
     const i = Math.min(3, Math.floor((1 - kid.stateT / 0.42) * 4));
     return set.hurt[i] ?? set.hurt[0]!;
   }
-  return frameOf(set.idle, kid.animT, 6) ?? set.idle[0]!;
+  if (kid.moving && set.walk.length) {
+    return frameOf(set.walk, kid.animT, 8) ?? set.idle[0]!;
+  }
+  if ((kid.state === "pack" || kid.packT > 0) && set.pack.length) {
+    const u = 1 - kid.packT / PACK_TIME;
+    const i = Math.min(3, Math.max(0, Math.floor(u * 4)));
+    return set.pack[i] ?? set.pack[0]!;
+  }
+  if (kid.fidget === "dance" && set.dance.length) {
+    return frameOf(set.dance, kid.animT, 8) ?? set.idle[0]!;
+  }
+  if (kid.fidget === "wave" && set.wave.length) {
+    return frameOf(set.wave, kid.animT, 7) ?? set.idle[0]!;
+  }
+  return set.idle[0]!;
+}
+
+type Box = { x: number; y: number; w: number; h: number };
+const boxCache = new WeakMap<HTMLImageElement, Box | null>();
+
+function contentBox(img: HTMLImageElement): Box | null {
+  const hit = boxCache.get(img);
+  if (hit !== undefined) return hit;
+  if (!img.complete || img.naturalWidth === 0) return null;
+  try {
+    const c = document.createElement("canvas");
+    c.width = img.naturalWidth;
+    c.height = img.naturalHeight;
+    const g = c.getContext("2d", { willReadFrequently: true });
+    if (!g) {
+      boxCache.set(img, null);
+      return null;
+    }
+    g.drawImage(img, 0, 0);
+    const data = g.getImageData(0, 0, c.width, c.height).data;
+    let minX = c.width;
+    let minY = c.height;
+    let maxX = 0;
+    let maxY = 0;
+    for (let y = 0; y < c.height; y++) {
+      for (let x = 0; x < c.width; x++) {
+        if (data[(y * c.width + x) * 4 + 3]! > 18) {
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    if (maxX < minX || maxY - minY < 8) {
+      boxCache.set(img, null);
+      return null;
+    }
+    const box = { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+    boxCache.set(img, box);
+    return box;
+  } catch {
+    boxCache.set(img, null);
+    return null;
+  }
+}
+
+function drawAlignedSprite(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  dest: number,
+  fit: "height" | "width" = "height",
+) {
+  const box = contentBox(img);
+  if (!box) {
+    ctx.drawImage(img, -dest / 2, -dest + 16, dest, dest);
+    return;
+  }
+  const s = fit === "height" ? dest / box.h : dest / box.w;
+  const dw = box.w * s;
+  const dh = box.h * s;
+  ctx.drawImage(img, box.x, box.y, box.w, box.h, -dw / 2, -dh + 16, dw, dh);
 }
 
 export function render(
@@ -123,40 +199,48 @@ export function render(
   }
   ctx.globalAlpha = 1;
 
+  const layers: { y: number; draw: () => void }[] = [];
   for (const fort of state.forts) {
-    if (assets) {
-      const img = assets.fort;
-      const w = fort.rx * 2.15;
-      const h = fort.ry * 2.5;
-      ctx.drawImage(img, fort.x - w / 2, fort.y - h * 0.62, w, h);
-    } else {
-      ctx.fillStyle = "#eef6fb";
-      ctx.beginPath();
-      ctx.ellipse(fort.x, fort.y, fort.rx, fort.ry, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    layers.push({
+      y: fort.y - fort.ry * 0.45,
+      draw: () => drawFortLayer(ctx, fort, assets, "back"),
+    });
+    layers.push({
+      y: fort.y + fort.ry * 0.55,
+      draw: () => drawFortLayer(ctx, fort, assets, "front"),
+    });
   }
-
-  const drawList = [...state.kids].sort((a, b) => a.y - b.y);
-  for (const kid of drawList) drawKid(ctx, kid, assets, view);
+  for (const kid of state.kids) {
+    layers.push({
+      y: kid.y,
+      draw: () => drawKid(ctx, kid, assets, view, state.forts),
+    });
+  }
+  layers.sort((a, b) => a.y - b.y);
+  for (const layer of layers) layer.draw();
 
   if (assets) {
     for (const ball of state.balls) {
       const img = frameOf(assets.ball, ball.spin, 8);
-      if (!img) continue;
       const hop = ballHop(ball);
-      const s = 22;
+      const s = view.ballSize;
       ctx.save();
       ctx.translate(ball.x, ball.y - hop);
       ctx.rotate(ball.spin * 0.4);
-      ctx.drawImage(img, -s / 2, -s / 2, s, s);
+      if (img) ctx.drawImage(img, -s / 2, -s / 2, s, s);
+      else {
+        ctx.fillStyle = "#fff";
+        ctx.beginPath();
+        ctx.arc(0, 0, s * 0.38, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.restore();
     }
   } else {
     ctx.fillStyle = "#fff";
     for (const ball of state.balls) {
       ctx.beginPath();
-      ctx.arc(ball.x, ball.y - ballHop(ball), 7, 0, Math.PI * 2);
+      ctx.arc(ball.x, ball.y - ballHop(ball), view.ballSize * 0.38, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -164,10 +248,14 @@ export function render(
   for (const p of state.particles) {
     const a = Math.max(0, p.life / p.maxLife);
     ctx.globalAlpha = a;
-    ctx.fillStyle = "#ffffff";
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size * a, 0, Math.PI * 2);
-    ctx.fill();
+    if (p.kind === "note") {
+      drawNote(ctx, p.x, p.y, p.size, Math.abs(Math.floor(p.x * 3 + p.size)) % 4);
+    } else {
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * a, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
   ctx.globalAlpha = 1;
 
@@ -208,45 +296,101 @@ function drawBanner(ctx: CanvasRenderingContext2D, text: string) {
   ctx.restore();
 }
 
-function drawKid(ctx: CanvasRenderingContext2D, kid: Kid, assets: Assets | null, view: View) {
+function drawKid(
+  ctx: CanvasRenderingContext2D,
+  kid: Kid,
+  assets: Assets | null,
+  view: View,
+  forts: Fort[],
+) {
   const lifted = kid.state === "grabbed" ? 8 : 0;
+  const buried = kid.state === "buried";
+  const cover = !buried && !!inFort(kid.x, kid.y, forts);
+  const duck = cover ? 11 : 0;
+  const size = buried ? view.buriedSize : view.drawSize;
   ctx.save();
-  ctx.translate(kid.x, kid.y);
+  ctx.translate(kid.x, kid.y + duck);
   ctx.fillStyle = "rgba(40,60,80,0.22)";
   ctx.beginPath();
-  ctx.ellipse(0, 16, lifted ? 11 : 14, 6, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 16, buried ? size * 0.42 : lifted ? size * 0.18 : size * 0.24, buried ? 8 : 6, 0, 0, Math.PI * 2);
   ctx.fill();
 
   const img = assets ? kidFrame(kid, assets) : null;
-  const size = kid.state === "buried" ? 64 : 58;
   if (img) {
     ctx.save();
     ctx.translate(0, -lifted);
-    // Maltese art faces right-of-frame by default; flip when throwing left.
     if (kid.team === "red" ? kid.facing === -1 : kid.facing === 1) ctx.scale(-1, 1);
     if (kid.flash > 0) ctx.filter = "brightness(2.4)";
-    ctx.drawImage(img, -size / 2, -size + 16, size, size);
+    drawAlignedSprite(ctx, img, size, buried ? "width" : "height");
     ctx.filter = "none";
     ctx.restore();
   } else {
     ctx.translate(0, -lifted);
     ctx.fillStyle = kid.team === "red" ? "#f4f7fa" : "#d4a574";
     ctx.beginPath();
-    ctx.arc(0, -6, 16, 0, Math.PI * 2);
+    ctx.arc(0, -6, size * 0.28, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  if (!isOut(kid)) drawPips(ctx, kid);
+  if (!isOut(kid)) drawPips(ctx, kid, cover);
+  if (kid.packT > 0 && !isOut(kid) && kid.state !== "throw") drawPackMeter(ctx, kid.packT);
 
   const hovered = view.hoverId === kid.id || view.grab?.id === kid.id;
   if (hovered && kid.team === "red" && !isOut(kid)) {
     const power = view.grab?.id === kid.id ? holdPower((performance.now() - view.grab.startedAt) / 1000) : 0;
-    drawBullseye(ctx, power);
+    drawBullseye(ctx, power, view.pickRadius);
   }
   ctx.restore();
 }
 
-function drawPips(ctx: CanvasRenderingContext2D, kid: Kid) {
+function fortRect(fort: Fort) {
+  const w = fort.rx * 2.15;
+  const h = fort.ry * 2.5;
+  return { x: fort.x - w / 2, y: fort.y - h * 0.62, w, h };
+}
+
+function drawFortLayer(
+  ctx: CanvasRenderingContext2D,
+  fort: Fort,
+  assets: Assets | null,
+  layer: "back" | "front",
+) {
+  const r = fortRect(fort);
+  if (assets) {
+    const img = assets.fort;
+    if (layer === "back") {
+      ctx.drawImage(img, r.x, r.y, r.w, r.h);
+    } else {
+      ctx.save();
+      ctx.beginPath();
+      ctx.ellipse(fort.x, fort.y + fort.ry * 0.2, fort.rx * 1.04, fort.ry * 0.88, 0, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.drawImage(img, r.x, r.y, r.w, r.h);
+      ctx.restore();
+    }
+  } else if (layer === "front") {
+    ctx.fillStyle = "#eef6fb";
+    ctx.beginPath();
+    ctx.ellipse(fort.x, fort.y + 8, fort.rx, fort.ry * 0.72, 0, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    ctx.fillStyle = "#e4eef5";
+    ctx.beginPath();
+    ctx.ellipse(fort.x, fort.y, fort.rx, fort.ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  if (layer === "front" && fort.hitFlash > 0) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(0.5, fort.hitFlash * 1.8);
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.ellipse(fort.x, fort.y + 6, fort.rx * 0.95, fort.ry * 0.7, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawPips(ctx: CanvasRenderingContext2D, kid: Kid, cover: boolean) {
   const n = kid.maxHp;
   const y = 22;
   const w = 8;
@@ -258,16 +402,45 @@ function drawPips(ctx: CanvasRenderingContext2D, kid: Kid) {
     ctx.roundRect(-total / 2 + i * (w + gap), y, w, 4, 2);
     ctx.fill();
   }
+  if (cover) {
+    ctx.fillStyle = "rgba(244,247,250,0.9)";
+    ctx.strokeStyle = "rgba(21,32,43,0.25)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.ellipse(0, y + 11, 11, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
 }
 
-function drawBullseye(ctx: CanvasRenderingContext2D, power: number) {
+function drawPackMeter(ctx: CanvasRenderingContext2D, packT: number) {
+  const u = 1 - packT / PACK_TIME;
+  ctx.save();
+  ctx.translate(0, -48);
+  ctx.strokeStyle = "rgba(21,32,43,0.28)";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(0, 0, 9, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = "#8fb4cc";
+  ctx.beginPath();
+  ctx.arc(0, 0, 9, -Math.PI / 2, -Math.PI / 2 + u * Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawBullseye(ctx: CanvasRenderingContext2D, power: number, pick: number) {
   ctx.save();
   ctx.translate(0, -10);
-  ctx.strokeStyle = "rgba(196,59,59,0.85)";
+  const r = Math.max(28, pick * 0.55);
+  ctx.strokeStyle = "rgba(196,59,59,0.55)";
   ctx.lineWidth = 2;
+  ctx.setLineDash([4, 5]);
   ctx.beginPath();
-  ctx.arc(0, 0, KID_RADIUS + 6, 0, Math.PI * 2);
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
   ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.strokeStyle = "rgba(196,59,59,0.85)";
   ctx.beginPath();
   ctx.arc(0, 0, 5, 0, Math.PI * 2);
   ctx.stroke();
@@ -275,14 +448,15 @@ function drawBullseye(ctx: CanvasRenderingContext2D, power: number) {
     ctx.strokeStyle = power >= 0.98 ? "#f4f7fa" : "#c43b3b";
     ctx.lineWidth = 5;
     ctx.beginPath();
-    ctx.arc(0, 0, KID_RADIUS + 16, -Math.PI / 2, -Math.PI / 2 + power * Math.PI * 2, false);
+    ctx.arc(0, 0, r + 8, -Math.PI / 2, -Math.PI / 2 + power * Math.PI * 2, false);
     ctx.stroke();
   }
   ctx.restore();
 }
 
 function drawThrowPreview(ctx: CanvasRenderingContext2D, kid: Kid, grab: Grab, kids: Kid[]) {
-  const seconds = (performance.now() - grab.startedAt) / 1000;
+  const packing = kid.packT > 0;
+  const seconds = packing ? 0 : Math.max(0, (performance.now() - grab.startedAt) / 1000 - grab.packLeft);
   const power = holdPower(seconds);
   const range = throwRange(power);
   const dir = aimFromKid(kid, kids);
@@ -311,4 +485,21 @@ function drawThrowPreview(ctx: CanvasRenderingContext2D, kid: Kid, grab: Grab, k
 function ballHop(ball: Snowball) {
   const u = Math.max(0, Math.min(1, ball.traveled / Math.max(1, ball.range)));
   return Math.sin(u * Math.PI) * (10 + ball.range * 0.03);
+}
+
+const NOTE_COLORS = ["#f5a3c7", "#8fd4e8", "#f0c14b", "#9dcea8"];
+
+function drawNote(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, variant: number) {
+  ctx.fillStyle = NOTE_COLORS[variant] ?? NOTE_COLORS[0]!;
+  const s = size;
+  ctx.beginPath();
+  ctx.ellipse(x, y, s * 0.45, s * 0.3, -0.45, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillRect(x + s * 0.32, y - s * 1.05, 1.7, s);
+  ctx.beginPath();
+  ctx.moveTo(x + s * 0.32 + 1.7, y - s * 1.05);
+  ctx.quadraticCurveTo(x + s * 1.05, y - s * 0.75, x + s * 0.42, y - s * 0.42);
+  ctx.lineTo(x + s * 0.32 + 1.7, y - s * 0.55);
+  ctx.closePath();
+  ctx.fill();
 }

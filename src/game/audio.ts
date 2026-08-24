@@ -68,6 +68,21 @@ export class GameAudio {
     this.tone(90 + Math.random() * 30, 0.12, "triangle", 0.16);
   }
 
+  clash() {
+    this.whoosh(0.1, 0.2, 1200);
+    this.tone(210, 0.08, "triangle", 0.14);
+    this.tone(140, 0.1, "sine", 0.12);
+  }
+
+  fort() {
+    this.whoosh(0.09, 0.16, 500);
+    this.tone(110, 0.08, "sine", 0.1);
+  }
+
+  pack() {
+    this.whoosh(0.06, 0.1, 400);
+  }
+
   hit() {
     this.tone(140, 0.14, "triangle", 0.2);
     this.whoosh(0.05, 0.12, 600);

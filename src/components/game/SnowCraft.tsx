@@ -1,8 +1,8 @@
-import { Pause, Play, RotateCcw, Volume2, VolumeX } from "lucide-react";
+import { Pause, Play, RotateCcw, Shield, Smartphone, Swords, User, Volume2, VolumeX } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { SnowCraftGame } from "@/game/game";
-import type { UiSnapshot } from "@/game/types";
+import type { AllyMode, UiSnapshot } from "@/game/types";
 import { cn } from "@/lib/utils";
 
 const INITIAL: UiSnapshot = {
@@ -14,12 +14,14 @@ const INITIAL: UiSnapshot = {
   greenTotal: 3,
   muted: false,
   ready: false,
+  allyMode: "off",
 };
 
 export function SnowCraft() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<SnowCraftGame | null>(null);
   const [ui, setUi] = useState<UiSnapshot>(INITIAL);
+  const [portraitPhone, setPortraitPhone] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -30,6 +32,21 @@ export function SnowCraft() {
     return () => {
       game.destroy();
       gameRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const sync = () => {
+      const touch =
+        window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
+      setPortraitPhone(touch && window.innerHeight > window.innerWidth * 1.08);
+    };
+    sync();
+    window.addEventListener("resize", sync);
+    window.addEventListener("orientationchange", sync);
+    return () => {
+      window.removeEventListener("resize", sync);
+      window.removeEventListener("orientationchange", sync);
     };
   }, []);
 
@@ -58,7 +75,8 @@ export function SnowCraft() {
               <span className="text-ice">vs</span>
               <span className="font-medium text-tan">{ui.greenAlive}</span>
             </div>
-            <div className="pointer-events-auto flex gap-2">
+            <div className="pointer-events-auto flex flex-wrap items-center justify-end gap-2">
+              <AllyToggle mode={ui.allyMode} onChange={(m) => g?.setAllyMode(m)} />
               <Button
                 variant="ghost"
                 size="icon"
@@ -81,9 +99,18 @@ export function SnowCraft() {
           </header>
         )}
 
-        {playing && (
+        {playing && portraitPhone && (
+          <div className="mt-auto flex justify-center px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <p className="flex items-center gap-2 rounded-full bg-ink/75 px-3.5 py-2 text-xs text-surface shadow-md backdrop-blur-sm sm:text-sm">
+              <Smartphone className="size-4 rotate-90" aria-hidden />
+              Rotate your phone · 橫向遊玩更順手
+            </p>
+          </div>
+        )}
+
+        {playing && !portraitPhone && (
           <p className="mt-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-xs text-ink/70 sm:text-sm">
-            Hold a Maltese · tap = short toss · hold = far throw
+            Hold a Maltese · tap = short toss · hold = far throw · pack snow between throws
           </p>
         )}
       </div>
@@ -112,6 +139,8 @@ export function SnowCraft() {
               <li>1. Press and hold a white Maltese</li>
               <li>2. Drag to dodge and line up your lane</li>
               <li>3. Tap for a short toss, hold longer to throw farther</li>
+              <li>4. After a throw, pack snow before the next one</li>
+              <li>5. Duck behind forts — snowballs splat on the mound</li>
             </ol>
             <div className="mt-6 flex flex-col gap-3">
               <Button
@@ -128,6 +157,12 @@ export function SnowCraft() {
               </p>
             </div>
           </div>
+          {portraitPhone && (
+            <p className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full bg-ink/75 px-3.5 py-2 text-xs text-surface shadow-md backdrop-blur-sm">
+              <Smartphone className="size-4 rotate-90" aria-hidden />
+              Rotate your phone · 橫向遊玩更順手
+            </p>
+          )}
         </div>
       )}
 
@@ -165,6 +200,37 @@ export function SnowCraft() {
           </div>
         </Modal>
       )}
+    </div>
+  );
+}
+
+function AllyToggle({ mode, onChange }: { mode: AllyMode; onChange: (m: AllyMode) => void }) {
+  const opts: { id: AllyMode; label: string; icon: ReactNode }[] = [
+    { id: "off", label: "Manual", icon: <User /> },
+    { id: "defend", label: "Defend", icon: <Shield /> },
+    { id: "attack", label: "Attack", icon: <Swords /> },
+  ];
+  return (
+    <div
+      className="flex rounded-xl bg-ink/70 p-1 backdrop-blur-sm"
+      role="group"
+      aria-label="Unselected Maltese"
+    >
+      {opts.map((o) => (
+        <button
+          key={o.id}
+          type="button"
+          onClick={() => onChange(o.id)}
+          className={cn(
+            "inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium sm:px-2.5 sm:text-xs",
+            mode === o.id ? "bg-surface text-ink shadow-sm" : "text-surface/80 hover:text-surface",
+          )}
+          aria-pressed={mode === o.id}
+        >
+          {o.icon}
+          <span className="hidden sm:inline">{o.label}</span>
+        </button>
+      ))}
     </div>
   );
 }

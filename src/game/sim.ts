@@ -3,9 +3,10 @@ import {
   enemyCountForLevel,
   holdPower,
   HP,
-  KID_RADIUS,
   MARGIN,
+  PACK_TIME,
   PLAYER_COUNT,
+  playFeel,
   THROW_COOLDOWN,
   throwRange,
   throwSpeed,
@@ -26,38 +27,46 @@ function nextId(state: GameState) {
   return state.nextId++;
 }
 
+function makeBrain(x: number, y: number) {
+  return {
+    phase: "idle" as const,
+    t: rand(0.2, 0.9),
+    destX: x,
+    destY: y,
+    charge: 0,
+  };
+}
+
 function makeKid(state: GameState, team: Team, x: number, y: number): Kid {
   return {
     id: nextId(state),
     team,
     x,
     y,
+    lastX: x,
+    lastY: y,
     hp: HP,
     maxHp: HP,
     state: "idle",
     stateT: 0,
     cooldown: rand(0, 0.4),
+    packT: 0,
     animT: Math.random(),
     flash: 0,
     stun: 0,
     facing: team === "red" ? -1 : 1,
-    ai:
-      team === "green"
-        ? {
-            phase: "idle",
-            t: rand(0.2, 0.9),
-            destX: x,
-            destY: y,
-            charge: 0,
-          }
-        : null,
+    fidget: null,
+    fidgetT: 0,
+    fidgetWait: rand(0.35, 2.6),
+    moving: false,
+    ai: makeBrain(x, y),
   };
 }
 
 export function makeForts(): Fort[] {
   return [
-    { x: 390, y: 168, rx: 92, ry: 40 },
-    { x: 545, y: 372, rx: 108, ry: 46 },
+    { x: 390, y: 168, rx: 92, ry: 40, hitFlash: 0 },
+    { x: 545, y: 372, rx: 108, ry: 46, hitFlash: 0 },
   ];
 }
 
@@ -149,6 +158,7 @@ export function throwSnowball(
   dirX: number,
   dirY: number,
 ) {
+  if (kid.packT > 0 || kid.state === "pack") return 0;
   const power = holdPower(charge);
   let len = Math.hypot(dirX, dirY);
   if (len < 0.001) {
@@ -160,6 +170,7 @@ export function throwSnowball(
   const ny = dirY / len;
   const speed = throwSpeed(power);
   const range = throwRange(power);
+  const cover = inFort(kid.x, kid.y, state.forts);
   const ball: Snowball = {
     x: kid.x + nx * 30,
     y: kid.y + ny * 10 - 6,
@@ -168,7 +179,7 @@ export function throwSnowball(
     team: kid.team,
     r: BALL_RADIUS,
     fromId: kid.id,
-    grace: 0.1,
+    grace: cover ? 0.24 : 0.12,
     spin: Math.random() * Math.PI * 2,
     alive: true,
     range,
@@ -178,7 +189,9 @@ export function throwSnowball(
   kid.state = "throw";
   kid.stateT = 0.38;
   kid.cooldown = THROW_COOLDOWN;
+  kid.packT = PACK_TIME;
   kid.facing = nx < 0 ? -1 : 1;
+  clearFidget(kid);
   burst(state, kid.x + nx * 22, kid.y, nx * 40, 8, "puff");
   return power;
 }
@@ -218,7 +231,7 @@ function separate(state: GameState, dt: number) {
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const d = Math.hypot(dx, dy) || 0.001;
-      const min = KID_RADIUS * 1.85;
+      const min = playFeel().hit * 1.85;
       if (d >= min) continue;
       const push = ((min - d) / min) * 90 * dt;
       const nx = dx / d;
@@ -235,7 +248,35 @@ function separate(state: GameState, dt: number) {
   }
 }
 
-function stepBalls(state: GameState, dt: number, onHit: (heavy: boolean) => void) {
+function clashBalls(state: GameState, onClash?: () => void) {
+  const balls = state.balls;
+  for (let i = 0; i < balls.length; i++) {
+    const a = balls[i]!;
+    if (!a.alive) continue;
+    for (let j = i + 1; j < balls.length; j++) {
+      const b = balls[j]!;
+      if (!b.alive || a.team === b.team) continue;
+      const dx = a.x - b.x;
+      const dy = a.y - b.y;
+      const rr = a.r + b.r + 8;
+      if (dx * dx + dy * dy > rr * rr) continue;
+      a.alive = false;
+      b.alive = false;
+      burst(state, (a.x + b.x) / 2, (a.y + b.y) / 2, 0, 18, "spark");
+      burst(state, (a.x + b.x) / 2, (a.y + b.y) / 2, 0, 10, "puff");
+      state.trauma = Math.min(1, state.trauma + 0.18);
+      onClash?.();
+    }
+  }
+}
+
+function stepBalls(
+  state: GameState,
+  dt: number,
+  onHit: (heavy: boolean) => void,
+  extra?: { onClash?: () => void; onFort?: () => void },
+) {
+  clashBalls(state, extra?.onClash);
   for (const ball of state.balls) {
     if (!ball.alive) continue;
     const stepX = ball.vx * dt;
@@ -254,18 +295,24 @@ function stepBalls(state: GameState, dt: number, onHit: (heavy: boolean) => void
       burst(state, ball.x, ball.y, 0, 12, "puff");
       continue;
     }
-    if (inFort(ball.x, ball.y, state.forts)) {
-      ball.alive = false;
-      burst(state, ball.x, ball.y, 0, 10, "puff");
-      continue;
+    if (ball.grace <= 0) {
+      const wall = inFort(ball.x, ball.y, state.forts);
+      if (wall) {
+        ball.alive = false;
+        wall.hitFlash = 0.28;
+        burst(state, ball.x, ball.y, 0, 16, "puff");
+        extra?.onFort?.();
+        continue;
+      }
     }
     for (const kid of state.kids) {
       if (isOut(kid) || kid.team === ball.team) continue;
       if (kid.id === ball.fromId && ball.grace > 0) continue;
       if (inFort(kid.x, kid.y, state.forts)) continue;
       const dx = kid.x - ball.x;
-      const dy = kid.y - 6 - ball.y;
-      if (dx * dx + dy * dy > (KID_RADIUS + ball.r) ** 2) continue;
+      const dy = kid.y - 10 - ball.y;
+      const hitR = playFeel().hit + ball.r;
+      if (dx * dx + dy * dy > hitR * hitR) continue;
       ball.alive = false;
       hitKid(state, kid, ball, onHit);
       break;
@@ -285,6 +332,8 @@ function hitKid(
   kid.stun = 0.35;
   kid.state = kid.hp <= 0 ? "buried" : "hurt";
   kid.stateT = kid.hp <= 0 ? 0 : 0.42;
+  kid.packT = 0;
+  clearFidget(kid);
   kid.x += Math.sign(ball.vx) * 10;
   kid.y += ball.vy * 0.02;
   burst(state, kid.x, kid.y, ball.vx * 0.05, 14, "puff");
@@ -293,19 +342,79 @@ function hitKid(
   onHit(kid.hp <= 0);
 }
 
+function clearFidget(kid: Kid) {
+  kid.fidget = null;
+  kid.fidgetT = 0;
+  kid.fidgetWait = rand(0.9, 2.4);
+}
+
+function reducedMotion() {
+  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function stepFidget(state: GameState, kid: Kid, dt: number) {
+  if (kid.state === "throw" || kid.state === "hurt" || kid.state === "buried" || kid.state === "pack" || kid.moving) {
+    if (kid.fidget) clearFidget(kid);
+    return;
+  }
+  if (kid.fidgetT > 0) {
+    kid.fidgetT -= dt;
+    if (kid.fidget === "dance" && Math.random() < dt * 2.6) {
+      state.particles.push({
+        x: kid.x + rand(-16, 16),
+        y: kid.y - 38,
+        vx: rand(-22, 22),
+        vy: rand(-46, -20),
+        life: rand(0.55, 0.85),
+        maxLife: 0.85,
+        size: rand(5.5, 8.5),
+        kind: "note",
+      });
+    }
+    if (kid.fidgetT <= 0) {
+      kid.fidget = null;
+      kid.fidgetWait = rand(1.6, 4.2);
+    }
+    return;
+  }
+  if (reducedMotion()) return;
+  kid.fidgetWait -= dt;
+  if (kid.fidgetWait > 0) return;
+  if (Math.random() < 0.64) {
+    kid.fidget = Math.random() < 0.58 ? "dance" : "wave";
+    kid.fidgetT = rand(2.7, 4.1);
+  } else {
+    kid.fidgetWait = rand(1.1, 2.6);
+  }
+}
+
 function stepKids(state: GameState, dt: number) {
   for (const kid of state.kids) {
+    const dist = Math.hypot(kid.x - kid.lastX, kid.y - kid.lastY);
+    kid.moving = dist > 0.55 && kid.state !== "buried";
+    kid.lastX = kid.x;
+    kid.lastY = kid.y;
     kid.animT += dt;
     kid.flash = Math.max(0, kid.flash - dt);
     kid.stun = Math.max(0, kid.stun - dt);
     kid.cooldown = Math.max(0, kid.cooldown - dt);
+    kid.packT = Math.max(0, kid.packT - dt);
+    stepFidget(state, kid, dt);
     if (kid.state === "buried") continue;
     if (kid.state === "throw" || kid.state === "hurt") {
       kid.stateT -= dt;
-      if (kid.stateT <= 0) kid.state = "idle";
+      if (kid.stateT <= 0) {
+        kid.state = kid.state === "throw" && kid.packT > 0 ? "pack" : "idle";
+      }
+    } else if (kid.state === "pack") {
+      if (kid.packT <= 0) kid.state = "idle";
+    }
+    if (kid.state === "idle" && kid.packT > 0) kid.state = "pack";
+    if (kid.state === "pack" && Math.random() < dt * 7) {
+      burst(state, kid.x + rand(-8, 8), kid.y + 10, 0, 2, "puff");
     }
     if (kid.state === "grabbed") continue;
-    if (Math.hypot(0, 0) === 0 && Math.random() < dt * 2.2) {
+    if (kid.moving && Math.random() < dt * 6) {
       state.footprints.push({ x: kid.x, y: kid.y + 16, life: 1.6 });
     }
   }
@@ -313,10 +422,11 @@ function stepKids(state: GameState, dt: number) {
 
 function stepFx(state: GameState, dt: number) {
   state.trauma = Math.max(0, state.trauma - dt * 1.8);
+  for (const f of state.forts) f.hitFlash = Math.max(0, f.hitFlash - dt);
   for (const p of state.particles) {
     p.x += p.vx * dt;
     p.y += p.vy * dt;
-    p.vy += 40 * dt;
+    p.vy += (p.kind === "note" ? 12 : 40) * dt;
     p.life -= dt;
   }
   state.particles = state.particles.filter((p) => p.life > 0);
@@ -332,7 +442,12 @@ function stepFx(state: GameState, dt: number) {
   }
 }
 
-export function stepSim(state: GameState, dt: number, onHit: (heavy: boolean) => void) {
+export function stepSim(
+  state: GameState,
+  dt: number,
+  onHit: (heavy: boolean) => void,
+  extra?: { onClash?: () => void; onFort?: () => void },
+) {
   state.time += dt;
   if (state.freeze > 0) {
     state.freeze -= dt;
@@ -351,7 +466,7 @@ export function stepSim(state: GameState, dt: number, onHit: (heavy: boolean) =>
   }
 
   stepKids(state, dt);
-  stepBalls(state, dt, onHit);
+  stepBalls(state, dt, onHit, extra);
   separate(state, dt);
   stepFx(state, dt);
 

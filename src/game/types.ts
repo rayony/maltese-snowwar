@@ -1,5 +1,7 @@
 export type Team = "red" | "green";
-export type KidState = "idle" | "throw" | "hurt" | "grabbed" | "buried";
+export type KidState = "idle" | "throw" | "hurt" | "grabbed" | "buried" | "pack";
+export type Fidget = "dance" | "wave" | null;
+export type AllyMode = "off" | "defend" | "attack";
 export type Screen = "title" | "playing" | "paused" | "gameover";
 export type FightPhase = "intro" | "fight" | "won" | "lost";
 
@@ -16,15 +18,22 @@ export interface Kid {
   team: Team;
   x: number;
   y: number;
+  lastX: number;
+  lastY: number;
   hp: number;
   maxHp: number;
   state: KidState;
   stateT: number;
   cooldown: number;
+  packT: number;
   animT: number;
   flash: number;
   stun: number;
   facing: 1 | -1;
+  fidget: Fidget;
+  fidgetT: number;
+  fidgetWait: number;
+  moving: boolean;
   ai: AiBrain | null;
 }
 
@@ -48,6 +57,7 @@ export interface Fort {
   y: number;
   rx: number;
   ry: number;
+  hitFlash: number;
 }
 
 export interface Particle {
@@ -58,7 +68,7 @@ export interface Particle {
   life: number;
   maxLife: number;
   size: number;
-  kind: "flake" | "puff" | "spark";
+  kind: "flake" | "puff" | "spark" | "note";
 }
 
 export interface Footprint {
@@ -75,6 +85,7 @@ export interface Grab {
   lastY: number;
   vx: number;
   vy: number;
+  packLeft: number;
 }
 
 export interface GameState {
@@ -102,6 +113,7 @@ export interface UiSnapshot {
   greenTotal: number;
   muted: boolean;
   ready: boolean;
+  allyMode: AllyMode;
 }
 
 export interface View {
@@ -110,4 +122,8 @@ export interface View {
   hoverId: number | null;
   shakeEnabled: boolean;
   reducedMotion: boolean;
+  drawSize: number;
+  buriedSize: number;
+  pickRadius: number;
+  ballSize: number;
 }

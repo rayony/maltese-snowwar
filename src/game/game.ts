@@ -3,15 +3,15 @@ import { loadAssets, type Assets } from "./assets";
 import { GameAudio } from "./audio";
 import {
   FIXED_DT,
-  KID_RADIUS,
   MARGIN,
+  playFeel,
   SAVE_KEY,
   WORLD_H,
   WORLD_W,
 } from "./constants";
 import { render, worldFromClient } from "./render";
 import { aimFromKid, clamp, createState, isOut, living, stepSim, throwSnowball } from "./sim";
-import type { GameState, Grab, Screen, UiSnapshot, View } from "./types";
+import type { AllyMode, GameState, Grab, Screen, UiSnapshot, View } from "./types";
 
 export class SnowCraftGame {
   private canvas: HTMLCanvasElement;
@@ -33,6 +33,7 @@ export class SnowCraftGame {
   private destroyed = false;
   private outcomeHandled = false;
   private loaded = false;
+  private allyMode: AllyMode = "off";
 
   constructor(canvas: HTMLCanvasElement, onUi: (s: UiSnapshot) => void) {
     this.canvas = canvas;
@@ -110,6 +111,16 @@ export class SnowCraftGame {
     this.setMuted(!this.audio.muted);
   }
 
+  setAllyMode(mode: AllyMode) {
+    this.allyMode = mode;
+    this.emit();
+  }
+
+  cycleAllyMode() {
+    this.allyMode = this.allyMode === "off" ? "defend" : this.allyMode === "defend" ? "attack" : "off";
+    this.emit();
+  }
+
   private startLevel(level: number) {
     this.state = createState(level);
     this.grab = null;
@@ -183,6 +194,7 @@ export class SnowCraftGame {
       lastY: w.y,
       vx: 0,
       vy: 0,
+      packLeft: kid.packT,
     };
     kid.state = "grabbed";
     this.audio.grab();
@@ -209,11 +221,12 @@ export class SnowCraftGame {
   };
 
   private pickRed(x: number, y: number) {
+    const pick = playFeel(this.canvas.clientWidth).pick;
     let best: (typeof this.state.kids)[number] | null = null;
-    let bestD = KID_RADIUS + 18;
+    let bestD = pick;
     for (const kid of this.state.kids) {
       if (kid.team !== "red" || isOut(kid)) continue;
-      const d = Math.hypot(kid.x - x, kid.y - y);
+      const d = Math.hypot(kid.x - x, kid.y - 12 - y);
       if (d < bestD) {
         bestD = d;
         best = kid;
@@ -228,10 +241,14 @@ export class SnowCraftGame {
     if (!grab) return;
     const kid = this.state.kids.find((k) => k.id === grab.id);
     if (!kid || isOut(kid) || this.state.phase !== "fight") {
-      if (kid && kid.state === "grabbed") kid.state = "idle";
+      if (kid && kid.state === "grabbed") kid.state = kid.packT > 0 ? "pack" : "idle";
       return;
     }
-    const seconds = (performance.now() - grab.startedAt) / 1000;
+    if (kid.packT > 0) {
+      kid.state = "pack";
+      return;
+    }
+    const seconds = Math.max(0, (performance.now() - grab.startedAt) / 1000 - grab.packLeft);
     const { dx, dy } = aimFromKid(kid, this.state.kids, grab.vx, grab.vy);
     const power = throwSnowball(this.state, kid, seconds, dx, dy);
     this.audio.throw(power);
@@ -269,15 +286,23 @@ export class SnowCraftGame {
   };
 
   private step(dt: number) {
-    stepAi(this.state, dt, (power) => this.audio.throw(power));
-    stepSim(this.state, dt, (heavy) => {
-      if (heavy) this.audio.bury();
-      else {
-        this.audio.hit();
-        this.audio.splat();
-      }
-      this.emit();
-    });
+    stepAi(this.state, dt, (power) => this.audio.throw(power), this.allyMode);
+    stepSim(
+      this.state,
+      dt,
+      (heavy) => {
+        if (heavy) this.audio.bury();
+        else {
+          this.audio.hit();
+          this.audio.splat();
+        }
+        this.emit();
+      },
+      {
+        onClash: () => this.audio.clash(),
+        onFort: () => this.audio.fort(),
+      },
+    );
     if (!this.outcomeHandled && this.state.phase === "won") {
       this.outcomeHandled = true;
       this.audio.win();
@@ -295,12 +320,17 @@ export class SnowCraftGame {
   }
 
   private draw() {
+    const feel = playFeel(this.canvas.clientWidth);
     const view: View = {
       grab: this.grab,
       pointer: this.pointer,
       hoverId: this.hoverId,
       shakeEnabled: this.shakeEnabled,
       reducedMotion: this.reducedMotion,
+      drawSize: feel.draw,
+      buriedSize: feel.buried,
+      pickRadius: feel.pick,
+      ballSize: feel.ball,
     };
     render(this.ctx, this.canvas, this.state, this.assets, view);
   }
@@ -315,6 +345,7 @@ export class SnowCraftGame {
       greenTotal: this.state.kids.filter((k) => k.team === "green").length,
       muted: this.audio.muted,
       ready: this.loaded,
+      allyMode: this.allyMode,
     });
   }
 }
