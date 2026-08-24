@@ -2,7 +2,7 @@ export type Team = "red" | "green";
 export type KidState = "idle" | "throw" | "hurt" | "grabbed" | "buried" | "pack";
 export type Fidget = "dance" | "wave" | null;
 export type AllyMode = "off" | "defend" | "attack";
-export type Screen = "title" | "playing" | "paused" | "gameover";
+export type Screen = "title" | "playing" | "paused" | "gameover" | "lobby";
 export type FightPhase = "intro" | "fight" | "won" | "lost";
 
 export interface AiBrain {
@@ -104,6 +104,22 @@ export interface GameState {
   trauma: number;
 }
 
+export type NetRole = "solo" | "host" | "guest";
+export type NetStatus = "off" | "waiting" | "connecting" | "live" | "disconnect" | "rematch";
+
+export interface NetUi {
+  role: NetRole;
+  status: NetStatus;
+  code: string | null;
+  team: Team;
+  error: string | null;
+  rematchMine: boolean;
+  rematchTheirs: boolean;
+  result: "win" | "lose" | null;
+  rttMs: number | null;
+  link: "direct" | "relay";
+}
+
 export interface UiSnapshot {
   screen: Screen;
   level: number;
@@ -114,6 +130,7 @@ export interface UiSnapshot {
   muted: boolean;
   ready: boolean;
   allyMode: AllyMode;
+  net: NetUi;
 }
 
 export interface View {

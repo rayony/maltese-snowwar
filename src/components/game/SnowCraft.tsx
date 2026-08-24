@@ -1,7 +1,20 @@
-import { Pause, Play, RotateCcw, Shield, Smartphone, Swords, User, Volume2, VolumeX } from "lucide-react";
+import {
+  Copy,
+  Pause,
+  Play,
+  RotateCcw,
+  Shield,
+  Smartphone,
+  Swords,
+  User,
+  Users,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { SnowCraftGame } from "@/game/game";
+import { normalizeCode } from "@/game/net";
 import type { AllyMode, UiSnapshot } from "@/game/types";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +28,18 @@ const INITIAL: UiSnapshot = {
   muted: false,
   ready: false,
   allyMode: "off",
+  net: {
+    role: "solo",
+    status: "off",
+    code: null,
+    team: "red",
+    error: null,
+    rematchMine: false,
+    rematchTheirs: false,
+    result: null,
+    rttMs: null,
+    link: "relay",
+  },
 };
 
 export function SnowCraft() {
@@ -22,6 +47,8 @@ export function SnowCraft() {
   const gameRef = useRef<SnowCraftGame | null>(null);
   const [ui, setUi] = useState<UiSnapshot>(INITIAL);
   const [portraitPhone, setPortraitPhone] = useState(false);
+  const [joinCode, setJoinCode] = useState("");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -29,6 +56,11 @@ export function SnowCraft() {
     const game = new SnowCraftGame(canvas, setUi);
     gameRef.current = game;
     void game.start();
+    const params = new URLSearchParams(window.location.search);
+    const vs = params.get("vs");
+    if (vs && normalizeCode(vs).length === 6) {
+      window.setTimeout(() => game.joinVersus(vs), 400);
+    }
     return () => {
       game.destroy();
       gameRef.current = null;
@@ -52,6 +84,20 @@ export function SnowCraft() {
 
   const g = gameRef.current;
   const playing = ui.screen === "playing";
+  const versus = ui.net.role !== "solo" || ui.net.status !== "off";
+  const myTeam = ui.net.team;
+
+  const copyCode = async () => {
+    if (!ui.net.code) return;
+    const url = `${window.location.origin}${window.location.pathname}?vs=${ui.net.code}`;
+    try {
+      await navigator.clipboard.writeText(`${ui.net.code} · ${url}`);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* ignore */
+    }
+  };
 
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-ink text-surface">
@@ -66,9 +112,18 @@ export function SnowCraft() {
           <header className="pointer-events-none flex items-start justify-between gap-3 p-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-4">
             <div className="rounded-xl bg-ink/70 px-3 py-2 backdrop-blur-sm">
               <p className="font-display text-lg font-semibold leading-tight tracking-tight">
-                Level {ui.level}
+                {ui.net.status !== "off" && ui.net.code ? `VS ${ui.net.code}` : `Level ${ui.level}`}
               </p>
-              <p className="text-xs text-ice">Best {ui.best}</p>
+              <p className="text-xs text-ice">
+                {ui.net.team === "green" ? "Retrievers" : ui.net.status !== "off" ? "Maltese" : `Best ${ui.best}`}
+                {ui.net.status !== "off" && ui.net.code
+                  ? ui.net.link === "direct"
+                    ? ui.net.rttMs != null
+                      ? ` · ${ui.net.rttMs}ms`
+                      : " · direct"
+                    : " · relay"
+                  : ""}
+              </p>
             </div>
             <div className="flex items-center gap-2 rounded-xl bg-ink/70 px-3 py-2 text-sm tabular-nums backdrop-blur-sm">
               <span className="font-medium text-primary">{ui.redAlive}</span>
@@ -110,7 +165,8 @@ export function SnowCraft() {
 
         {playing && !portraitPhone && (
           <p className="mt-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-xs text-ink/70 sm:text-sm">
-            Hold a Maltese · tap = short toss · hold = far throw · pack snow between throws
+            Hold a {myTeam === "green" ? "retriever" : "Maltese"} · tap = short toss · hold = far throw
+            {versus ? "" : " · pack snow between throws"}
           </p>
         )}
       </div>
@@ -150,8 +206,39 @@ export function SnowCraft() {
                 onClick={() => g?.play()}
               >
                 <Play />
-                {ui.ready ? "Play" : "Loading…"}
+                {ui.ready ? "Play vs AI" : "Loading…"}
               </Button>
+              <Button
+                size="lg"
+                variant="secondary"
+                className="w-full"
+                disabled={!ui.ready}
+                onClick={() => g?.createVersus()}
+              >
+                <Users />
+                Versus — create room
+              </Button>
+              <form
+                className="flex gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  g?.joinVersus(joinCode);
+                }}
+              >
+                <input
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(normalizeCode(e.target.value))}
+                  maxLength={6}
+                  placeholder="CODE"
+                  aria-label="Room code"
+                  autoCapitalize="characters"
+                  className="h-12 min-w-0 flex-1 rounded-xl border border-surface/20 bg-ink/60 px-3 font-mono text-lg tracking-[0.28em] text-surface placeholder:text-surface/35"
+                />
+                <Button type="submit" variant="secondary" disabled={!ui.ready || joinCode.length !== 6}>
+                  Join
+                </Button>
+              </form>
+              {ui.net.error && <p className="text-center text-xs text-primary">{ui.net.error}</p>}
               <p className="text-center text-xs text-ice">
                 {ui.best > 0 ? `Best level ${ui.best}` : "A remake of the 1998 classic"}
               </p>
@@ -164,6 +251,79 @@ export function SnowCraft() {
             </p>
           )}
         </div>
+      )}
+
+      {ui.screen === "lobby" && (
+        <Modal>
+          <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted">Versus</p>
+          <h2 className="mt-1 font-display text-3xl font-semibold">
+            {ui.net.role === "host" ? "Waiting" : "Joining"}
+          </h2>
+          {ui.net.code && (
+            <button
+              type="button"
+              onClick={() => void copyCode()}
+              className="mt-4 flex w-full items-center justify-between rounded-xl bg-ink px-4 py-3 text-left text-surface"
+            >
+              <span className="font-mono text-3xl tracking-[0.28em]">{ui.net.code}</span>
+              <span className="flex items-center gap-1 text-xs text-ice">
+                <Copy className="size-4" />
+                {copied ? "Copied" : "Copy"}
+              </span>
+            </button>
+          )}
+          <p className="mt-3 text-sm leading-relaxed text-muted">
+            {ui.net.role === "host"
+              ? "Copy the code (or the link). Your friend must open this same game, tap Join, and type the letters. You are the Maltese."
+              : ui.net.error
+                ? ui.net.error
+                : "Looking for the host in this game… both of you need the same page, not two different copies."}
+          </p>
+          {ui.net.error && ui.net.role === "host" && (
+            <p className="mt-2 text-sm text-primary">{ui.net.error}</p>
+          )}
+          <div className="mt-6 flex flex-col gap-2">
+            <Button variant="secondary" onClick={() => g?.cancelLobby()}>
+              Cancel
+            </Button>
+          </div>
+        </Modal>
+      )}
+
+      {ui.net.status === "disconnect" && (
+        <Modal>
+          <h2 className="font-display text-3xl font-semibold">Friend left</h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted">
+            Connection dropped or timed out. You can fill their team with bots, wait in case they
+            come back, or end the match.
+          </p>
+          <div className="mt-6 flex flex-col gap-2">
+            <Button size="lg" onClick={() => g?.takeBot()}>
+              Take over with bots
+            </Button>
+            <Button variant="secondary" onClick={() => g?.waitForFriend()}>
+              Wait
+            </Button>
+            <Button variant="secondary" onClick={() => g?.leaveRoom()}>
+              End game
+            </Button>
+          </div>
+        </Modal>
+      )}
+
+      {ui.net.status === "connecting" && ui.screen === "playing" && (
+        <Modal>
+          <h2 className="font-display text-3xl font-semibold">Waiting…</h2>
+          <p className="mt-2 text-sm text-muted">Paused until your friend reconnects.</p>
+          <div className="mt-6 flex flex-col gap-2">
+            <Button size="lg" onClick={() => g?.takeBot()}>
+              Take over with bots
+            </Button>
+            <Button variant="secondary" onClick={() => g?.leaveRoom()}>
+              End game
+            </Button>
+          </div>
+        </Modal>
       )}
 
       {ui.screen === "paused" && (
@@ -188,20 +348,58 @@ export function SnowCraft() {
 
       {ui.screen === "gameover" && (
         <Modal>
-          <h2 className="font-display text-3xl font-semibold">Buried</h2>
+          <h2 className="font-display text-3xl font-semibold">
+            {ui.net.result === "win" ? "Victory" : "Buried"}
+          </h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
-            The retrievers buried you at level {ui.level}. Best {ui.best}.
+            {versusGameoverCopy(ui)}
           </p>
+          {ui.net.status === "rematch" && ui.net.rematchTheirs && !ui.net.rematchMine && (
+            <p className="mt-3 rounded-lg bg-leaf/30 px-3 py-2 text-sm">
+              Your friend wants a rematch.
+            </p>
+          )}
+          {ui.net.status === "rematch" && ui.net.rematchMine && !ui.net.rematchTheirs && (
+            <p className="mt-3 text-sm text-muted">Waiting for your friend to accept…</p>
+          )}
           <div className="mt-6 flex flex-col gap-2">
-            <Button size="lg" onClick={() => g?.retry()}>
+            <Button
+              size="lg"
+              onClick={() => (ui.net.status === "rematch" ? g?.voteRematch(true) : g?.retry())}
+              disabled={ui.net.status === "rematch" && ui.net.rematchMine}
+            >
               <RotateCcw />
-              Fight again
+              {ui.net.status === "rematch" ? "Rematch" : "Fight again"}
             </Button>
+            {ui.net.status === "rematch" && (
+              <Button variant="secondary" onClick={() => g?.voteRematch(false)}>
+                Decline
+              </Button>
+            )}
+            {ui.net.status !== "rematch" && ui.net.status !== "off" && (
+              <Button variant="secondary" onClick={() => g?.leaveRoom()}>
+                Leave room
+              </Button>
+            )}
           </div>
         </Modal>
       )}
     </div>
   );
+}
+
+function versusGameoverCopy(ui: UiSnapshot) {
+  if (ui.net.result === "win") {
+    return ui.net.team === "green"
+      ? "The retrievers buried the Maltese. Stay in the room for a rematch — no new code needed."
+      : "You buried the retrievers. Stay in the room for a rematch — no new code needed.";
+  }
+  if (ui.net.status === "rematch" || ui.net.role !== "solo") {
+    return ui.net.team === "green"
+      ? "The Maltese buried you. Ask your friend for a rematch — you both have to accept."
+      : "The retrievers buried you. Ask your friend for a rematch — you both have to accept.";
+  }
+  return `The retrievers buried you at level ${ui.level}. Best ${ui.best}.`;
 }
 
 function AllyToggle({ mode, onChange }: { mode: AllyMode; onChange: (m: AllyMode) => void }) {

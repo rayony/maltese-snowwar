@@ -70,7 +70,7 @@ export function makeForts(): Fort[] {
   ];
 }
 
-export function createState(level: number): GameState {
+export function createState(level: number, versus = false): GameState {
   const state: GameState = {
     kids: [],
     balls: [],
@@ -92,15 +92,22 @@ export function createState(level: number): GameState {
     state.kids.push(makeKid(state, "red", 790 + (i % 2) * 36, redYs[i]!));
   }
 
-  const n = enemyCountForLevel(level);
-  const cols = n <= 5 ? 2 : n <= 9 ? 3 : 4;
-  const rows = Math.ceil(n / cols);
-  for (let i = 0; i < n; i++) {
-    const col = Math.floor(i / rows);
-    const row = i % rows;
-    const x = 70 + col * 78;
-    const y = 90 + ((row + 0.5) * (WORLD_H - 140)) / rows + rand(-10, 10);
-    state.kids.push(makeKid(state, "green", x, y));
+  const n = versus ? PLAYER_COUNT : enemyCountForLevel(level);
+  const greenYs = [128, 270, 412];
+  if (versus) {
+    for (let i = 0; i < PLAYER_COUNT; i++) {
+      state.kids.push(makeKid(state, "green", 170 - (i % 2) * 36, greenYs[i]!));
+    }
+  } else {
+    const cols = n <= 5 ? 2 : n <= 9 ? 3 : 4;
+    const rows = Math.ceil(n / cols);
+    for (let i = 0; i < n; i++) {
+      const col = Math.floor(i / rows);
+      const row = i % rows;
+      const x = 70 + col * 78;
+      const y = 90 + ((row + 0.5) * (WORLD_H - 140)) / rows + rand(-10, 10);
+      state.kids.push(makeKid(state, "green", x, y));
+    }
   }
 
   for (let i = 0; i < 70; i++) {

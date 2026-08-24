@@ -2,11 +2,14 @@ import { aiInterval, aiMoveSpeed, MARGIN, MAX_CHARGE, PACK_TIME, WORLD_H, WORLD_
 import { aimFromKid, closestEnemy, inFort, isOut, rand, throwSnowball } from "./sim";
 import type { AllyMode, GameState, Kid } from "./types";
 
+export type GreenControl = "enemy" | AllyMode;
+
 export function stepAi(
   state: GameState,
   dt: number,
   onThrow: (power: number) => void,
   allyMode: AllyMode = "off",
+  greenControl: GreenControl = "enemy",
 ) {
   if (state.phase !== "fight" || state.freeze > 0) return;
   const level = state.level;
@@ -16,12 +19,22 @@ export function stepAi(
     if (kid.state === "throw" || kid.state === "hurt") continue;
     if (kid.team === "red") {
       if (allyMode === "off" || kid.state === "grabbed") continue;
-    } else if (kid.team !== "green") {
+    } else if (kid.team === "green") {
+      if (greenControl !== "enemy") {
+        if (greenControl === "off" || kid.state === "grabbed") continue;
+      }
+    } else {
       continue;
     }
 
-    const defend = kid.team === "red" ? allyMode === "defend" : false;
-    const stance = kid.team === "green" ? "enemy" : defend ? "defend" : "attack";
+    const defend =
+      kid.team === "red" ? allyMode === "defend" : greenControl === "defend";
+    const stance: "defend" | "attack" | "enemy" =
+      kid.team === "green" && greenControl === "enemy"
+        ? "enemy"
+        : defend
+          ? "defend"
+          : "attack";
 
     const incoming = incomingBall(state, kid, stance === "defend" ? 150 : 95);
     if (incoming && kid.ai.phase !== "dodge" && kid.stun <= 0) {
@@ -105,7 +118,11 @@ function pickDest(state: GameState, kid: Kid, stance: "defend" | "attack" | "ene
       kid.ai!.destY = clamp(fort.y + rand(-12, 12), MARGIN, WORLD_H - MARGIN);
       return;
     }
-    kid.ai!.destX = clampSide(rand(WORLD_W * 0.62, WORLD_W - MARGIN - 8), kid.team);
+    if (kid.team === "red") {
+      kid.ai!.destX = clampSide(rand(WORLD_W * 0.62, WORLD_W - MARGIN - 8), kid.team);
+    } else {
+      kid.ai!.destX = clampSide(rand(MARGIN + 8, WORLD_W * 0.38), kid.team);
+    }
     kid.ai!.destY = clamp((target?.y ?? kid.y) + rand(-50, 50), MARGIN, WORLD_H - MARGIN);
     return;
   }
