@@ -302,7 +302,7 @@ export function render(
   if (view.grab && state.phase === "fight") {
     const kid = state.kids.find((k) => k.id === view.grab!.id);
     if (kid && !isOut(kid)) {
-      drawThrowPreview(ctx, kid, view.grab, state.kids, view.pvp);
+      drawThrowPreview(ctx, kid, view.grab, state.kids, view.pvp, view.godSpeed);
     }
   }
 
@@ -610,12 +610,15 @@ function drawThrowPreview(
   grab: Grab,
   kids: Kid[],
   pvp: boolean,
+  godSpeed = false,
 ) {
   const packing = kid.packT > 0;
   const seconds = packing ? 0 : Math.max(0, (performance.now() - grab.startedAt) / 1000 - grab.packLeft);
   const power = pvp ? 1 : holdPower(seconds);
   const range = packing ? 0 : pvp ? PVP_RANGE : throwRange(power);
-  const dir = aimFromKid(kid, kids);
+  const extraX = kid.x - grab.originX + grab.vx;
+  const extraY = kid.y - grab.originY + grab.vy;
+  const dir = aimFromKid(kid, kids, extraX, extraY, false, godSpeed && kid.team === "red");
   const len = Math.hypot(dir.dx, dir.dy) || 1;
   const nx = dir.dx / len;
   const ny = dir.dy / len;

@@ -1332,6 +1332,12 @@ export class SnowCraftGame {
     kid.y = p.y;
     this.grab.lastX = p.x;
     this.grab.lastY = p.y;
+    if (this.state.godSpeed && kid.team === "red") {
+      const extraX = kid.x - this.grab.originX + this.grab.vx;
+      const extraY = kid.y - this.grab.originY + this.grab.vy;
+      const { dx } = aimFromKid(kid, this.state.kids, extraX, extraY, false, true);
+      if (Math.abs(dx) > 2) kid.facing = dx < 0 ? -1 : 1;
+    }
     if (this.netRole === "guest") {
       const t = performance.now();
       const gap = this.p2p?.rtcOpen ? 20 : 40;
@@ -1829,6 +1835,7 @@ export class SnowCraftGame {
       ballSize: feel.ball,
       mirror: this.mirrored(),
       pvp: this.versus,
+      godSpeed: this.state.godSpeed,
     };
     render(this.ctx, this.canvas, this.state, this.assets, view);
   }

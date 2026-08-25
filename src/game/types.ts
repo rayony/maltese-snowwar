@@ -167,4 +167,5 @@ export interface View {
   ballSize: number;
   mirror: boolean;
   pvp: boolean;
+  godSpeed: boolean;
 }
