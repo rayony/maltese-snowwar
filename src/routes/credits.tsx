@@ -114,6 +114,17 @@ function CreditsPage() {
             Fan tribute (二次創作). Only permissive licenses (MIT, Apache-2.0, ISC, OFL) — no
             GPL/AGPL. Apache packages are used unmodified.
           </p>
+          <p className="mt-3">
+            <a
+              href="/Maltese-Snow-War-Architecture.pdf"
+              download="Architecture.pdf"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center rounded-lg bg-ice px-3 py-2 text-sm font-semibold text-ink hover:bg-surface"
+            >
+              Download architecture
+            </a>
+          </p>
 
           <h2 className="mt-6 font-display text-xl font-semibold">Tribute</h2>
           <ul className="mt-2 space-y-2 text-sm leading-relaxed text-surface/80">
