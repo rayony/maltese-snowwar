@@ -3,7 +3,7 @@ import { VersusLink } from "./versus-link";
 import { stepAi, type GreenControl } from "./ai";
 import { ASSET_TOTAL, loadCoreAssets, loadRestAssets, type Assets } from "./assets";
 import { GameAudio } from "./audio";
-import { FORT_HP, FIXED_DT, MARGIN, BALL_RADIUS, playFeel, SAVE_KEY, WORLD_H, WORLD_W } from "./constants";
+import { FORT_HP, FIXED_DT, MARGIN, BALL_RADIUS, playFeel, PVP_RANGE, SAVE_KEY, WORLD_H, WORLD_W } from "./constants";
 import {
   applyState,
   applyPose,
@@ -982,7 +982,7 @@ export class SnowCraftGame {
       grace: 0.08,
       spin: 0,
       alive: true,
-      range: 2400,
+      range: this.versus ? PVP_RANGE : 2400,
       traveled: 0,
       local: true,
     });
