@@ -88,7 +88,10 @@ export class VersusLink {
       else {
         this.rtc.send(wire);
         const t = msg.t;
-        if (t === "over" || t === "start" || t === "rematch" || t === "throw" || t === "hit") this.http.send(wire);
+        if (t === "over" || t === "start" || t === "rematch" || t === "throw" || t === "hit" || t === "packed") {
+          this.rtc.broadcast(wire);
+          this.http.send(wire);
+        }
       }
       return;
     }
@@ -123,6 +126,11 @@ export class VersusLink {
         const sample = env.m.t1 + rtt / 2 - now;
         this.clockOffset = this.clockOffset === 0 ? sample : this.clockOffset * 0.72 + sample * 0.28;
       }
+      return;
+    }
+    if (env.m.t === "over" || env.m.t === "start" || env.m.t === "rematch" || env.m.t === "packed" || env.m.t === "bye" || env.m.t === "bot") {
+      if (env.n > this.lastIn) this.lastIn = env.n;
+      onMessage(env.m);
       return;
     }
     if (env.m.t === "snap") {
