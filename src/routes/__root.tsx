@@ -37,6 +37,12 @@ export const Route = createRootRoute({
         <HeadContent />
       </head>
       <body>
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "document.addEventListener('click',function(e){var t=e.target&&e.target.closest&&e.target.closest('[data-boot]');if(t)window.__boot=t.getAttribute('data-boot');},true);",
+          }}
+        />
         <PreviewHostBridge />
         <AuthProvider>
           <Outlet />

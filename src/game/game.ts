@@ -86,6 +86,8 @@ export class SnowCraftGame {
   private fpsFrames = 0;
   private fpsAcc = 0;
   private pendingDifficulty: Difficulty = "easy";
+  private selfPacked = false;
+  private peerPacked = false;
 
   constructor(canvas: HTMLCanvasElement, onUi: (s: UiSnapshot) => void) {
     this.canvas = canvas;
@@ -110,9 +112,6 @@ export class SnowCraftGame {
     this.emit();
     this.last = performance.now() / 1000;
     this.raf = requestAnimationFrame(this.loop);
-    window.setTimeout(() => {
-      if (!this.destroyed && !this.assets) void this.hydrateCore();
-    }, 400);
   }
 
   private onLoadProgress = (done: number, total: number) => {
@@ -146,7 +145,7 @@ export class SnowCraftGame {
       try {
         await loadRestAssets(core, this.onLoadProgress);
         this.loadDone = this.loadTotal;
-        if (this.screen !== "title") this.emit();
+        this.emit();
       } catch (err) {
         console.warn("Extra sprites failed", err);
       }
@@ -181,13 +180,6 @@ export class SnowCraftGame {
       this.beginSolo();
     };
     void this.hydrateRest().then(go, go);
-    window.setTimeout(go, 6000);
-  }
-
-  /** Start packing sprites while the difficulty panel is open. */
-  preparePlay() {
-    this.audio.unlock();
-    void this.hydrateRest();
   }
 
   private beginSolo() {
@@ -197,10 +189,35 @@ export class SnowCraftGame {
     this.startLevel(1, false);
   }
 
+  /** After both players are in the room, load sprites and wait for the other side. */
+  private async ensurePackedThenStart() {
+    if (this.matchStarted) return;
+    if (this.screen !== "loading") {
+      this.screen = "loading";
+      this.emit();
+    }
+    if (this.selfPacked) {
+      this.sendNet({ t: "packed" });
+      this.tryPackedStart();
+      return;
+    }
+    await this.hydrateRest();
+    if (this.destroyed || this.matchStarted) return;
+    this.selfPacked = true;
+    this.sendNet({ t: "packed" });
+    this.sendNet({ t: "packed" });
+    this.tryPackedStart();
+    this.emit();
+  }
+
+  private tryPackedStart() {
+    if (this.matchStarted || !this.selfPacked) return;
+    if (this.netRole === "host" && this.peerPacked) this.beginVersus();
+  }
+
   async createVersus() {
     this.audio.unlock();
     this.audio.startMenuMusic();
-    this.hydrateRest();
     this.closeNet();
     const code = makeRoomCode();
     this.netCode = code;
@@ -227,7 +244,6 @@ export class SnowCraftGame {
   async joinVersus(raw: string) {
     this.audio.unlock();
     this.audio.startMenuMusic();
-    this.hydrateRest();
     const code = normalizeCode(raw);
     if (code.length !== 6) {
       this.netError = "Enter a 6-letter code.";
@@ -426,6 +442,8 @@ export class SnowCraftGame {
     this.netError = null;
     this.matchStarted = false;
     this.botTakeover = false;
+    this.selfPacked = false;
+    this.peerPacked = false;
     this.rematchMine = false;
     this.rematchTheirs = false;
     this.guestAlly = "off";
@@ -477,7 +495,10 @@ export class SnowCraftGame {
       this.netError = null;
     }
     if (this.netRole === "host" && !this.matchStarted && peers.length > 0) {
-      this.beginVersus();
+      void this.ensurePackedThenStart();
+    }
+    if (this.netRole === "guest" && !this.matchStarted && peers.length > 0) {
+      void this.ensurePackedThenStart();
     }
     if (this.matchStarted && this.netStatus === "connecting" && peers.length > 0 && !this.botTakeover) {
       this.netStatus = "live";
@@ -488,6 +509,11 @@ export class SnowCraftGame {
 
   private onNet(data: NetMsg) {
     switch (data.t) {
+      case "packed":
+        this.peerPacked = true;
+        this.lastPeerAt = performance.now();
+        this.tryPackedStart();
+        break;
       case "start":
         if (this.netRole === "guest") {
           this.matchStarted = true;
@@ -716,7 +742,6 @@ export class SnowCraftGame {
     c.addEventListener("pointercancel", this.onUp);
     c.addEventListener("contextmenu", this.onMenu);
     window.addEventListener("keydown", this.onKey);
-    window.addEventListener("pointerdown", this.onPrimeAudio);
     document.addEventListener("visibilitychange", this.onVis);
   }
 
@@ -728,22 +753,10 @@ export class SnowCraftGame {
     c.removeEventListener("pointercancel", this.onUp);
     c.removeEventListener("contextmenu", this.onMenu);
     window.removeEventListener("keydown", this.onKey);
-    window.removeEventListener("pointerdown", this.onPrimeAudio);
     document.removeEventListener("visibilitychange", this.onVis);
   }
 
   private onMenu = (e: Event) => e.preventDefault();
-
-  private onPrimeAudio = () => {
-    try {
-      this.audio.unlock();
-      if (this.screen === "title" || this.screen === "lobby" || this.screen === "loading") {
-        this.audio.startMenuMusic();
-      }
-    } catch {
-      /* gesture unlock must never block UI clicks */
-    }
-  };
 
   private onVis = () => {
     if (document.visibilityState === "visible") this.audio.unlock();
@@ -879,6 +892,7 @@ export class SnowCraftGame {
       if (this.hbAcc >= 1) {
         this.hbAcc = 0;
         this.sendNet({ t: "hb" });
+        if (this.selfPacked && !this.matchStarted) this.sendNet({ t: "packed" });
       }
       if (this.screen === "lobby" && this.netRole === "guest" && !this.matchStarted && this.lobbyAt) {
         if (performance.now() - this.lobbyAt > 10000 && this.lastPeerAt === 0 && !this.netError) {

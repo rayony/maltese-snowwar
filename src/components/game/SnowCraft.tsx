@@ -70,6 +70,9 @@ export function SnowCraft() {
     const game = new SnowCraftGame(canvas, setUi);
     gameRef.current = game;
     void game.start();
+    const boot = (window as { __boot?: string }).__boot;
+    if (boot === "ai") setAiGate(true);
+    if (boot === "friend") setVsGate(true);
     const queued = pendingPlay.current;
     if (queued) {
       pendingPlay.current = null;
@@ -109,10 +112,6 @@ export function SnowCraft() {
     }
     prevScreen.current = ui.screen;
   }, [ui.screen]);
-
-  useEffect(() => {
-    if (aiGate) gameRef.current?.preparePlay();
-  }, [aiGate]);
 
   const g = gameRef.current;
   const playing = ui.screen === "playing";
@@ -385,6 +384,7 @@ export function SnowCraft() {
                   <button
                     type="button"
                     data-testid="play-vs-ai"
+                    data-boot="ai"
                     className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-7 text-base font-medium text-primary-fg shadow-sm [touch-action:manipulation] hover:bg-primary/90"
                     onClick={() => setAiGate(true)}
                   >
@@ -394,6 +394,7 @@ export function SnowCraft() {
                   <button
                     type="button"
                     data-testid="play-vs-friend"
+                    data-boot="friend"
                     className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#3d8fd4] px-7 text-base font-medium text-white shadow-sm [touch-action:manipulation] hover:bg-[#347ebd]"
                     onClick={() => setVsGate(true)}
                   >
@@ -454,11 +455,15 @@ export function SnowCraft() {
       )}
 
       {ui.screen === "loading" && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-ink/70 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/70 p-4 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-xl border border-surface/15 bg-ink/90 p-6 text-center shadow-xl">
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-ice">Almost there</p>
             <h2 className="mt-1 font-display text-3xl font-semibold">Dogs stretching</h2>
-            <p className="mt-2 text-sm text-muted">Packing snowballs for the yard…</p>
+            <p className="mt-2 text-sm text-muted">
+              {versus
+                ? "Waiting until both yards finish packing…"
+                : "Packing snowballs for the yard…"}
+            </p>
             <div className="mt-5 h-2 overflow-hidden rounded-full bg-surface/15">
               <div
                 className="h-full rounded-full bg-ice transition-[width] duration-200"
