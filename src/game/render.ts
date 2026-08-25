@@ -43,13 +43,17 @@ export function playLayout(
   mirror = false,
   compact = false,
 ) {
-  let scale = Math.min(cssW / WORLD_W, cssH / WORLD_H);
-  if (compact) scale *= 1.12;
+  const landscapePhone = compact && cssW > cssH && cssH < 520;
+  const topHud = landscapePhone ? 56 : 0;
+  const botHud = landscapePhone ? 8 : 0;
+  const innerH = Math.max(96, cssH - topHud - botHud);
+  let scale = Math.min(cssW / WORLD_W, innerH / WORLD_H);
+  if (compact && !landscapePhone) scale *= 1.12;
   const worldWcss = WORLD_W * scale;
   const worldHcss = WORLD_H * scale;
   let ox = (cssW - worldWcss) / 2;
-  let oy = (cssH - worldHcss) / 2;
-  if (compact && worldWcss > cssW + 1) {
+  let oy = topHud + (innerH - worldHcss) / 2;
+  if (compact && !landscapePhone && worldWcss > cssW + 1) {
     const minOx = cssW - worldWcss;
     ox = minOx * 0.84;
   }

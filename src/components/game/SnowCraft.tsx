@@ -61,6 +61,7 @@ export function SnowCraft() {
   const { lang, t, toggle } = useLang();
   const [ui, setUi] = useState<UiSnapshot>(INITIAL);
   const [portraitPhone, setPortraitPhone] = useState(false);
+  const [landscapePhone, setLandscapePhone] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [copied, setCopied] = useState(false);
   const [vsGate, setVsGate] = useState(false);
@@ -98,6 +99,7 @@ export function SnowCraft() {
       const touch =
         window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
       setPortraitPhone(touch && window.innerHeight > window.innerWidth * 1.08);
+      setLandscapePhone(touch && window.innerWidth > window.innerHeight * 1.05 && window.innerHeight < 520);
     };
     sync();
     window.addEventListener("resize", sync);
@@ -171,9 +173,19 @@ export function SnowCraft() {
 
       <div className="pointer-events-none absolute inset-0 z-10 flex flex-col text-surface">
         {playing && (
-          <header className="pointer-events-none flex items-start justify-between gap-3 p-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-4">
-            <div className="rounded-xl bg-ink/70 px-3 py-2 backdrop-blur-sm">
-              <p className="font-sans text-lg font-semibold leading-tight tracking-tight">
+          <header
+            className={cn(
+              "pointer-events-none flex items-start justify-between gap-2 pt-[max(0.5rem,env(safe-area-inset-top))]",
+              landscapePhone ? "px-2 pb-1" : "gap-3 p-3 sm:p-4",
+            )}
+          >
+            <div className={cn("rounded-xl bg-ink/70 backdrop-blur-sm", landscapePhone ? "px-2 py-1" : "px-3 py-2")}>
+              <p
+                className={cn(
+                  "font-sans font-semibold leading-tight tracking-tight",
+                  landscapePhone ? "text-sm" : "text-lg",
+                )}
+              >
                 {ui.net.status !== "off" && ui.net.code
                   ? `VS ${ui.net.code}`
                   : ui.net.role !== "solo"
@@ -182,6 +194,7 @@ export function SnowCraft() {
                       ? t("levelHard", { n: ui.level })
                       : t("level", { n: ui.level })}
               </p>
+              {!landscapePhone && (
               <p className="text-xs text-ice">
                 {ui.net.team === "green"
                   ? t("retrieverTeam")
@@ -197,18 +210,29 @@ export function SnowCraft() {
                   : ""}
                 {playing ? ` · ${ui.fps || "–"}fps` : ""}
               </p>
+              )}
             </div>
-            <div className="flex items-center gap-2 rounded-xl bg-ink/70 px-3 py-2 text-sm tabular-nums backdrop-blur-sm">
+            <div
+              className={cn(
+                "flex items-center gap-2 rounded-xl bg-ink/70 text-sm tabular-nums backdrop-blur-sm",
+                landscapePhone ? "px-2 py-1" : "px-3 py-2",
+              )}
+            >
               <span className="font-medium text-primary">{ui.redAlive}</span>
               <span className="text-ice">vs</span>
               <span className="font-medium text-tan">{ui.greenAlive}</span>
             </div>
-            <div className="pointer-events-auto flex flex-wrap items-center justify-end gap-2">
-              <AllyToggle mode={ui.allyMode} onChange={(m) => g?.setAllyMode(m)} t={t} />
+            <div className="pointer-events-auto flex flex-nowrap items-center justify-end gap-1.5">
+              <AllyToggle
+                mode={ui.allyMode}
+                onChange={(m) => g?.setAllyMode(m)}
+                t={t}
+                compact={landscapePhone}
+              />
               <Button
                 variant="ghost"
                 size="icon"
-                className="bg-ink/70 backdrop-blur-sm"
+                className={cn("bg-ink/70 backdrop-blur-sm", landscapePhone && "size-8")}
                 aria-label={ui.muted ? t("unmute") : t("mute")}
                 onClick={() => g?.toggleMute()}
               >
@@ -217,7 +241,7 @@ export function SnowCraft() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="bg-ink/70 backdrop-blur-sm"
+                className={cn("bg-ink/70 backdrop-blur-sm", landscapePhone && "size-8")}
                 aria-label={t("pause")}
                 onClick={() => g?.pause()}
               >
@@ -236,7 +260,7 @@ export function SnowCraft() {
           </div>
         )}
 
-        {playing && !portraitPhone && (
+        {playing && !portraitPhone && !landscapePhone && (
           <p className="mt-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center font-sans text-xs text-ink/80 sm:text-sm">
             {versus
               ? t("hintPvp", { dog: t(myTeam === "green" ? "retriever" : "maltese") })
@@ -829,10 +853,12 @@ function AllyToggle({
   mode,
   onChange,
   t,
+  compact = false,
 }: {
   mode: AllyMode;
   onChange: (m: AllyMode) => void;
   t: TFn;
+  compact?: boolean;
 }) {
   const opts: { id: AllyMode; label: string; icon: ReactNode }[] = [
     { id: "off", label: t("allyManual"), icon: <User /> },
@@ -851,13 +877,14 @@ function AllyToggle({
           type="button"
           onClick={() => onChange(o.id)}
           className={cn(
-            "inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium sm:px-2.5 sm:text-xs",
+            "inline-flex items-center gap-1 rounded-lg font-medium",
+            compact ? "px-1.5 py-1" : "px-2 py-1.5 text-[11px] sm:px-2.5 sm:text-xs",
             mode === o.id ? "bg-surface text-ink shadow-sm" : "text-surface/80 hover:text-surface",
           )}
           aria-pressed={mode === o.id}
         >
           {o.icon}
-          <span className="hidden sm:inline">{o.label}</span>
+          <span className={compact ? "sr-only" : "hidden sm:inline"}>{o.label}</span>
         </button>
       ))}
     </div>
