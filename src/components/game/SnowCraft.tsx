@@ -700,6 +700,7 @@ function TitleBoot() {
         <Loader2 className="size-10 animate-spin text-ice" aria-hidden />
         <p className="text-xs font-medium uppercase tracking-[0.22em] text-ice">Loading</p>
         <p className="font-display text-2xl font-semibold">Maltese Snow War</p>
+        <p className="font-script text-xl font-bold text-[#fff3c4] sm:text-2xl">Hold, Dodge, and Throw!</p>
       </div>
     </div>
   );
