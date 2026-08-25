@@ -282,7 +282,7 @@ export function SnowCraft() {
                     <li>3. Tap for a short toss, hold longer to throw farther</li>
                   </ol>
                   <p className="mt-3 text-sm leading-relaxed text-surface/80">
-                    Easy is the original SnowCraft pace.
+                    Easy is the original SnowCraft pace. Clear 5 heats to win.
                   </p>
                   <p className="mt-2 text-sm font-medium text-surface/90">Hard</p>
                   <ul className="mt-1 list-disc space-y-0.5 pl-4 text-sm leading-relaxed text-surface/75">
@@ -724,6 +724,9 @@ function joinUrl(code: string) {
 
 function versusGameoverCopy(ui: UiSnapshot) {
   if (ui.net.result === "win") {
+    if (ui.net.status === "off" || ui.net.role === "solo") {
+      return `You cleared ${ui.level} heats. The retrievers are buried — Hold, Dodge, and Throw!`;
+    }
     return ui.net.team === "green"
       ? "The retrievers buried the Maltese. Stay in the room for a rematch — no new code needed."
       : "You buried the retrievers. Stay in the room for a rematch — no new code needed.";

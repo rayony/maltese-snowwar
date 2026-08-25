@@ -3,7 +3,7 @@ import { VersusLink } from "./versus-link";
 import { stepAi, type GreenControl } from "./ai";
 import { ASSET_TOTAL, loadCoreAssets, loadRestAssets, type Assets } from "./assets";
 import { GameAudio } from "./audio";
-import { FORT_HP, FIXED_DT, MARGIN, BALL_RADIUS, playFeel, PVP_RANGE, SAVE_KEY, WORLD_H, WORLD_W } from "./constants";
+import { FORT_HP, FIXED_DT, MARGIN, BALL_RADIUS, playFeel, PVP_RANGE, SAVE_KEY, WORLD_H, WORLD_W, AI_WIN_LEVEL } from "./constants";
 import {
   applyState,
   applyPose,
@@ -1505,6 +1505,12 @@ export class SnowCraftGame {
       }
       this.outcomeHandled = true;
       this.audio.win();
+      if (this.state.level >= AI_WIN_LEVEL) {
+        this.versusResult = "win";
+        this.screen = "gameover";
+        this.emit();
+        return;
+      }
       window.setTimeout(() => {
         if (this.destroyed || this.screen !== "playing") return;
         const carry =
