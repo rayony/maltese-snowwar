@@ -196,7 +196,12 @@ export class GameAudio {
   }
 
   go() {
-    this.tone(784, 0.22, "triangle", 0.14);
+    this.kickoff();
+  }
+
+  /** One referee tweet when 3-2-1 ends. */
+  kickoff() {
+    this.blast();
   }
 
   level() {

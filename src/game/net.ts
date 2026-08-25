@@ -32,6 +32,7 @@ export type NetMsg =
   | { t: "rematch"; yes: boolean }
   | { t: "bye" }
   | { t: "bot" }
+  | { t: "packed" }
   | { t: "hb" }
   | { t: "ping"; t0: number }
   | { t: "pong"; t0: number };
