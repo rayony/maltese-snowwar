@@ -1074,7 +1074,8 @@ export class SnowCraftGame {
       alive: true,
       range: this.versus ? PVP_RANGE : 2400,
       traveled: 0,
-      local: true,
+      local: false,
+      born: performance.now(),
     });
     const kid = this.state.kids.find((k) => k.id === msg.id);
     if (kid && kid.state !== "hurt" && kid.state !== "buried") {
@@ -1107,6 +1108,10 @@ export class SnowCraftGame {
       }
     }
     burst(this.state, kid.x, kid.y, 0, 14, "spark");
+    for (const b of this.state.balls) {
+      if (!b.alive || b.team === kid.team) continue;
+      if (Math.hypot(b.x - kid.x, b.y - kid.y) < 96) b.alive = false;
+    }
   }
 
   private sendAllyPose() {
@@ -1449,28 +1454,28 @@ export class SnowCraftGame {
 
   private flyPredictedBalls(dt: number) {
     for (const b of this.state.balls) {
-      if (!b.alive || !b.local) continue;
+      if (!b.alive) continue;
       b.x += b.vx * dt;
       b.y += b.vy * dt;
       b.traveled += Math.hypot(b.vx, b.vy) * dt;
       b.spin += dt * 10;
       if (b.traveled >= b.range || b.x < -40 || b.x > WORLD_W + 40 || b.y < -20 || b.y > WORLD_H + 20) {
         b.alive = false;
-        burst(this.state, b.x, b.y, 0, 12, "spark");
-        this.audio.splat();
+        burst(this.state, b.x, b.y, 0, 10, "spark");
       }
     }
   }
 
   private predictLocalHits() {
+    if (this.versus) return;
     const hitR = playFeel(this.canvas.clientWidth).hit;
     for (const ball of this.state.balls) {
       if (!ball.alive || !ball.local || ball.ghost) continue;
       for (const kid of this.state.kids) {
         if (isOut(kid) || kid.team === ball.team) continue;
         if (this.predHits.some((p) => p.id === kid.id)) continue;
-        const dx = (kid.viewX ?? kid.x) - ball.x;
-        const dy = (kid.viewY ?? kid.y) - 10 - ball.y;
+        const dx = kid.x - ball.x;
+        const dy = kid.y - 10 - ball.y;
         const r = hitR + ball.r;
         if (dx * dx + dy * dy > r * r) continue;
         ball.alive = false;

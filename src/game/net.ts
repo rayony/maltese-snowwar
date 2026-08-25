@@ -29,7 +29,7 @@ export type NetMsg =
   | { t: "input"; kind: "down" | "move" | "up"; x: number; y: number; hold?: number; vx?: number; vy?: number; at?: number }
   | { t: "ally"; mode: AllyMode }
   | { t: "allypose"; kids: { id: number; x: number; y: number }[] }
-  | { t: "pose"; kids: PoseKid[]; intro: number; phase: FightPhase; t0: number }
+  | { t: "pose"; kids: PoseKid[]; intro: number; phase: FightPhase; t0: number; balls?: PoseBall[] }
   | { t: "throw"; id: number; x: number; y: number; vx: number; vy: number; team: Team; t0?: number }
   | { t: "allythrow"; id: number; x: number; y: number; hold: number; dx: number; dy: number; t0?: number }
   | { t: "hit"; id: number; hp: number; heavy: boolean }
@@ -72,6 +72,17 @@ export interface WireBall {
   alive: boolean;
   range: number;
   traveled: number;
+}
+
+export interface PoseBall {
+  i: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  tm: Team;
+  rg: number;
+  tr: number;
 }
 
 export interface PoseKid {
@@ -184,6 +195,18 @@ export function packPose(
     }),
     intro: Math.round(state.introT * 20) / 20,
     phase: state.phase,
+    balls: state.balls
+      .filter((b) => b.alive)
+      .map((b) => ({
+        i: b.fromId,
+        x: q(b.x),
+        y: q(b.y),
+        vx: q(b.vx),
+        vy: q(b.vy),
+        tm: b.team,
+        rg: q(b.range),
+        tr: q(b.traveled),
+      })),
   };
 }
 
@@ -217,6 +240,33 @@ export function applyPose(
       }
     }
     kid.hp = w.h;
+  }
+  if (msg.balls) {
+    const now = typeof performance !== "undefined" ? performance.now() : 0;
+    const mine = opts.predictTeam ?? null;
+    const hostBalls = msg.balls.map((b) => ({
+      x: b.x,
+      y: b.y,
+      vx: b.vx,
+      vy: b.vy,
+      team: b.tm,
+      r: BALL_RADIUS,
+      fromId: b.i,
+      grace: 0,
+      spin: 0,
+      alive: true,
+      range: b.rg,
+      traveled: b.tr,
+      local: false as const,
+      born: now,
+    }));
+    const locals = state.balls.filter((b) => b.alive && b.local && (!mine || b.team === mine));
+    const kept = locals.filter(
+      (loc) =>
+        !hostBalls.some((h) => h.fromId === loc.fromId && Math.hypot(h.x - loc.x, h.y - loc.y) < 160) &&
+        now - (loc.born ?? 0) < 180,
+    );
+    state.balls = [...hostBalls, ...kept];
   }
   if (msg.phase === "intro" || msg.phase === "fight" || msg.phase === "won" || msg.phase === "lost") {
     state.introT = msg.intro;
@@ -333,6 +383,9 @@ export function applyState(
   });
   for (const k of state.kids) ensureAi(k);
   if (!opts.hard) {
+    const now = typeof performance !== "undefined" ? performance.now() : 0;
+    const hold = (opts.keepBallsUntil ?? 0) > now;
+    const mine = opts.predictTeam ?? opts.keepTeam ?? null;
     const hostBalls = wire.balls.map((b) => ({
       x: b.x,
       y: b.y,
@@ -347,14 +400,19 @@ export function applyState(
       range: b.range,
       traveled: b.traveled,
       local: false as const,
+      born: now,
     }));
     const locals = state.balls.filter((b) => b.alive && (b.local || b.ghost));
-    const kept = locals.filter(
-      (loc) =>
-        !hostBalls.some(
-          (h) => h.fromId === loc.fromId && Math.hypot(h.x - loc.x, h.y - loc.y) < 140,
-        ),
-    );
+    const kept = locals.filter((loc) => {
+      const matched = hostBalls.some(
+        (h) => h.fromId === loc.fromId && Math.hypot(h.x - loc.x, h.y - loc.y) < 160,
+      );
+      if (matched) return false;
+      if (mine && loc.team !== mine) return false;
+      if (hold) return true;
+      const age = now - (loc.born ?? 0);
+      return age < 160;
+    });
     state.balls = [...hostBalls, ...kept];
   } else {
     state.balls = wire.balls.map((b) => ({

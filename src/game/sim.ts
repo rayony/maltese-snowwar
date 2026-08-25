@@ -215,6 +215,7 @@ export function throwSnowball(
     range,
     traveled: 0,
     local,
+    born: typeof performance !== "undefined" ? performance.now() : 0,
   };
   state.balls.push(ball);
   kid.state = "throw";

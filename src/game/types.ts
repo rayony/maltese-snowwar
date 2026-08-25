@@ -55,6 +55,7 @@ export interface Snowball {
   traveled: number;
   local?: boolean;
   ghost?: boolean;
+  born?: number;
 }
 
 export interface Fort {
