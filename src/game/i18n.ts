@@ -33,6 +33,9 @@ const EN = {
   playVsAi: "Play vs AI",
   playVsFriend: "Play vs Friend",
   bestLevel: "Best level {n}",
+  topEasy: "Clear · Easy {t}",
+  topHard: "Clear · Hard {t}",
+  topBoth: "Clear · Easy {easy} · Hard {hard}",
   license: "Open Source License",
   architecture: "Architecture",
   github: "GitHub",
@@ -133,6 +136,9 @@ const ZH: Record<keyof typeof EN, string> = {
   playVsAi: "對戰電腦",
   playVsFriend: "對戰朋友",
   bestLevel: "最高關卡 {n}",
+  topEasy: "通關 · 簡單 {t}",
+  topHard: "通關 · 困難 {t}",
+  topBoth: "通關 · 簡單 {easy} · 困難 {hard}",
   license: "開源授權",
   architecture: "架構說明",
   github: "GitHub",
@@ -230,8 +236,11 @@ export function tr(lang: Lang, key: I18nKey, vars?: Record<string, string | numb
   return s;
 }
 
-export function dogName(lang: Lang, team: "red" | "green") {
-  return team === "green" ? tr(lang, "retriever") : tr(lang, "maltese");
+export function formatClock(ms: number) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${r.toString().padStart(2, "0")}`;
 }
 
 export function useLang() {

@@ -51,6 +51,9 @@ export class SnowCraftGame {
   private acc = 0;
   private last = 0;
   private best = 0;
+  private clearEasyMs: number | null = null;
+  private clearHardMs: number | null = null;
+  private runMs = 0;
   private shakeEnabled = true;
   private reducedMotion = false;
   private destroyed = false;
@@ -110,8 +113,14 @@ export class SnowCraftGame {
     try {
       const raw = localStorage.getItem(SAVE_KEY);
       if (raw) {
-        const parsed = JSON.parse(raw) as { best?: number };
+        const parsed = JSON.parse(raw) as {
+          best?: number;
+          clearEasyMs?: number;
+          clearHardMs?: number;
+        };
         if (parsed.best) this.best = parsed.best;
+        if (parsed.clearEasyMs && parsed.clearEasyMs > 0) this.clearEasyMs = parsed.clearEasyMs;
+        if (parsed.clearHardMs && parsed.clearHardMs > 0) this.clearHardMs = parsed.clearHardMs;
       }
     } catch {
       /* ignore */
@@ -427,15 +436,27 @@ export class SnowCraftGame {
     this.rematchTheirs = false;
     this.lastOver = null;
     this.audio.level();
+    if (!versus && level === 1) this.runMs = 0;
     if (!versus && level > this.best) {
       this.best = level;
-      try {
-        localStorage.setItem(SAVE_KEY, JSON.stringify({ best: this.best }));
-      } catch {
-        /* ignore */
-      }
+      this.persistSave();
     }
     this.emit();
+  }
+
+  private persistSave() {
+    try {
+      localStorage.setItem(
+        SAVE_KEY,
+        JSON.stringify({
+          best: this.best,
+          clearEasyMs: this.clearEasyMs,
+          clearHardMs: this.clearHardMs,
+        }),
+      );
+    } catch {
+      /* ignore */
+    }
   }
 
   private beginVersus() {
@@ -1276,6 +1297,9 @@ export class SnowCraftGame {
       netHold;
 
     if (!paused && this.screen !== "gameover") {
+      if (!this.versus && (this.state.phase === "intro" || this.state.phase === "fight")) {
+        this.runMs += dt * 1000;
+      }
       this.acc += dt;
       let steps = 0;
       while (this.acc >= FIXED_DT && steps < 5) {
@@ -1505,6 +1529,17 @@ export class SnowCraftGame {
     this.handleOutcome();
   }
 
+  private recordClear() {
+    const ms = Math.max(1, Math.round(this.runMs));
+    if (this.difficulty === "hard") {
+      if (this.clearHardMs == null || ms < this.clearHardMs) this.clearHardMs = ms;
+    } else if (this.clearEasyMs == null || ms < this.clearEasyMs) {
+      this.clearEasyMs = ms;
+    }
+    this.best = Math.max(this.best, AI_WIN_LEVEL);
+    this.persistSave();
+  }
+
   private handleOutcome() {
     if (this.outcomeHandled) return;
     if (this.versus && this.netRole === "guest" && !this.botTakeover) return;
@@ -1517,6 +1552,7 @@ export class SnowCraftGame {
       this.outcomeHandled = true;
       this.audio.win();
       if (this.state.level >= AI_WIN_LEVEL) {
+        this.recordClear();
         this.versusResult = "win";
         this.screen = "gameover";
         this.emit();
@@ -1568,6 +1604,8 @@ export class SnowCraftGame {
       screen: this.screen,
       level: this.state.level,
       best: this.best,
+      clearEasyMs: this.clearEasyMs,
+      clearHardMs: this.clearHardMs,
       redAlive: living(this.state.kids, "red").length,
       greenAlive: living(this.state.kids, "green").length,
       greenTotal: this.state.kids.filter((k) => k.team === "green").length,

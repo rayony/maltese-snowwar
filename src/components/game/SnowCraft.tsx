@@ -21,7 +21,7 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { SnowCraftGame } from "@/game/game";
 import { normalizeCode } from "@/game/net";
-import { useLang, type I18nKey } from "@/game/i18n";
+import { useLang, formatClock, type I18nKey } from "@/game/i18n";
 import type { AllyMode, Team, UiSnapshot } from "@/game/types";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +29,8 @@ const INITIAL: UiSnapshot = {
   screen: "title",
   level: 1,
   best: 0,
+  clearEasyMs: null,
+  clearHardMs: null,
   redAlive: 3,
   greenAlive: 3,
   greenTotal: 3,
@@ -385,8 +387,21 @@ export function SnowCraft() {
                     {t("playVsFriend")}
                   </button>
                   {ui.net.error && <p className="text-center text-xs text-primary">{ui.net.error}</p>}
-                  {ui.best > 0 && (
-                    <p className="text-center text-xs text-ice">{t("bestLevel", { n: ui.best })}</p>
+                  {ui.clearEasyMs || ui.clearHardMs ? (
+                    <p className="text-center text-xs text-ice">
+                      {ui.clearEasyMs && ui.clearHardMs
+                        ? t("topBoth", {
+                            easy: formatClock(ui.clearEasyMs),
+                            hard: formatClock(ui.clearHardMs),
+                          })
+                        : ui.clearEasyMs
+                          ? t("topEasy", { t: formatClock(ui.clearEasyMs) })
+                          : t("topHard", { t: formatClock(ui.clearHardMs!) })}
+                    </p>
+                  ) : (
+                    ui.best > 0 && (
+                      <p className="text-center text-xs text-ice">{t("bestLevel", { n: ui.best })}</p>
+                    )
                   )}
                   <div className="mt-3 flex items-center justify-center gap-4 text-[11px]">
                     <Link

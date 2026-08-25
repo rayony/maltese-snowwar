@@ -133,6 +133,8 @@ export interface UiSnapshot {
   screen: Screen;
   level: number;
   best: number;
+  clearEasyMs: number | null;
+  clearHardMs: number | null;
   redAlive: number;
   greenAlive: number;
   greenTotal: number;
