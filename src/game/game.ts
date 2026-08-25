@@ -590,6 +590,7 @@ export class SnowCraftGame {
     this.overAcc = 0;
     this.sendNet(this.lastOver);
     this.sendNet(this.lastOver);
+    this.sendNet({ t: "over", winner, round: this.round });
   }
 
   private sendSnap() {
@@ -655,7 +656,13 @@ export class SnowCraftGame {
         if (this.netRole === "guest" && !this.botTakeover) {
           this.lastPeerAt = performance.now();
           this.lastOver = data;
-          applyState(this.state, data.s, { hard: true });
+          if (data.s) {
+            try {
+              applyState(this.state, data.s, { hard: true });
+            } catch {
+              /* winner still applies */
+            }
+          }
           this.grab = null;
           this.keepBallsUntil = 0;
           this.applyHostWinner(data.winner);
@@ -704,12 +711,32 @@ export class SnowCraftGame {
       case "pose":
         if (this.netRole === "guest" && !this.botTakeover) {
           this.lastPeerAt = performance.now();
+          if (this.screen === "gameover" && !(this.rematchMine && this.rematchTheirs)) {
+            if (data.phase === "won" || data.phase === "lost") {
+              this.state.phase = data.phase;
+              this.maybeOutcomeFromSnap();
+            }
+            break;
+          }
           applyPose(this.state, data, {
             grabId: this.grab?.id ?? null,
             predictTeam: this.seat,
             rttMs: this.p2p?.rttMs,
             hostNow: this.hostNowGuess(),
           });
+          if (data.phase === "won" || data.phase === "lost") this.maybeOutcomeFromSnap();
+          if (
+            this.screen === "gameover" &&
+            this.rematchMine &&
+            this.rematchTheirs &&
+            data.phase === "fight"
+          ) {
+            this.startLevel(1, true);
+            this.netStatus = "live";
+            this.screen = "playing";
+            this.audio.startMusic();
+            this.versus = true;
+          }
         }
         break;
       case "throw":
@@ -1155,7 +1182,8 @@ export class SnowCraftGame {
       }
     }
 
-    if (this.netRole === "host" && this.netStatus === "live" && this.screen === "playing") {
+    const hostNet = this.netRole === "host" && (this.netStatus === "live" || this.netStatus === "rematch");
+    if (hostNet && (this.screen === "playing" || this.screen === "gameover")) {
       this.flushThrowQ();
       this.flushGuestInQ();
       this.snapAcc += dt;
@@ -1166,7 +1194,7 @@ export class SnowCraftGame {
         this.snapAcc = 0;
         this.sendPose();
       }
-      if (this.keyframeAcc >= 1.2) {
+      if (this.screen === "playing" && this.keyframeAcc >= 1.2) {
         this.keyframeAcc = 0;
         this.sendSnap();
       }
