@@ -62,7 +62,7 @@ export function SnowCraft() {
   const [aiGate, setAiGate] = useState(false);
   const [qrData, setQrData] = useState<string | null>(null);
   const [qrOpen, setQrOpen] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
+  const pendingPlay = useRef<"easy" | "hard" | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -70,7 +70,11 @@ export function SnowCraft() {
     const game = new SnowCraftGame(canvas, setUi);
     gameRef.current = game;
     void game.start();
-    setHydrated(true);
+    const queued = pendingPlay.current;
+    if (queued) {
+      pendingPlay.current = null;
+      game.play(queued);
+    }
     const params = new URLSearchParams(window.location.search);
     const vs = params.get("vs");
     if (vs && normalizeCode(vs).length === 6) {
@@ -344,7 +348,11 @@ export function SnowCraft() {
                     type="button"
                     data-testid="play-easy"
                     className="inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-pine px-3 text-base font-medium text-white shadow-sm [touch-action:manipulation] hover:bg-pine/90"
-                    onClick={() => gameRef.current?.play("easy")}
+                    onClick={() => {
+                      const g = gameRef.current;
+                      if (g) g.play("easy");
+                      else pendingPlay.current = "easy";
+                    }}
                   >
                     <Leaf className="size-4 shrink-0" />
                     Easy
@@ -353,7 +361,11 @@ export function SnowCraft() {
                     type="button"
                     data-testid="play-hard"
                     className="inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-3 text-base font-medium text-primary-fg shadow-sm [touch-action:manipulation] hover:bg-primary/90"
-                    onClick={() => gameRef.current?.play("hard")}
+                    onClick={() => {
+                      const g = gameRef.current;
+                      if (g) g.play("hard");
+                      else pendingPlay.current = "hard";
+                    }}
                   >
                     <Flame className="size-4 shrink-0" />
                     Hard
@@ -373,8 +385,7 @@ export function SnowCraft() {
                   <button
                     type="button"
                     data-testid="play-vs-ai"
-                    disabled={!hydrated}
-                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-7 text-base font-medium text-primary-fg shadow-sm [touch-action:manipulation] hover:bg-primary/90 disabled:opacity-50"
+                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-7 text-base font-medium text-primary-fg shadow-sm [touch-action:manipulation] hover:bg-primary/90"
                     onClick={() => setAiGate(true)}
                   >
                     <Play className="size-4 shrink-0" />
@@ -383,8 +394,7 @@ export function SnowCraft() {
                   <button
                     type="button"
                     data-testid="play-vs-friend"
-                    disabled={!hydrated}
-                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#3d8fd4] px-7 text-base font-medium text-white shadow-sm [touch-action:manipulation] hover:bg-[#347ebd] disabled:opacity-50"
+                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#3d8fd4] px-7 text-base font-medium text-white shadow-sm [touch-action:manipulation] hover:bg-[#347ebd]"
                     onClick={() => setVsGate(true)}
                   >
                     <Users className="size-4 shrink-0" />
