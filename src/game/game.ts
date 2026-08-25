@@ -1196,10 +1196,13 @@ export class SnowCraftGame {
     c.addEventListener("pointerdown", this.onDown);
     c.addEventListener("pointermove", this.onMove);
     c.addEventListener("pointerup", this.onUp);
-    c.addEventListener("pointercancel", this.onUp);
+    c.addEventListener("pointercancel", this.onCancel);
+    c.addEventListener("lostpointercapture", this.onCancel);
     c.addEventListener("contextmenu", this.onMenu);
     window.addEventListener("keydown", this.onKey);
+    window.addEventListener("pointerdown", this.onGlobalPointer, true);
     document.addEventListener("visibilitychange", this.onVis);
+    document.addEventListener("selectstart", this.onSelectStart);
   }
 
   private unbind() {
@@ -1207,19 +1210,57 @@ export class SnowCraftGame {
     c.removeEventListener("pointerdown", this.onDown);
     c.removeEventListener("pointermove", this.onMove);
     c.removeEventListener("pointerup", this.onUp);
-    c.removeEventListener("pointercancel", this.onUp);
+    c.removeEventListener("pointercancel", this.onCancel);
+    c.removeEventListener("lostpointercapture", this.onCancel);
     c.removeEventListener("contextmenu", this.onMenu);
     window.removeEventListener("keydown", this.onKey);
+    window.removeEventListener("pointerdown", this.onGlobalPointer, true);
     document.removeEventListener("visibilitychange", this.onVis);
+    document.removeEventListener("selectstart", this.onSelectStart);
   }
 
   private onMenu = (e: Event) => e.preventDefault();
+
+  private onSelectStart = (e: Event) => {
+    const el = e.target as HTMLElement | null;
+    if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) return;
+    e.preventDefault();
+  };
+
+  private onGlobalPointer = () => {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount) sel.removeAllRanges();
+  };
+
+  private dropGrab() {
+    const grab = this.grab;
+    if (!grab) return;
+    const kid = this.state.kids.find((k) => k.id === grab.id);
+    if (kid && kid.state === "grabbed") kid.state = kid.packT > 0 ? "pack" : "idle";
+    try {
+      this.canvas.releasePointerCapture(grab.pointerId);
+    } catch {
+      /* not capturing */
+    }
+    this.grab = null;
+  }
+
+  private onCancel = () => {
+    this.dropGrab();
+  };
 
   private onVis = () => {
     if (document.visibilityState === "visible") this.audio.unlock();
   };
 
   private onKey = (e: KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && e.code === "KeyA") {
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) return;
+      e.preventDefault();
+      window.getSelection()?.removeAllRanges();
+      return;
+    }
     if (e.code === "Escape" || e.code === "KeyP") {
       if (this.screen === "playing") this.pause();
       else if (this.screen === "paused") this.resume();
@@ -1251,9 +1292,10 @@ export class SnowCraftGame {
 
   private onDown = (e: PointerEvent) => {
     this.audio.unlock();
+    window.getSelection()?.removeAllRanges();
     if (this.screen !== "playing" || (this.state.phase !== "fight" && this.state.phase !== "intro")) return;
     if (this.netStatus === "disconnect") return;
-    if (this.grab) return;
+    if (this.grab) this.dropGrab();
     const w = this.toWorld(e);
     const kid = this.pickTeam(this.myTeam(), w.x, w.y);
     if (!kid) return;

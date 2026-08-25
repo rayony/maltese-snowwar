@@ -162,7 +162,7 @@ export function SnowCraft() {
   }, [ui.screen, ui.net.code]);
 
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-ink text-surface">
+    <div className="game-shell relative h-dvh w-full overflow-hidden bg-ink text-surface select-none">
       <canvas
         ref={canvasRef}
         className={cn(
@@ -499,7 +499,7 @@ export function SnowCraft() {
                       placeholder={t("code")}
                       aria-label={t("roomCode")}
                       autoCapitalize="characters"
-                      className="h-12 min-w-0 flex-1 rounded-xl border border-surface/20 bg-ink/60 px-3 font-mono text-lg tracking-[0.28em] text-surface placeholder:text-surface/35"
+                      className="h-12 min-w-0 flex-1 rounded-xl border border-surface/20 bg-ink/60 px-3 font-mono text-lg tracking-[0.28em] text-surface placeholder:text-surface/35 select-text"
                     />
                     <Button type="submit" variant="secondary" disabled={joinCode.length !== 6}>
                       {t("join")}

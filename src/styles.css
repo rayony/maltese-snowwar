@@ -75,6 +75,18 @@
     font-family: var(--font-sans);
     overflow: hidden;
   }
+
+  .game-shell {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  .game-shell input,
+  .game-shell textarea {
+    -webkit-user-select: text;
+    user-select: text;
+  }
 }
 
 @keyframes modal-veil {
