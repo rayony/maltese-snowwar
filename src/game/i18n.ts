@@ -186,7 +186,7 @@ const ZH: Record<keyof typeof EN, string> = {
   restart: "重來",
   title: "回到主頁",
   victory: "勝利",
-  buried: "埋了",
+  buried: "被埋了…",
   rematchAsk: "朋友想再來一局。",
   rematchWait: "等朋友接受…",
   rematch: "再來一局",
