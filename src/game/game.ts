@@ -964,6 +964,21 @@ export class SnowCraftGame {
       this.audio.grab();
       return;
     }
+    if (msg.kind === "move" && !this.grabGuest) {
+      const kid = this.pickTeam("green", msg.x, msg.y);
+      if (!kid || isOut(kid)) return;
+      this.grabGuest = {
+        id: kid.id,
+        pointerId: -1,
+        startedAt: performance.now(),
+        lastX: msg.x,
+        lastY: msg.y,
+        vx: 0,
+        vy: 0,
+        packLeft: kid.packT,
+      };
+      kid.state = "grabbed";
+    }
     if (msg.kind === "up" && !this.grabGuest) {
       const kid = this.pickTeam("green", msg.x, msg.y);
       if (!kid || isOut(kid)) return;

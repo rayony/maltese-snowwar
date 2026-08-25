@@ -62,6 +62,21 @@ export class GameAudio {
     } else {
       kick();
     }
+    this.chirp();
+  }
+
+  /** iOS / in-app browsers need a real buffer start() inside the gesture. */
+  private chirp() {
+    if (!this.ctx || this.muted) return;
+    try {
+      const buf = this.ctx.createBuffer(1, 1, this.ctx.sampleRate);
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(this.ctx.destination);
+      src.start(0);
+    } catch {
+      /* ignore */
+    }
   }
 
   setMuted(v: boolean) {

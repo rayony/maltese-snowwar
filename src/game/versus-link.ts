@@ -83,9 +83,16 @@ export class VersusLink {
         : this.poseSeq++
       : this.seq++;
     const wire: Envelope = { n, m: msg };
-    if (this.rtcOpen) {
-      if (unreliable) this.rtc.broadcast(wire);
-      else {
+    const dc = this.rtc.dcReady();
+    this.rtcOpen = dc && !this.iceGaveUp;
+    if (dc) {
+      if (unreliable) {
+        this.rtc.broadcast(wire);
+        // LAN / iOS often drops the unordered channel — copy poses on reliable.
+        if (!this.rtc.stateOpen() || msg.t === "allypose" || (msg.t === "input" && msg.kind === "move")) {
+          this.rtc.send(wire);
+        }
+      } else {
         this.rtc.send(wire);
         const t = msg.t;
         if (t === "over" || t === "start" || t === "rematch" || t === "throw" || t === "hit" || t === "packed") {
@@ -139,7 +146,12 @@ export class VersusLink {
       onMessage(env.m);
       return;
     }
-    if (env.m.t === "pose") {
+    const poseStream =
+      env.m.t === "pose" ||
+      env.m.t === "allypose" ||
+      env.m.t === "hb" ||
+      (env.m.t === "input" && env.m.kind === "move");
+    if (poseStream) {
       if (env.n > 0 && env.n < this.lastPose) return;
       if (env.n > 0) this.lastPose = env.n;
       onMessage(env.m);
@@ -152,7 +164,7 @@ export class VersusLink {
 
   private onRtcPeers(peers: PeerInfo[], onRtc?: (open: boolean) => void) {
     const live = peers.find((p) => p.connectionState === "connected");
-    const open = !!live && !this.iceGaveUp;
+    const open = !!live && !this.iceGaveUp && this.rtc.dcReady();
     if (live?.rttMs != null) this.rttMs = live.rttMs;
     const trying = peers.some(
       (p) => p.connectionState === "connecting" || p.connectionState === "new",

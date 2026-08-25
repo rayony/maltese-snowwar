@@ -152,7 +152,18 @@ export class P2PRoom {
   broadcast(data: unknown): void {
     const wire = JSON.stringify({ t: "d", d: data });
     for (const slot of this.peers.values()) {
-      if (slot.state?.readyState === "open") slot.state.send(wire);
+      const ch =
+        slot.state?.readyState === "open"
+          ? slot.state
+          : slot.reliable?.readyState === "open"
+            ? slot.reliable
+            : null;
+      if (!ch) continue;
+      try {
+        ch.send(wire);
+      } catch {
+        /* channel closing */
+      }
     }
   }
 
@@ -161,8 +172,37 @@ export class P2PRoom {
     const wire = JSON.stringify({ t: "d", d: data });
     const targets = peerId ? [this.peers.get(peerId)] : [...this.peers.values()];
     for (const slot of targets) {
-      if (slot?.reliable?.readyState === "open") slot.reliable.send(wire);
+      const ch =
+        slot?.reliable?.readyState === "open"
+          ? slot.reliable
+          : slot?.state?.readyState === "open"
+            ? slot.state
+            : null;
+      if (!ch) continue;
+      try {
+        ch.send(wire);
+      } catch {
+        /* channel closing */
+      }
     }
+  }
+
+  stateOpen(): boolean {
+    for (const s of this.peers.values()) {
+      if (s.state?.readyState === "open") return true;
+    }
+    return false;
+  }
+
+  reliableOpen(): boolean {
+    for (const s of this.peers.values()) {
+      if (s.reliable?.readyState === "open") return true;
+    }
+    return false;
+  }
+
+  dcReady(): boolean {
+    return this.stateOpen() || this.reliableOpen();
   }
 
   restartIce(): void {
@@ -321,7 +361,7 @@ export class P2PRoom {
       // Creating the channels triggers negotiationneeded → the offer.
       this.attachChannel(
         slot,
-        pc.createDataChannel("state", { ordered: false, maxRetransmits: 0 }),
+        pc.createDataChannel("state", { ordered: false, maxPacketLifeTime: 180 }),
       );
       this.attachChannel(slot, pc.createDataChannel("reliable", { ordered: true }));
     }
@@ -333,7 +373,10 @@ export class P2PRoom {
     else slot.reliable = channel;
     channel.onopen = () => {
       slot.lastProgressAt = Date.now();
+      this.emitPeers();
     };
+    channel.onclose = () => this.emitPeers();
+    channel.onerror = () => this.emitPeers();
     channel.onmessage = (e) => {
       let msg: { t: string; d?: unknown };
       try {
