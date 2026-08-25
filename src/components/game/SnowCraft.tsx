@@ -167,11 +167,11 @@ export function SnowCraft() {
         style={{ touchAction: "none" }}
       />
 
-      <div className="pointer-events-none absolute inset-0 flex flex-col">
+      <div className="pointer-events-none absolute inset-0 z-10 flex flex-col text-surface">
         {playing && (
           <header className="pointer-events-none flex items-start justify-between gap-3 p-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-4">
             <div className="rounded-xl bg-ink/70 px-3 py-2 backdrop-blur-sm">
-              <p className="font-display text-lg font-semibold leading-tight tracking-tight">
+              <p className="font-sans text-lg font-semibold leading-tight tracking-tight">
                 {ui.net.status !== "off" && ui.net.code
                   ? `VS ${ui.net.code}`
                   : ui.net.role !== "solo"
@@ -235,7 +235,7 @@ export function SnowCraft() {
         )}
 
         {playing && !portraitPhone && (
-          <p className="mt-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-xs text-ink/70 sm:text-sm">
+          <p className="mt-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center font-sans text-xs text-ink/80 sm:text-sm">
             {versus
               ? t("hintPvp", { dog: t(myTeam === "green" ? "retriever" : "maltese") })
               : t("hintAi", { dog: t(myTeam === "green" ? "retriever" : "maltese") })}
@@ -243,7 +243,7 @@ export function SnowCraft() {
         )}
       </div>
 
-      {ui.screen === "title" && !live && <TitleBoot t={t} />}
+      {ui.screen === "title" && !live && <TitleBoot t={t} lang={lang} />}
 
       {ui.screen === "title" && live && (
         <div
@@ -261,7 +261,12 @@ export function SnowCraft() {
                   <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight text-surface sm:text-5xl">
                     Maltese Snow War
                   </h1>
-                  <p className="mt-1.5 font-script text-xl font-bold leading-tight text-[#fff3c4] sm:text-2xl">
+                  <p
+                    className={cn(
+                      "mt-1.5 text-xl font-bold leading-tight text-[#fff3c4] sm:text-2xl",
+                      lang === "zh" ? "font-sans tracking-widest" : "font-script",
+                    )}
+                  >
                     {t("slogan")}
                   </p>
                 </div>
@@ -630,7 +635,14 @@ export function SnowCraft() {
                   {win ? t("victory") : t("buried")}
                 </h2>
                 {win && (
-                  <p className="mt-1 font-script text-xl font-bold text-pine">{t("slogan")}</p>
+                  <p
+                    className={cn(
+                      "mt-1 font-bold text-pine",
+                      lang === "zh" ? "font-sans text-lg tracking-wide" : "font-script text-xl",
+                    )}
+                  >
+                    {t("slogan")}
+                  </p>
                 )}
                 <p className="mt-2 text-sm leading-relaxed text-muted">
                   {versusGameoverCopy(ui, t)}
@@ -680,7 +692,7 @@ export function SnowCraft() {
 
 type TFn = (key: I18nKey, vars?: Record<string, string | number>) => string;
 
-function TitleBoot({ t }: { t: TFn }) {
+function TitleBoot({ t, lang }: { t: TFn; lang: "en" | "zh" }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-ink bg-cover bg-center"
@@ -693,7 +705,14 @@ function TitleBoot({ t }: { t: TFn }) {
         <Loader2 className="size-10 animate-spin text-ice" aria-hidden />
         <p className="text-xs font-medium uppercase tracking-[0.22em] text-ice">{t("loading")}</p>
         <p className="font-display text-2xl font-semibold">Maltese Snow War</p>
-        <p className="font-script text-xl font-bold text-[#fff3c4] sm:text-2xl">{t("slogan")}</p>
+        <p
+          className={cn(
+            "text-xl font-bold text-[#fff3c4] sm:text-2xl",
+            lang === "zh" ? "font-sans tracking-widest" : "font-script",
+          )}
+        >
+          {t("slogan")}
+        </p>
       </div>
     </div>
   );
