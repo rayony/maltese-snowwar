@@ -18,6 +18,8 @@ export class VersusLink {
   readonly room: string;
   rtcOpen = false;
   rttMs: number | null = null;
+  /** peerTime - localTime. peerNow ≈ localNow + clockOffset */
+  clockOffset = 0;
 
   private http: RoomChannel;
   private rtc: P2PRoom;
@@ -110,12 +112,17 @@ export class VersusLink {
     const env = asEnvelope(data);
     if (!env) return;
     if (env.m.t === "ping") {
-      this.send({ t: "pong", t0: env.m.t0 } as NetMsg, "pose");
+      this.send({ t: "pong", t0: env.m.t0, t1: performance.now() } as NetMsg, "pose");
       return;
     }
     if (env.m.t === "pong") {
-      const rtt = performance.now() - env.m.t0;
+      const now = performance.now();
+      const rtt = now - env.m.t0;
       if (Number.isFinite(rtt) && rtt >= 0 && rtt < 2000) this.rttMs = Math.round(rtt);
+      if (typeof env.m.t1 === "number" && Number.isFinite(rtt)) {
+        const sample = env.m.t1 + rtt / 2 - now;
+        this.clockOffset = this.clockOffset === 0 ? sample : this.clockOffset * 0.72 + sample * 0.28;
+      }
       return;
     }
     if (env.m.t === "snap") {
