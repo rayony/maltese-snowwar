@@ -264,8 +264,7 @@ export function SnowCraft() {
                 <>
                   <p className="mt-3 text-sm leading-relaxed text-surface/80">
                     Command three Maltese in a snowball brawl against the golden retrievers. Hold
-                    to move, release to throw — a tap drops nearby, a long hold flies across the
-                    field.
+                    a dog to move, release to throw. Pack snow between shots.
                   </p>
                 </>
               )}
