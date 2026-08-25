@@ -37,11 +37,17 @@ function makeBrain(x: number, y: number) {
     destX: x,
     destY: y,
     charge: 0,
+    coverT: 0,
+    awayT: 0,
   };
 }
 
 export function ensureAi(kid: Kid) {
   if (!kid.ai) kid.ai = makeBrain(kid.x, kid.y);
+  else {
+    kid.ai.coverT ??= 0;
+    kid.ai.awayT ??= 0;
+  }
   return kid;
 }
 

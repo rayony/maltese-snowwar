@@ -12,6 +12,8 @@ export interface AiBrain {
   destX: number;
   destY: number;
   charge: number;
+  coverT: number;
+  awayT: number;
 }
 
 export interface Kid {

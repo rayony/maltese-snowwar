@@ -4,6 +4,9 @@ import type { AllyMode, GameState, Kid } from "./types";
 
 export type GreenControl = "enemy" | AllyMode;
 
+const FORT_STAY = 5;
+const FORT_LEAVE = 5;
+
 export function stepAi(
   state: GameState,
   dt: number,
@@ -40,6 +43,8 @@ export function stepAi(
           ? "defend"
           : "attack";
 
+    const forbidFort = tickFortRoam(state, kid, dt, stance === "enemy");
+
     const incoming = incomingBall(state, kid, hard && stance === "enemy" ? 210 : stance === "defend" ? 150 : 95, hard && stance === "enemy");
     if (incoming && kid.ai.phase !== "dodge" && kid.stun <= 0) {
       kid.ai.phase = "dodge";
@@ -50,8 +55,7 @@ export function stepAi(
       const dist = hard && stance === "enemy" ? 118 : stance === "defend" ? 88 : 64;
       kid.ai.destX = clampSide(kid.x + (px / len) * dist, kid.team);
       kid.ai.destY = clamp(kid.y + (py / len) * dist, MARGIN, WORLD_H - MARGIN);
-      // Prefer a fort when defending
-      if (stance === "defend") {
+      if (stance === "defend" && !forbidFort) {
         const fort = nearestFort(state, kid);
         if (fort) {
           kid.ai.destX = clampSide(fort.x + rand(-18, 18), kid.team);
@@ -100,20 +104,70 @@ export function stepAi(
       const cover = !!inFort(kid.x, kid.y, state.forts);
       const throwChance =
         stance === "defend" ? (cover ? 0.64 : 0.28) : stance === "attack" ? 0.72 : 0.55;
-      if (Math.random() < throwChance) {
+      if (Math.random() < throwChance && !(forbidFort && cover)) {
         kid.ai.phase = "windup";
         kid.ai.t = rand(0.2, stance === "attack" ? 0.48 : 0.7);
         kid.ai.charge = 0;
       } else {
         kid.ai.phase = "move";
         kid.ai.t = rand(0.35, stance === "defend" ? 1.3 : 0.95);
-        pickDest(state, kid, stance, hard && stance === "enemy");
+        if (forbidFort) pickAwayFromFort(state, kid);
+        else pickDest(state, kid, stance, hard && stance === "enemy");
       }
     }
   }
 }
 
+function tickFortRoam(state: GameState, kid: Kid, dt: number, isEnemy: boolean) {
+  if (!isEnemy || !kid.ai) return false;
+  const cover = !!inFort(kid.x, kid.y, state.forts);
+  if (kid.ai.awayT > 0) {
+    kid.ai.awayT = Math.max(0, kid.ai.awayT - dt);
+    kid.ai.coverT = 0;
+    if (cover && kid.ai.phase !== "dodge") {
+      kid.ai.phase = "move";
+      kid.ai.t = Math.max(kid.ai.t, 0.8);
+      pickAwayFromFort(state, kid);
+    }
+    return true;
+  }
+  if (cover) {
+    kid.ai.coverT += dt;
+    if (kid.ai.coverT >= FORT_STAY) {
+      kid.ai.coverT = 0;
+      kid.ai.awayT = FORT_LEAVE;
+      kid.ai.phase = "move";
+      kid.ai.t = FORT_LEAVE;
+      pickAwayFromFort(state, kid);
+      return true;
+    }
+  } else {
+    kid.ai.coverT = 0;
+  }
+  return false;
+}
+
+function pickAwayFromFort(state: GameState, kid: Kid) {
+  const fort = nearestFort(state, kid);
+  const ox = kid.x - (fort?.x ?? kid.x);
+  const oy = kid.y - (fort?.y ?? kid.y);
+  const len = Math.hypot(ox, oy) || 1;
+  const dist = rand(100, 160);
+  let x = clampSide(kid.x + (ox / len) * dist, kid.team);
+  let y = clamp(kid.y + (oy / len) * dist, MARGIN, WORLD_H - MARGIN);
+  if (inFort(x, y, state.forts) || Math.hypot(x - (fort?.x ?? x), y - (fort?.y ?? y)) < 70) {
+    x = clampSide(rand(MARGIN + 12, WORLD_W * 0.34), kid.team);
+    y = clamp(kid.y + rand(-90, 90), MARGIN, WORLD_H - MARGIN);
+  }
+  kid.ai!.destX = x;
+  kid.ai!.destY = y;
+}
+
 function pickDest(state: GameState, kid: Kid, stance: "defend" | "attack" | "enemy", scatter = false) {
+  if (kid.ai && kid.ai.awayT > 0) {
+    pickAwayFromFort(state, kid);
+    return;
+  }
   const foes = living(state.kids).filter((k) => k.team !== kid.team);
   const target =
     scatter && foes.length && Math.random() < 0.72
@@ -150,7 +204,6 @@ function pickDest(state: GameState, kid: Kid, stance: "defend" | "attack" | "ene
     }
   }
 
-  // enemy (green)
   if (fort && Math.random() < 0.28) {
     kid.ai!.destX = clampSide(fort.x + rand(-30, 30), kid.team);
     kid.ai!.destY = clamp(fort.y + rand(-16, 16), MARGIN, WORLD_H - MARGIN);
