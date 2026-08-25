@@ -14,15 +14,6 @@
   font-display: swap;
   src: url("/fonts/ChenYuluoyan-title.woff2") format("woff2");
 }
-@font-face {
-  font-family: "Zhi Mang Xing";
-  font-style: normal;
-  font-weight: 400 700;
-  font-display: swap;
-  src: url("/fonts/ZhiMangXing-motto.woff2") format("woff2");
-  /* Simplified-only font: skip 閃/開 so they fall through to ChenYuluoyan */
-  unicode-range: U+3001, U+51FA, U+62CE, U+6389, U+8D77, U+FF01;
-}
 
 @theme {
   --color-bg: #d7e4ee;
@@ -41,7 +32,7 @@
   --font-display: "Fraunces", "PingFang TC", "Songti TC", "Noto Serif TC", "Microsoft JhengHei", ui-serif, Georgia, serif;
   --font-script: "Caveat", "ChenYuluoyan", "PingFang TC", "Hiragino Sans GB", cursive;
   --font-title-script: "Caveat", "ChenYuluoyan", "PingFang TC", "Hiragino Sans GB", cursive;
-  --font-motto-script: "Caveat", "Zhi Mang Xing", "ChenYuluoyan", "PingFang TC", "Hiragino Sans GB", cursive;
+  --font-motto-script: "Caveat", "ChenYuluoyan", "PingFang TC", "Hiragino Sans GB", cursive;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
@@ -60,7 +51,14 @@
   .font-script,
   .font-title-script,
   .font-motto-script {
-    font-synthesis: none;
+    /* 落雁 official file is Thin only — fake a heavier hand. */
+    font-synthesis: weight;
+    font-weight: 700;
+    -webkit-text-stroke: 0.55px currentColor;
+    paint-order: stroke fill;
+  }
+  .font-title-script {
+    -webkit-text-stroke: 0.75px currentColor;
   }
 
   html,
