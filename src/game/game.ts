@@ -685,7 +685,7 @@ export class SnowCraftGame {
     const at = performance.now() - delay;
     const localGrab = this.grab?.id ?? null;
     for (const kid of this.state.kids) {
-      const remote = kid.team !== this.seat;
+      const remote = this.netRole === "guest" && kid.team !== this.seat;
       if (!this.versus || !remote || kid.id === localGrab) {
         kid.viewX = kid.x;
         kid.viewY = kid.y;
@@ -1161,13 +1161,13 @@ export class SnowCraftGame {
   }
 
   private sendAllyPose() {
-    if (this.allyMode === "off" || this.netRole !== "guest") return;
+    if (this.netRole !== "guest" || this.botTakeover) return;
     const t = performance.now();
-    if (t - this.lastAiSend < (this.p2p?.rtcOpen ? 32 : 50)) return;
+    if (t - this.lastAiSend < (this.p2p?.rtcOpen ? 40 : 70)) return;
     this.lastAiSend = t;
     const kids = this.state.kids
       .filter((k) => k.team === "green" && !isOut(k) && k.id !== this.grab?.id)
-      .map((k) => ({ id: k.id, x: k.x, y: k.y }));
+      .map((k) => ({ id: k.id, x: Math.round(k.x), y: Math.round(k.y) }));
     if (kids.length) this.sendNet({ t: "allypose", kids });
   }
 

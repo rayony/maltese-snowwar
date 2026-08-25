@@ -88,10 +88,7 @@ export class VersusLink {
     if (dc) {
       if (unreliable) {
         this.rtc.broadcast(wire);
-        // LAN / iOS often drops the unordered channel — copy poses on reliable.
-        if (!this.rtc.stateOpen() || msg.t === "allypose" || (msg.t === "input" && msg.kind === "move")) {
-          this.rtc.send(wire);
-        }
+        this.rtc.send(wire);
       } else {
         this.rtc.send(wire);
         const t = msg.t;
