@@ -10,11 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CreditsRouteImport } from './routes/credits'
 import { Route as ApiRtcRouteImport } from './routes/api/rtc'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CreditsRoute = CreditsRouteImport.update({
+  id: '/credits',
+  path: '/credits',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiRtcRoute = ApiRtcRouteImport.update({
@@ -25,27 +31,31 @@ const ApiRtcRoute = ApiRtcRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/credits': typeof CreditsRoute
   '/api/rtc': typeof ApiRtcRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/credits': typeof CreditsRoute
   '/api/rtc': typeof ApiRtcRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/credits': typeof CreditsRoute
   '/api/rtc': typeof ApiRtcRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/rtc'
+  fullPaths: '/' | '/credits' | '/api/rtc'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/rtc'
-  id: '__root__' | '/' | '/api/rtc'
+  to: '/' | '/credits' | '/api/rtc'
+  id: '__root__' | '/' | '/credits' | '/api/rtc'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CreditsRoute: typeof CreditsRoute
   ApiRtcRoute: typeof ApiRtcRoute
 }
 
@@ -56,6 +66,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/credits': {
+      id: '/credits'
+      path: '/credits'
+      fullPath: '/credits'
+      preLoaderRoute: typeof CreditsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/rtc': {
@@ -70,6 +87,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CreditsRoute: CreditsRoute,
   ApiRtcRoute: ApiRtcRoute,
 }
 export const routeTree = rootRouteImport

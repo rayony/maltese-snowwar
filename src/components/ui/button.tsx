@@ -13,6 +13,7 @@ const buttonVariants = cva(
           "bg-surface/90 text-ink border border-ink/10 hover:bg-surface",
         ghost: "text-surface hover:bg-surface/10",
         ink: "bg-ink text-surface hover:bg-ink/90",
+        sky: "bg-[#3d8fd4] text-white shadow-sm hover:bg-[#347ebd]",
       },
       size: {
         default: "h-11 rounded-lg px-5 text-sm",
