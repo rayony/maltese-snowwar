@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CreditsRouteImport } from './routes/credits'
+import { Route as ApiArchitectureRouteImport } from './routes/api/architecture'
 import { Route as ApiRtcRouteImport } from './routes/api/rtc'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +24,11 @@ const CreditsRoute = CreditsRouteImport.update({
   path: '/credits',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiArchitectureRoute = ApiArchitectureRouteImport.update({
+  id: '/api/architecture',
+  path: '/api/architecture',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiRtcRoute = ApiRtcRouteImport.update({
   id: '/api/rtc',
   path: '/api/rtc',
@@ -32,30 +38,34 @@ const ApiRtcRoute = ApiRtcRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/credits': typeof CreditsRoute
+  '/api/architecture': typeof ApiArchitectureRoute
   '/api/rtc': typeof ApiRtcRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/credits': typeof CreditsRoute
+  '/api/architecture': typeof ApiArchitectureRoute
   '/api/rtc': typeof ApiRtcRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/credits': typeof CreditsRoute
+  '/api/architecture': typeof ApiArchitectureRoute
   '/api/rtc': typeof ApiRtcRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/credits' | '/api/rtc'
+  fullPaths: '/' | '/credits' | '/api/architecture' | '/api/rtc'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/credits' | '/api/rtc'
-  id: '__root__' | '/' | '/credits' | '/api/rtc'
+  to: '/' | '/credits' | '/api/architecture' | '/api/rtc'
+  id: '__root__' | '/' | '/credits' | '/api/architecture' | '/api/rtc'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CreditsRoute: typeof CreditsRoute
+  ApiArchitectureRoute: typeof ApiArchitectureRoute
   ApiRtcRoute: typeof ApiRtcRoute
 }
 
@@ -75,6 +85,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CreditsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/architecture': {
+      id: '/api/architecture'
+      path: '/api/architecture'
+      fullPath: '/api/architecture'
+      preLoaderRoute: typeof ApiArchitectureRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/rtc': {
       id: '/api/rtc'
       path: '/api/rtc'
@@ -88,6 +105,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CreditsRoute: CreditsRoute,
+  ApiArchitectureRoute: ApiArchitectureRoute,
   ApiRtcRoute: ApiRtcRoute,
 }
 export const routeTree = rootRouteImport
