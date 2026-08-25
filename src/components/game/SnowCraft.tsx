@@ -261,10 +261,10 @@ export function SnowCraft() {
                   <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-ice sm:text-xs">
                     {t("greet")}
                   </p>
-                  <h1 className="mt-1 font-script text-4xl font-bold leading-tight tracking-tight text-surface sm:text-5xl">
+                  <h1 className="mt-1 font-script text-4xl leading-tight tracking-tight text-surface sm:text-5xl">
                     {t("gameTitle")}
                   </h1>
-                  <p className="mt-1.5 font-script text-xl font-bold leading-tight text-[#fff3c4] sm:text-2xl">
+                  <p className="mt-1.5 font-script text-xl leading-tight text-[#fff3c4] sm:text-2xl">
                     {t("slogan")}
                   </p>
                 </div>
@@ -646,7 +646,7 @@ export function SnowCraft() {
                   {win ? t("victory") : t("buried")}
                 </h2>
                 {win && (
-                  <p className="mt-1 font-script text-xl font-bold text-pine">{t("slogan")}</p>
+                  <p className="mt-1 font-script text-xl text-pine">{t("slogan")}</p>
                 )}
                 <p className="mt-2 text-sm leading-relaxed text-muted">
                   {versusGameoverCopy(ui, t)}
@@ -708,8 +708,8 @@ function TitleBoot({ t, lang }: { t: TFn; lang: "en" | "zh" }) {
       <div className="relative flex flex-col items-center gap-4 text-surface">
         <Loader2 className="size-10 animate-spin text-ice" aria-hidden />
         <p className="text-xs font-medium uppercase tracking-[0.22em] text-ice">{t("loading")}</p>
-        <p className="font-script text-3xl font-bold">{t("gameTitle")}</p>
-        <p className="font-script text-xl font-bold text-[#fff3c4] sm:text-2xl">{t("slogan")}</p>
+        <p className="font-script text-3xl">{t("gameTitle")}</p>
+        <p className="font-script text-xl text-[#fff3c4] sm:text-2xl">{t("slogan")}</p>
       </div>
     </div>
   );

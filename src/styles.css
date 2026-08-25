@@ -1,5 +1,21 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: "Caveat";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/Caveat-script.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Iansui";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/Iansui-script.woff2") format("woff2");
+  unicode-range: U+3001, U+51FA, U+5927, U+5C0F, U+6230, U+62CE, U+6389, U+689D, U+72D7, U+7DDA, U+8D77, U+9583, U+958B, U+96EA, U+FF01;
+}
+
 @theme {
   --color-bg: #d7e4ee;
   --color-surface: #f4f7fa;
@@ -29,6 +45,10 @@
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
+  }
+
+  .font-script {
+    font-synthesis: none;
   }
 
   html,
