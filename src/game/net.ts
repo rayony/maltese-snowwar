@@ -25,11 +25,11 @@ export type NetMsg =
   | { t: "start" }
   | { t: "over"; winner: Team; s: WireState; round?: number }
   | { t: "snap"; s: WireState }
-  | { t: "input"; kind: "down" | "move" | "up"; x: number; y: number; hold?: number; vx?: number; vy?: number }
+  | { t: "input"; kind: "down" | "move" | "up"; x: number; y: number; hold?: number; vx?: number; vy?: number; at?: number }
   | { t: "ally"; mode: AllyMode }
   | { t: "allypose"; kids: { id: number; x: number; y: number }[] }
   | { t: "allythrow"; id: number; x: number; y: number; hold: number; dx: number; dy: number }
-  | { t: "pose"; kids: PoseKid[]; intro: number; phase: FightPhase }
+  | { t: "pose"; kids: PoseKid[]; intro: number; phase: FightPhase; t0: number }
   | { t: "throw"; id: number; x: number; y: number; vx: number; vy: number; team: Team }
   | { t: "hit"; id: number; hp: number; heavy: boolean }
   | { t: "rematch"; yes: boolean }
@@ -38,7 +38,7 @@ export type NetMsg =
   | { t: "packed" }
   | { t: "hb" }
   | { t: "ping"; t0: number }
-  | { t: "pong"; t0: number };
+  | { t: "pong"; t0: number; t1?: number };
 
 export interface WireKid {
   id: number;
@@ -77,6 +77,8 @@ export interface PoseKid {
   i: number;
   x: number;
   y: number;
+  vx?: number;
+  vy?: number;
   f: 1 | -1;
   s: KidState;
   h: number;
@@ -153,18 +155,32 @@ export function packState(state: GameState): WireState {
   };
 }
 
-export function packPose(state: GameState): Extract<NetMsg, { t: "pose" }> {
+export function packPose(
+  state: GameState,
+  prev: Map<number, { x: number; y: number; t: number }>,
+  now = performance.now(),
+): Extract<NetMsg, { t: "pose" }> {
   return {
     t: "pose",
-    kids: state.kids.map((k) => ({
-      i: k.id,
-      x: q(k.x),
-      y: q(k.y),
-      f: k.facing,
-      s: k.state,
-      h: k.hp,
-      m: k.moving,
-    })),
+    t0: now,
+    kids: state.kids.map((k) => {
+      const p = prev.get(k.id);
+      const dt = p ? Math.max(0.016, (now - p.t) / 1000) : 0.06;
+      const vx = p ? (k.x - p.x) / dt : 0;
+      const vy = p ? (k.y - p.y) / dt : 0;
+      prev.set(k.id, { x: k.x, y: k.y, t: now });
+      return {
+        i: k.id,
+        x: q(k.x),
+        y: q(k.y),
+        vx: q(vx),
+        vy: q(vy),
+        f: k.facing,
+        s: k.state,
+        h: k.hp,
+        m: k.moving,
+      };
+    }),
     intro: Math.round(state.introT * 20) / 20,
     phase: state.phase,
   };
@@ -173,10 +189,17 @@ export function packPose(state: GameState): Extract<NetMsg, { t: "pose" }> {
 export function applyPose(
   state: GameState,
   msg: Extract<NetMsg, { t: "pose" }>,
-  opts: { grabId?: number | null; predictTeam?: Team | null; rttMs?: number | null } = {},
+  opts: {
+    grabId?: number | null;
+    predictTeam?: Team | null;
+    rttMs?: number | null;
+    hostNow?: number | null;
+  } = {},
 ) {
   const lan = (opts.rttMs ?? 200) < 55;
   const a = lan ? 0.82 : 0.58;
+  const age = opts.hostNow != null ? Math.max(0, (opts.hostNow - msg.t0) / 1000) : 0;
+  const leadT = Math.min(0.05, age * 0.35 + 0.02);
   for (const w of msg.kids) {
     const kid = state.kids.find((k) => k.id === w.i);
     if (!kid) continue;
@@ -185,9 +208,11 @@ export function applyPose(
       continue;
     }
     const keep = opts.predictTeam === kid.team && kid.state !== "hurt" && kid.state !== "buried";
+    const tx = w.x + (w.vx ?? 0) * leadT;
+    const ty = w.y + (w.vy ?? 0) * leadT;
     if (!keep) {
-      kid.x = kid.x + (w.x - kid.x) * a;
-      kid.y = kid.y + (w.y - kid.y) * a;
+      kid.x = kid.x + (tx - kid.x) * a;
+      kid.y = kid.y + (ty - kid.y) * a;
       kid.facing = w.f;
       kid.moving = w.m;
       if (w.s === "hurt" || w.s === "buried" || w.s === "throw" || w.s === "pack") {
@@ -310,7 +335,7 @@ export function applyState(
       ai,
     };
   });
-  if (!opts.hard && opts.keepTeam) {
+  if (!opts.hard) {
     const hostBalls = wire.balls.map((b) => ({
       x: b.x,
       y: b.y,
@@ -326,12 +351,12 @@ export function applyState(
       traveled: b.traveled,
       local: false as const,
     }));
-    const locals = state.balls.filter((b) => b.local && b.alive && b.team === opts.keepTeam);
+    const locals = state.balls.filter((b) => b.alive && (b.local || b.ghost));
     const kept = locals.filter(
       (loc) =>
         !hostBalls.some(
           (h) => h.fromId === loc.fromId && Math.hypot(h.x - loc.x, h.y - loc.y) < 140,
-        ) && now < (opts.keepBallsUntil ?? 0),
+        ),
     );
     state.balls = [...hostBalls, ...kept];
   } else {
