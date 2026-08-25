@@ -254,6 +254,9 @@ export function SnowCraft() {
                   <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight text-surface sm:text-5xl">
                     Maltese Snow War
                   </h1>
+                  <p className="mt-1.5 font-display text-sm italic tracking-[0.22em] text-ice sm:text-base">
+                    Hold, Dodge, Throw
+                  </p>
                 </div>
                 <div className="flex shrink-0 -space-x-2 pt-1" aria-hidden>
                   <DogHead src="/sprites/red/idle-1.png" alt="" kind="maltese" className="z-10" />
