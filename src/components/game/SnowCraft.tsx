@@ -270,43 +270,6 @@ export function SnowCraft() {
                     <li>2. Drag to dodge and line up your lane</li>
                     <li>3. Tap for a short toss, hold longer to throw farther</li>
                   </ol>
-                  <p className="mt-4 text-[11px] leading-relaxed text-surface/50">
-                    Fan tribute (二次創作). Gameplay after{" "}
-                    <a
-                      href="https://archive.org/details/snowcraft_201912"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-ice underline decoration-ice/40 underline-offset-2 hover:text-surface"
-                    >
-                      SnowCraft
-                    </a>{" "}
-                    by Nicholson NY (1998). Dogs inspired by 線條小狗, illustrated by{" "}
-                    <a
-                      href="https://www.instagram.com/moonlab_studio/"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-ice underline decoration-ice/40 underline-offset-2 hover:text-surface"
-                    >
-                      moonlab
-                    </a>
-                    . Fight feel also referenced{" "}
-                    <a
-                      href="https://github.com/jeffreywilbur/snowcraftjs"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-ice underline decoration-ice/40 underline-offset-2 hover:text-surface"
-                    >
-                      snowcraftjs
-                    </a>{" "}
-                    by jeffreywilbur.{" "}
-                    <Link
-                      to="/credits"
-                      className="text-ice underline decoration-ice/40 underline-offset-2 hover:text-surface"
-                    >
-                      Open-source licenses
-                    </Link>
-                    .
-                  </p>
                 </>
               )}
               {aiGate && (
@@ -383,6 +346,7 @@ export function SnowCraft() {
                 </div>
               ) : !vsGate ? (
                 <div className="flex flex-col gap-2.5">
+                  <p className="text-center text-xs text-ice">Unofficial tribute</p>
                   <button
                     type="button"
                     data-testid="play-vs-ai"
@@ -402,8 +366,63 @@ export function SnowCraft() {
                     Play vs Friend
                   </button>
                   {ui.net.error && <p className="text-center text-xs text-primary">{ui.net.error}</p>}
-                  <p className="text-center text-xs text-ice">
-                    {ui.best > 0 ? `Best level ${ui.best}` : "Unofficial tribute"}
+                  {ui.best > 0 && (
+                    <p className="text-center text-xs text-ice">Best level {ui.best}</p>
+                  )}
+                  <div className="mt-3 flex items-center justify-center gap-4 text-[11px]">
+                    <Link
+                      to="/credits"
+                      className="text-ice underline decoration-ice/40 underline-offset-2 hover:text-surface"
+                    >
+                      Open Source License
+                    </Link>
+                    <a
+                      href="/Maltese-Snow-War-Architecture.pdf"
+                      download="Architecture.pdf"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-ice underline decoration-ice/40 underline-offset-2 hover:text-surface"
+                    >
+                      Architecture
+                    </a>
+                    <a
+                      href="https://github.com/rayony/maltese-snowwar"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-ice underline decoration-ice/40 underline-offset-2 hover:text-surface"
+                    >
+                      GitHub
+                    </a>
+                  </div>
+                  <p className="mt-3 text-center text-[11px] leading-relaxed text-surface/50">
+                    Fan tribute (二次創作). Gameplay after{" "}
+                    <a
+                      href="https://archive.org/details/snowcraft_201912"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-ice underline decoration-ice/40 underline-offset-2 hover:text-surface"
+                    >
+                      SnowCraft
+                    </a>{" "}
+                    by Nicholson NY (1998). Dogs inspired by 線條小狗, illustrated by{" "}
+                    <a
+                      href="https://www.instagram.com/moonlab_studio/"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-ice underline decoration-ice/40 underline-offset-2 hover:text-surface"
+                    >
+                      moonlab
+                    </a>
+                    . Fight feel also referenced{" "}
+                    <a
+                      href="https://github.com/jeffreywilbur/snowcraftjs"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-ice underline decoration-ice/40 underline-offset-2 hover:text-surface"
+                    >
+                      snowcraftjs
+                    </a>{" "}
+                    by jeffreywilbur.
                   </p>
                 </div>
               ) : (
