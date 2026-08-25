@@ -19,7 +19,7 @@ import {
   type NetMsg,
   type PoseSample,
 } from "./net";
-import { render, worldFromClient } from "./render";
+import { render, worldFromClient, clampWorldToView } from "./render";
 import { aimFromKid, burst, clamp, createState, isOut, living, puffMissingBalls, snapCombatFx, stepOneBall, stepPresentation, stepSim, throwSnowball } from "./sim";
 import type {
   AllyMode,
@@ -1104,6 +1104,20 @@ export class SnowCraftGame {
     return this.versus && this.seat === "green" && !this.botTakeover;
   }
 
+  private keepOnScreen(x: number, y: number) {
+    return clampWorldToView(x, y, this.canvas.clientWidth, this.canvas.clientHeight, this.mirrored());
+  }
+
+  private clampOwnTeam() {
+    if (this.screen !== "playing") return;
+    for (const kid of this.state.kids) {
+      if (kid.team !== this.seat || isOut(kid)) continue;
+      const p = this.keepOnScreen(kid.x, kid.y);
+      kid.x = p.x;
+      kid.y = p.y;
+    }
+  }
+
   private onDown = (e: PointerEvent) => {
     this.audio.unlock();
     if (this.screen !== "playing" || (this.state.phase !== "fight" && this.state.phase !== "intro")) return;
@@ -1138,16 +1152,17 @@ export class SnowCraftGame {
     if (!kid || isOut(kid)) return;
     this.grab.vx = w.x - kid.x;
     this.grab.vy = w.y - kid.y;
-    kid.x = clamp(w.x, MARGIN, WORLD_W - MARGIN);
-    kid.y = clamp(w.y, MARGIN, WORLD_H - MARGIN);
-    this.grab.lastX = w.x;
-    this.grab.lastY = w.y;
+    const p = this.keepOnScreen(w.x, w.y);
+    kid.x = p.x;
+    kid.y = p.y;
+    this.grab.lastX = p.x;
+    this.grab.lastY = p.y;
     if (this.netRole === "guest") {
       const t = performance.now();
       const gap = this.p2p?.rtcOpen ? 20 : 40;
       if (t - this.lastMoveSend > gap) {
         this.lastMoveSend = t;
-        this.sendNet({ t: "input", kind: "move", x: w.x, y: w.y, at: performance.now() });
+        this.sendNet({ t: "input", kind: "move", x: p.x, y: p.y, at: performance.now() });
       }
     }
   };
@@ -1257,6 +1272,7 @@ export class SnowCraftGame {
         this.acc -= FIXED_DT;
         steps++;
       }
+      this.clampOwnTeam();
     } else if (this.screen === "title" || this.screen === "lobby") {
       this.state.time += dt;
       for (const flake of this.state.flakes) {
@@ -1431,6 +1447,7 @@ export class SnowCraftGame {
       this.predictLocalHits();
       this.expirePredHits();
       stepPresentation(this.state, dt);
+      this.clampOwnTeam();
       this.sendAllyPose();
       return;
     }

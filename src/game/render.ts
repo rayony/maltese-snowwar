@@ -1,4 +1,4 @@
-import { holdPower, isCompactPlay, PACK_TIME, PVP_RANGE, throwRange, WORLD_H, WORLD_W } from "./constants";
+import { holdPower, isCompactPlay, MARGIN, PACK_TIME, PVP_RANGE, throwRange, WORLD_H, WORLD_W } from "./constants";
 import type { Assets } from "./assets";
 import { aimFromKid, clamp, inFort, isOut } from "./sim";
 import type { Fort, GameState, Grab, Kid, Snowball, View } from "./types";
@@ -327,6 +327,27 @@ function visibleWorld(
   const a = WORLD_W + ox / scale;
   const b = WORLD_W - (cssW - ox) / scale;
   return { x0: Math.min(a, b), x1: Math.max(a, b), y0, y1 };
+}
+
+export function clampWorldToView(
+  x: number,
+  y: number,
+  cssW: number,
+  cssH: number,
+  mirror: boolean,
+  pad = 28,
+) {
+  const compact = isCompactPlay(cssW);
+  const { scale, ox, oy } = playLayout(cssW, cssH, mirror, compact);
+  const vis = visibleWorld(cssW, cssH, scale, ox, oy, mirror);
+  const x0 = Math.max(MARGIN, vis.x0 + pad);
+  const x1 = Math.min(WORLD_W - MARGIN, vis.x1 - pad);
+  const y0 = Math.max(MARGIN, vis.y0 + pad);
+  const y1 = Math.min(WORLD_H - MARGIN, vis.y1 - pad);
+  if (x1 <= x0 || y1 <= y0) {
+    return { x: clamp(x, MARGIN, WORLD_W - MARGIN), y: clamp(y, MARGIN, WORLD_H - MARGIN) };
+  }
+  return { x: clamp(x, x0, x1), y: clamp(y, y0, y1) };
 }
 
 function drawOffscreenArrows(
