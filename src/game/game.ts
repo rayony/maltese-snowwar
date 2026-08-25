@@ -127,7 +127,7 @@ export class SnowCraftGame {
     try {
       this.assets = await loadCoreAssets(this.onLoadProgress);
       this.loadDone = Math.max(this.loadDone, 3);
-      this.emit();
+      if (this.screen !== "title") this.emit();
     } catch (err) {
       console.warn("Sprites failed to load, using fallbacks", err);
     }
@@ -146,7 +146,7 @@ export class SnowCraftGame {
       try {
         await loadRestAssets(core, this.onLoadProgress);
         this.loadDone = this.loadTotal;
-        this.emit();
+        if (this.screen !== "title") this.emit();
       } catch (err) {
         console.warn("Extra sprites failed", err);
       }
