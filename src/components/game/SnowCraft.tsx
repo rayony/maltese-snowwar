@@ -267,11 +267,6 @@ export function SnowCraft() {
                     to move, release to throw — a tap drops nearby, a long hold flies across the
                     field.
                   </p>
-                  <ol className="mt-3 space-y-1 text-sm text-surface/75">
-                    <li>1. Press and hold a white Maltese</li>
-                    <li>2. Drag to dodge and line up your lane</li>
-                    <li>3. Tap for a short toss, hold longer to throw farther</li>
-                  </ol>
                 </>
               )}
               {aiGate && (
@@ -279,7 +274,12 @@ export function SnowCraft() {
                   <h2 className="font-display text-2xl font-semibold text-surface sm:text-3xl">
                     Play vs AI
                   </h2>
-                  <p className="mt-2 text-sm leading-relaxed text-surface/80">
+                  <ol className="mt-3 space-y-1 text-sm text-surface/75">
+                    <li>1. Press and hold a white Maltese</li>
+                    <li>2. Drag to dodge and line up your lane</li>
+                    <li>3. Tap for a short toss, hold longer to throw farther</li>
+                  </ol>
+                  <p className="mt-3 text-sm leading-relaxed text-surface/80">
                     Easy is the original SnowCraft pace.
                   </p>
                   <p className="mt-2 text-sm font-medium text-surface/90">Hard</p>
