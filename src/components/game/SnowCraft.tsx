@@ -602,6 +602,10 @@ export function SnowCraft() {
               {ui.muted ? <VolumeX /> : <Volume2 />}
               {ui.muted ? "Unmute" : "Mute"}
             </Button>
+            <Button variant="secondary" onClick={() => g?.toTitle()}>
+              <Home />
+              Title
+            </Button>
           </div>
         </Modal>
       )}
