@@ -23,7 +23,7 @@ export function roomIdFromCode(code: string) {
 export type NetMsg =
   | { t: "hello"; role: "host" | "guest" }
   | { t: "start" }
-  | { t: "over"; winner: Team; s: WireState; round?: number }
+  | { t: "over"; winner: Team; s?: WireState; round?: number }
   | { t: "snap"; s: WireState }
   | { t: "input"; kind: "down" | "move" | "up"; x: number; y: number; hold?: number; vx?: number; vy?: number; at?: number }
   | { t: "ally"; mode: AllyMode }
@@ -223,9 +223,16 @@ export function applyPose(
     }
     kid.hp = w.h;
   }
-  if (msg.phase === "intro" || msg.phase === "fight") {
+  if (msg.phase === "intro" || msg.phase === "fight" || msg.phase === "won" || msg.phase === "lost") {
     state.introT = msg.intro;
-    if (state.phase === "intro" || state.phase === "fight") state.phase = msg.phase;
+    if (
+      state.phase === "intro" ||
+      state.phase === "fight" ||
+      msg.phase === "won" ||
+      msg.phase === "lost"
+    ) {
+      state.phase = msg.phase;
+    }
   }
 }
 
