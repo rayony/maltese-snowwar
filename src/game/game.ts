@@ -104,8 +104,11 @@ export class SnowCraftGame {
   private posePrev = new Map<number, { x: number; y: number; t: number }>();
   private keyframeAcc = 0;
   private guestInQ: { at: number; msg: Extract<NetMsg, { t: "input" }> }[] = [];
-  private predHits: { id: number; at: number; hp: number; state: Kid["state"] }[] = [];
+  private predHits: { id: number; at: number; hp: number; state: Kid["state"]; kind: "spark" | "pose" | "sfx" }[] = [];
   private poseHist: PoseSample[] = [];
+  private rttSmooth = 0;
+  private hitTier: "tight" | "mid" | "loose" = "tight";
+  private hitTierHoldUntil = 0;
 
   private titleArm: (() => void) | null = null;
 
@@ -432,6 +435,9 @@ export class SnowCraftGame {
     this.guestInQ = [];
     this.predHits = [];
     this.poseHist = [];
+    this.rttSmooth = 0;
+    this.hitTier = "tight";
+    this.hitTierHoldUntil = 0;
     this.state = createState(level, versus, {
       fortHp: !versus && this.difficulty === "hard" ? FORT_HP : 0,
       buriedRed: !versus && this.difficulty === "hard" ? buriedRed : undefined,
@@ -519,6 +525,9 @@ export class SnowCraftGame {
     this.guestInQ = [];
     this.predHits = [];
     this.poseHist = [];
+    this.rttSmooth = 0;
+    this.hitTier = "tight";
+    this.hitTierHoldUntil = 0;
     this.rematchMine = false;
     this.rematchTheirs = false;
     this.guestAlly = "off";
@@ -1097,12 +1106,12 @@ export class SnowCraftGame {
     if (msg.heavy || kid.hp <= 0) {
       kid.state = "buried";
       kid.stateT = 0;
-      if (!predicted) this.audio.bury();
+      if (predicted?.kind !== "sfx") this.audio.bury();
     } else {
       kid.state = "hurt";
       kid.stateT = 0.45;
       kid.stun = 0.35;
-      if (!predicted) {
+      if (predicted?.kind !== "sfx") {
         this.audio.hit();
         this.audio.splat();
       }
@@ -1452,6 +1461,43 @@ export class SnowCraftGame {
     }
   }
 
+  private updateHitTier() {
+    const rtt = this.p2p?.rttMs;
+    if (rtt == null || rtt < 0) return;
+    this.rttSmooth = this.rttSmooth <= 0 ? rtt : this.rttSmooth * 0.8 + rtt * 0.2;
+    const now = performance.now();
+    const want: "tight" | "mid" | "loose" =
+      this.rttSmooth >= 120 ? "loose" : this.rttSmooth >= 55 ? "mid" : "tight";
+    const rank = { tight: 0, mid: 1, loose: 2 } as const;
+    if (rank[want] > rank[this.hitTier]) {
+      this.hitTier = want;
+      this.hitTierHoldUntil = now + 2000;
+    } else if (rank[want] < rank[this.hitTier]) {
+      if (now >= this.hitTierHoldUntil) this.hitTier = want;
+    } else {
+      this.hitTierHoldUntil = now + 2000;
+    }
+  }
+
+  private aimPoint(kid: Kid) {
+    const ahead = Math.min(0.12, (this.rttSmooth || this.p2p?.rttMs || 80) / 2000);
+    const hist = this.poseHist;
+    let vx = 0;
+    let vy = 0;
+    if (hist.length >= 2) {
+      const a = hist[hist.length - 2]!;
+      const b = hist[hist.length - 1]!;
+      const ka = a.kids.get(kid.id);
+      const kb = b.kids.get(kid.id);
+      const dt = (b.t - a.t) / 1000;
+      if (ka && kb && dt > 0.012) {
+        vx = (kb.x - ka.x) / dt;
+        vy = (kb.y - ka.y) / dt;
+      }
+    }
+    return { x: kid.x + vx * ahead, y: kid.y + vy * ahead };
+  }
+
   private flyPredictedBalls(dt: number) {
     for (const b of this.state.balls) {
       if (!b.alive) continue;
@@ -1467,7 +1513,37 @@ export class SnowCraftGame {
   }
 
   private predictLocalHits() {
-    if (this.versus) return;
+    if (this.versus) {
+      this.updateHitTier();
+      if (this.hitTier === "tight") return;
+      const hitR = playFeel(this.canvas.clientWidth).hit * (this.hitTier === "mid" ? 0.68 : 0.82);
+      for (const ball of this.state.balls) {
+        if (!ball.alive || ball.ghost || ball.team !== this.seat) continue;
+        for (const kid of this.state.kids) {
+          if (isOut(kid) || kid.team === ball.team) continue;
+          if (this.predHits.some((p) => p.id === kid.id)) continue;
+          const aim = this.aimPoint(kid);
+          const dx = aim.x - ball.x;
+          const dy = aim.y - 10 - ball.y;
+          const r = hitR + ball.r;
+          if (dx * dx + dy * dy > r * r) continue;
+          const closing = (ball.vx * dx + ball.vy * dy) / (Math.hypot(dx, dy) || 1);
+          if (closing < 40) continue;
+          burst(this.state, kid.x, kid.y, 0, this.hitTier === "loose" ? 10 : 7, "spark");
+          kid.flash = 0.12;
+          if (this.hitTier === "loose" && kid.state !== "buried") {
+            this.predHits.push({ id: kid.id, at: performance.now(), hp: kid.hp, state: kid.state, kind: "pose" });
+            kid.state = "hurt";
+            kid.stateT = 0.28;
+            kid.stun = 0.12;
+          } else {
+            this.predHits.push({ id: kid.id, at: performance.now(), hp: kid.hp, state: kid.state, kind: "spark" });
+          }
+          break;
+        }
+      }
+      return;
+    }
     const hitR = playFeel(this.canvas.clientWidth).hit;
     for (const ball of this.state.balls) {
       if (!ball.alive || !ball.local || ball.ghost) continue;
@@ -1479,7 +1555,7 @@ export class SnowCraftGame {
         const r = hitR + ball.r;
         if (dx * dx + dy * dy > r * r) continue;
         ball.alive = false;
-        this.predHits.push({ id: kid.id, at: performance.now(), hp: kid.hp, state: kid.state });
+        this.predHits.push({ id: kid.id, at: performance.now(), hp: kid.hp, state: kid.state, kind: "sfx" });
         kid.flash = 0.16;
         kid.state = "hurt";
         kid.stateT = 0.35;
@@ -1494,13 +1570,16 @@ export class SnowCraftGame {
 
   private expirePredHits() {
     const now = performance.now();
+    const wait = this.versus ? Math.max(280, (this.rttSmooth || 90) + 80) : 140;
     this.predHits = this.predHits.filter((p) => {
-      if (now - p.at < 140) return true;
-      const kid = this.state.kids.find((k) => k.id === p.id);
-      if (kid && kid.hp === p.hp && kid.state === "hurt") {
-        kid.state = p.state === "hurt" ? "idle" : p.state;
-        kid.flash = 0;
-        kid.stun = 0;
+      if (now - p.at < wait) return true;
+      if (p.kind === "pose") {
+        const kid = this.state.kids.find((k) => k.id === p.id);
+        if (kid && kid.hp === p.hp && kid.state === "hurt") {
+          kid.state = p.state === "hurt" ? "idle" : p.state;
+          kid.flash = 0;
+          kid.stun = 0;
+        }
       }
       return false;
     });
