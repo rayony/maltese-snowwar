@@ -3,6 +3,7 @@ import {
   Flame,
   Home,
   Leaf,
+  Loader2,
   Pause,
   Play,
   QrCode,
@@ -63,6 +64,7 @@ export function SnowCraft() {
   const [qrData, setQrData] = useState<string | null>(null);
   const [qrOpen, setQrOpen] = useState(false);
   const pendingPlay = useRef<"easy" | "hard" | null>(null);
+  const [live, setLive] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -70,9 +72,7 @@ export function SnowCraft() {
     const game = new SnowCraftGame(canvas, setUi);
     gameRef.current = game;
     void game.start();
-    const boot = (window as { __boot?: string }).__boot;
-    if (boot === "ai") setAiGate(true);
-    if (boot === "friend") setVsGate(true);
+    setLive(true);
     const queued = pendingPlay.current;
     if (queued) {
       pendingPlay.current = null;
@@ -234,7 +234,9 @@ export function SnowCraft() {
         )}
       </div>
 
-      {ui.screen === "title" && (
+      {ui.screen === "title" && !live && <TitleBoot />}
+
+      {ui.screen === "title" && live && (
         <div
           className="fixed inset-0 z-50 flex items-stretch justify-center bg-ink bg-cover bg-center p-3 sm:p-4"
           style={{ backgroundImage: "url(/images/title-bg.jpg?v=3)", touchAction: "manipulation" }}
@@ -384,7 +386,6 @@ export function SnowCraft() {
                   <button
                     type="button"
                     data-testid="play-vs-ai"
-                    data-boot="ai"
                     className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-7 text-base font-medium text-primary-fg shadow-sm [touch-action:manipulation] hover:bg-primary/90"
                     onClick={() => setAiGate(true)}
                   >
@@ -394,7 +395,6 @@ export function SnowCraft() {
                   <button
                     type="button"
                     data-testid="play-vs-friend"
-                    data-boot="friend"
                     className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#3d8fd4] px-7 text-base font-medium text-white shadow-sm [touch-action:manipulation] hover:bg-[#347ebd]"
                     onClick={() => setVsGate(true)}
                   >
@@ -650,6 +650,24 @@ export function SnowCraft() {
           </div>
         </Modal>
       )}
+    </div>
+  );
+}
+
+function TitleBoot() {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink bg-cover bg-center"
+      style={{ backgroundImage: "url(/images/title-bg.jpg?v=3)" }}
+      aria-busy="true"
+      aria-live="polite"
+    >
+      <div className="absolute inset-0 bg-ink/50" />
+      <div className="relative flex flex-col items-center gap-4 text-surface">
+        <Loader2 className="size-10 animate-spin text-ice" aria-hidden />
+        <p className="text-xs font-medium uppercase tracking-[0.22em] text-ice">Loading</p>
+        <p className="font-display text-2xl font-semibold">Maltese Snow War</p>
+      </div>
     </div>
   );
 }
