@@ -3,6 +3,7 @@ import {
   enemyCountForLevel,
   holdPower,
   HP,
+  INTRO_TIME,
   MARGIN,
   PACK_TIME,
   PLAYER_COUNT,
@@ -63,33 +64,45 @@ function makeKid(state: GameState, team: Team, x: number, y: number): Kid {
   };
 }
 
-export function makeForts(): Fort[] {
+export function makeForts(hp = 0): Fort[] {
   return [
-    { x: 390, y: 168, rx: 92, ry: 40, hitFlash: 0 },
-    { x: 545, y: 372, rx: 108, ry: 46, hitFlash: 0 },
+    { x: 390, y: 168, rx: 92, ry: 40, hitFlash: 0, hp, maxHp: hp },
+    { x: 545, y: 372, rx: 108, ry: 46, hitFlash: 0, hp, maxHp: hp },
   ];
 }
 
-export function createState(level: number, versus = false): GameState {
+export function createState(
+  level: number,
+  versus = false,
+  opts: { fortHp?: number; buriedRed?: boolean[]; hard?: boolean } = {},
+): GameState {
   const state: GameState = {
     kids: [],
     balls: [],
-    forts: makeForts(),
+    forts: makeForts(opts.fortHp ?? 0),
     particles: [],
     footprints: [],
     flakes: [],
     level,
     freeze: 0,
-    introT: 1.25,
+    introT: INTRO_TIME,
     phase: "intro",
     nextId: 1,
     time: 0,
     trauma: 0,
+    hard: !!opts.hard,
   };
 
   const redYs = [128, 270, 412];
   for (let i = 0; i < PLAYER_COUNT; i++) {
-    state.kids.push(makeKid(state, "red", 790 + (i % 2) * 36, redYs[i]!));
+    const kid = makeKid(state, "red", 790 + (i % 2) * 36, redYs[i]!);
+    if (opts.buriedRed?.[i]) {
+      kid.hp = 0;
+      kid.state = "buried";
+      kid.stateT = 0;
+      kid.fidget = null;
+    }
+    state.kids.push(kid);
   }
 
   const n = versus ? PLAYER_COUNT : enemyCountForLevel(level);
@@ -128,6 +141,7 @@ export function createState(level: number, versus = false): GameState {
 
 export function inFort(x: number, y: number, forts: Fort[]) {
   for (const f of forts) {
+    if (f.maxHp > 0 && f.hp <= 0) continue;
     const dx = (x - f.x) / f.rx;
     const dy = (y - f.y) / f.ry;
     if (dx * dx + dy * dy <= 1) return f;
@@ -164,6 +178,7 @@ export function throwSnowball(
   charge: number,
   dirX: number,
   dirY: number,
+  local = false,
 ) {
   if (kid.packT > 0 || kid.state === "pack") return 0;
   const power = holdPower(charge);
@@ -175,7 +190,7 @@ export function throwSnowball(
   }
   const nx = dirX / len;
   const ny = dirY / len;
-  const speed = throwSpeed(power);
+  const speed = throwSpeed(power) * (state.hard ? 2 : 1);
   const range = throwRange(power);
   const cover = inFort(kid.x, kid.y, state.forts);
   const ball: Snowball = {
@@ -191,6 +206,7 @@ export function throwSnowball(
     alive: true,
     range,
     traveled: 0,
+    local,
   };
   state.balls.push(ball);
   kid.state = "throw";
@@ -225,6 +241,54 @@ export function burst(
       kind,
     });
   }
+}
+
+type BallHint = { alive: boolean; team: Team; fromId: number; x: number; y: number; traveled: number };
+
+export function snapCombatFx(
+  state: GameState,
+  wire: { balls: BallHint[]; kids: { id: number; hp: number; state: string; x: number; y: number }[] },
+  myTeam: Team,
+) {
+  const other = myTeam === "red" ? "green" : "red";
+  let hits = 0;
+  const lands = puffMissingBalls(state, wire, other);
+  for (const w of wire.balls) {
+    if (!w.alive || w.team === myTeam || w.traveled > 55) continue;
+    const known = state.balls.some(
+      (b) => b.alive && b.fromId === w.fromId && Math.hypot(b.x - w.x, b.y - w.y) < 80,
+    );
+    if (!known) burst(state, w.x, w.y, 0, 8, "puff");
+  }
+  for (const w of wire.kids) {
+    const prev = state.kids.find((k) => k.id === w.id);
+    if (!prev) continue;
+    if (w.hp < prev.hp || (w.state === "hurt" && prev.state !== "hurt") || (w.state === "buried" && prev.state !== "buried")) {
+      burst(state, w.x, w.y, 0, w.state === "buried" ? 16 : 12, "puff");
+      hits += 1;
+      state.trauma = Math.max(state.trauma, w.state === "buried" ? 0.55 : 0.32);
+    }
+  }
+  return { hits, lands };
+}
+
+export function puffMissingBalls(
+  state: GameState,
+  incoming: { balls: BallHint[] },
+  team: Team,
+) {
+  let n = 0;
+  for (const b of state.balls) {
+    if (!b.alive || b.team !== team || b.traveled < 28) continue;
+    const still = incoming.balls.some(
+      (w) => w.alive && w.team === team && w.fromId === b.fromId && Math.hypot(w.x - b.x, w.y - b.y) < 90,
+    );
+    if (!still) {
+      burst(state, b.x, b.y, 0, 12, "spark");
+      n += 1;
+    }
+  }
+  return n;
 }
 
 function separate(state: GameState, dt: number) {
@@ -307,6 +371,13 @@ function stepBalls(
       if (wall) {
         ball.alive = false;
         wall.hitFlash = 0.28;
+        if (wall.maxHp > 0 && wall.hp > 0) {
+          wall.hp -= 1;
+          if (wall.hp <= 0) {
+            wall.hp = 0;
+            burst(state, wall.x, wall.y, 0, 22, "puff");
+          }
+        }
         burst(state, ball.x, ball.y, 0, 16, "puff");
         extra?.onFort?.();
         continue;
@@ -393,6 +464,44 @@ function stepFidget(state: GameState, kid: Kid, dt: number) {
   } else {
     kid.fidgetWait = rand(1.1, 2.6);
   }
+}
+
+export function stepPresentation(state: GameState, dt: number) {
+  for (const kid of state.kids) {
+    kid.animT += dt;
+    kid.flash = Math.max(0, kid.flash - dt);
+    kid.stun = Math.max(0, kid.stun - dt);
+    kid.packT = Math.max(0, kid.packT - dt);
+    if (kid.state === "throw" || kid.state === "hurt") {
+      kid.stateT -= dt;
+      if (kid.stateT <= 0) {
+        kid.state = kid.state === "throw" && kid.packT > 0 ? "pack" : "idle";
+      }
+    } else if (kid.state === "pack" && kid.packT <= 0) {
+      kid.state = "idle";
+    }
+    if (kid.state === "idle" && kid.packT > 0) kid.state = "pack";
+    if (kid.state === "pack" && Math.random() < dt * 7) {
+      burst(state, kid.x + rand(-8, 8), kid.y + 10, 0, 2, "puff");
+    }
+    stepFidget(state, kid, dt);
+  }
+  state.trauma = Math.max(0, state.trauma - dt * 1.8);
+  for (const flake of state.flakes) {
+    flake.x += flake.vx * dt + Math.sin(state.time * 2 + flake.y) * 8 * dt;
+    flake.y += flake.vy * dt;
+    if (flake.y > WORLD_H) {
+      flake.y = -4;
+      flake.x = Math.random() * WORLD_W;
+    }
+  }
+  for (const p of state.particles) {
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.life -= dt;
+  }
+  state.particles = state.particles.filter((p) => p.life > 0);
+  state.time += dt;
 }
 
 function stepKids(state: GameState, dt: number) {
@@ -483,10 +592,11 @@ export function stepSim(
   else if (greens === 0) state.phase = "won";
 }
 
-export function aimFromKid(kid: Kid, kids: Kid[], extraX = 0, extraY = 0) {
+export function aimFromKid(kid: Kid, kids: Kid[], extraX = 0, extraY = 0, scatter = false) {
   void extraX;
   void extraY;
-  const target = closestEnemy(kid, kids);
+  const foes = kids.filter((k) => k.team !== kid.team && !isOut(k));
+  const target = scatter && foes.length ? foes[(Math.random() * foes.length) | 0]! : closestEnemy(kid, kids);
   if (!target) {
     return { dx: kid.team === "red" ? -1 : 1, dy: 0 };
   }

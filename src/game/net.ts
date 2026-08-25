@@ -1,4 +1,5 @@
 import type { AllyMode, FightPhase, Fidget, GameState, Kid, KidState, Team } from "./types";
+import { BALL_RADIUS } from "./constants";
 
 const ABC = "ABCDEFGHJKLMNPQRSTUVWXYZ";
 
@@ -22,13 +23,18 @@ export function roomIdFromCode(code: string) {
 export type NetMsg =
   | { t: "hello"; role: "host" | "guest" }
   | { t: "start" }
+  | { t: "over"; winner: Team; s: WireState; round?: number }
   | { t: "snap"; s: WireState }
   | { t: "input"; kind: "down" | "move" | "up"; x: number; y: number; hold?: number; vx?: number; vy?: number }
   | { t: "ally"; mode: AllyMode }
+  | { t: "allypose"; kids: { id: number; x: number; y: number }[] }
+  | { t: "allythrow"; id: number; x: number; y: number; hold: number; dx: number; dy: number }
   | { t: "rematch"; yes: boolean }
   | { t: "bye" }
   | { t: "bot" }
-  | { t: "hb" };
+  | { t: "hb" }
+  | { t: "ping"; t0: number }
+  | { t: "pong"; t0: number };
 
 export interface WireKid {
   id: number;
@@ -36,130 +42,261 @@ export interface WireKid {
   x: number;
   y: number;
   hp: number;
-  maxHp: number;
+  maxHp?: number;
   state: KidState;
   stateT: number;
   packT: number;
-  animT: number;
-  flash: number;
-  stun: number;
+  animT?: number;
+  flash?: number;
+  stun?: number;
   facing: 1 | -1;
-  fidget: Fidget;
-  fidgetT: number;
-  fidgetWait: number;
+  fidget?: Fidget;
+  fidgetT?: number;
+  fidgetWait?: number;
   moving: boolean;
-  cooldown: number;
+  cooldown?: number;
+}
+
+export interface WireBall {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  team: Team;
+  fromId: number;
+  alive: boolean;
+  range: number;
+  traveled: number;
 }
 
 export interface WireState {
   kids: WireKid[];
-  balls: GameState["balls"];
-  forts: GameState["forts"];
-  particles: GameState["particles"];
-  footprints: GameState["footprints"];
+  balls: WireBall[];
+  forts?: GameState["forts"];
+  particles?: GameState["particles"];
+  footprints?: GameState["footprints"];
   level: number;
   freeze: number;
   introT: number;
   phase: FightPhase;
   nextId: number;
   time: number;
-  trauma: number;
+  trauma?: number;
+}
+
+function q(n: number) {
+  return Math.round(n);
 }
 
 function packKid(k: Kid): WireKid {
   return {
     id: k.id,
     team: k.team,
-    x: k.x,
-    y: k.y,
+    x: q(k.x),
+    y: q(k.y),
     hp: k.hp,
-    maxHp: k.maxHp,
     state: k.state,
-    stateT: k.stateT,
-    packT: k.packT,
-    animT: k.animT,
-    flash: k.flash,
-    stun: k.stun,
+    stateT: Math.round(k.stateT * 40) / 40,
+    packT: Math.round(k.packT * 40) / 40,
     facing: k.facing,
-    fidget: k.fidget,
-    fidgetT: k.fidgetT,
-    fidgetWait: k.fidgetWait,
     moving: k.moving,
-    cooldown: k.cooldown,
   };
 }
 
 export function packState(state: GameState): WireState {
+  const forts =
+    state.phase === "intro" || state.forts.some((f) => f.hitFlash > 0.02)
+      ? state.forts.map((f) => ({
+          x: f.x,
+          y: f.y,
+          rx: f.rx,
+          ry: f.ry,
+          hitFlash: Math.round(f.hitFlash * 20) / 20,
+          hp: f.hp,
+          maxHp: f.maxHp,
+        }))
+      : undefined;
   return {
     kids: state.kids.map(packKid),
-    balls: state.balls,
-    forts: state.forts,
-    particles: [],
-    footprints: [],
+    balls: state.balls.filter((b) => b.alive).map((b) => ({
+      x: q(b.x),
+      y: q(b.y),
+      vx: q(b.vx),
+      vy: q(b.vy),
+      team: b.team,
+      fromId: b.fromId,
+      alive: true,
+      range: q(b.range),
+      traveled: q(b.traveled),
+    })),
+    forts,
     level: state.level,
-    freeze: state.freeze,
-    introT: state.introT,
+    freeze: Math.round(state.freeze * 40) / 40,
+    introT: Math.round(state.introT * 20) / 20,
     phase: state.phase,
     nextId: state.nextId,
-    time: state.time,
-    trauma: state.trauma,
+    time: Math.round(state.time * 20) / 20,
   };
 }
 
 export function applyState(
   state: GameState,
   wire: WireState,
-  opts: { grabId?: number | null; keepTeam?: Team | null; keepBallsUntil?: number } = {},
+  opts: {
+    grabId?: number | null;
+    keepTeam?: Team | null;
+    keepBallsUntil?: number;
+    hard?: boolean;
+    predictTeam?: Team | null;
+    rttMs?: number | null;
+  } = {},
 ) {
   const brains = new Map(state.kids.map((k) => [k.id, k.ai]));
   const prevById = new Map(state.kids.map((k) => [k.id, k]));
   const now = performance.now();
+  const lead = Math.min(1.1, (opts.rttMs ?? 0) / 2 / 280);
   state.kids = wire.kids.map((w) => {
     const prev = prevById.get(w.id);
     const ai = brains.get(w.id) ?? prev?.ai ?? null;
-    if (opts.grabId === w.id && prev) {
+    const flash = w.flash ?? prev?.flash ?? 0;
+    const stun = w.stun ?? prev?.stun ?? 0;
+    if (!opts.hard && opts.grabId === w.id && prev) {
       return {
-        ...w,
+        id: w.id,
+        team: w.team,
         x: prev.x,
         y: prev.y,
+        lastX: prev.x,
+        lastY: prev.y,
+        hp: w.hp,
+        maxHp: w.maxHp ?? prev.maxHp,
         state: prev.state === "grabbed" ? "grabbed" : w.state,
-        lastX: prev.x,
-        lastY: prev.y,
+        stateT: w.stateT,
+        cooldown: w.cooldown ?? prev.cooldown,
+        packT: prev.packT > 0.04 ? prev.packT : w.packT,
+        animT: prev.animT,
+        flash,
+        stun,
+        facing: w.facing,
+        fidget: prev.fidget,
+        fidgetT: prev.fidgetT,
+        fidgetWait: prev.fidgetWait,
+        moving: prev.moving,
         ai,
       };
     }
-    if (prev) {
+    if (!opts.hard && prev) {
       const d = Math.hypot(prev.x - w.x, prev.y - w.y);
-      const a = d > 88 ? 1 : 0.55;
+      const lan = (opts.rttMs ?? 200) < 55;
+      const a = d > 88 ? 1 : lan ? 0.88 : 0.55;
+      const keepPos =
+        opts.predictTeam === w.team && w.state !== "hurt" && w.state !== "buried";
+      let x = keepPos ? prev.x : prev.x + (w.x - prev.x) * a;
+      let y = keepPos ? prev.y : prev.y + (w.y - prev.y) * a;
+      if (!keepPos && lead > 0 && d < 88) {
+        x += (w.x - prev.x) * lead;
+        y += (w.y - prev.y) * lead;
+      }
       return {
-        ...w,
-        x: prev.x + (w.x - prev.x) * a,
-        y: prev.y + (w.y - prev.y) * a,
+        id: w.id,
+        team: w.team,
+        x,
+        y,
         lastX: prev.x,
         lastY: prev.y,
+        hp: w.hp,
+        maxHp: w.maxHp ?? prev.maxHp,
+        state: w.state,
+        stateT: w.stateT,
+        cooldown: w.cooldown ?? prev.cooldown,
+        packT: prev.packT > 0.04 ? prev.packT : w.packT,
+        animT: prev.animT,
+        flash,
+        stun,
+        facing: w.facing,
+        fidget: prev.fidget,
+        fidgetT: prev.fidgetT,
+        fidgetWait: prev.fidgetWait,
+        moving: keepPos ? prev.moving : w.moving,
         ai,
       };
     }
-    return { ...w, lastX: w.x, lastY: w.y, ai };
+    return {
+      id: w.id,
+      team: w.team,
+      x: w.x,
+      y: w.y,
+      lastX: w.x,
+      lastY: w.y,
+      hp: w.hp,
+      maxHp: w.maxHp ?? 2,
+      state: w.state,
+      stateT: w.stateT,
+      cooldown: w.cooldown ?? 0,
+      packT: w.packT,
+      animT: w.animT ?? 0,
+      flash: w.flash ?? 0,
+      stun: w.stun ?? 0,
+      facing: w.facing,
+      fidget: w.fidget ?? null,
+      fidgetT: w.fidgetT ?? 0,
+      fidgetWait: w.fidgetWait ?? 0,
+      moving: w.moving,
+      ai,
+    };
   });
-  if (opts.keepTeam && now < (opts.keepBallsUntil ?? 0)) {
-    state.balls = [
-      ...wire.balls.filter((b) => b.team !== opts.keepTeam),
-      ...state.balls.filter((b) => b.team === opts.keepTeam && b.alive),
-    ];
+  if (!opts.hard && opts.keepTeam) {
+    const hostBalls = wire.balls.map((b) => ({
+      x: b.x,
+      y: b.y,
+      vx: b.vx,
+      vy: b.vy,
+      team: b.team,
+      r: BALL_RADIUS,
+      fromId: b.fromId,
+      grace: 0,
+      spin: 0,
+      alive: b.alive,
+      range: b.range,
+      traveled: b.traveled,
+      local: false as const,
+    }));
+    const locals = state.balls.filter((b) => b.local && b.alive && b.team === opts.keepTeam);
+    const kept = locals.filter(
+      (loc) =>
+        !hostBalls.some(
+          (h) => h.fromId === loc.fromId && Math.hypot(h.x - loc.x, h.y - loc.y) < 140,
+        ) && now < (opts.keepBallsUntil ?? 0),
+    );
+    state.balls = [...hostBalls, ...kept];
   } else {
-    state.balls = wire.balls;
+    state.balls = wire.balls.map((b) => ({
+      x: b.x,
+      y: b.y,
+      vx: b.vx,
+      vy: b.vy,
+      team: b.team,
+      r: BALL_RADIUS,
+      fromId: b.fromId,
+      grace: 0,
+      spin: 0,
+      alive: b.alive,
+      range: b.range,
+      traveled: b.traveled,
+    }));
   }
-  state.forts = wire.forts;
-  state.particles = wire.particles;
-  state.footprints = wire.footprints;
+  if (wire.forts) state.forts = wire.forts;
+  if (opts.hard) {
+    state.particles = wire.particles ?? [];
+    state.footprints = wire.footprints ?? [];
+  }
   state.level = wire.level;
   state.freeze = wire.freeze;
   state.introT = wire.introT;
   state.phase = wire.phase;
   state.nextId = wire.nextId;
   state.time = wire.time;
-  state.trauma = wire.trauma;
+  if (opts.hard && wire.trauma != null) state.trauma = wire.trauma;
 }
 
 export function isNetMsg(v: unknown): v is NetMsg {

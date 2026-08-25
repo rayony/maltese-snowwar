@@ -2,7 +2,8 @@ export type Team = "red" | "green";
 export type KidState = "idle" | "throw" | "hurt" | "grabbed" | "buried" | "pack";
 export type Fidget = "dance" | "wave" | null;
 export type AllyMode = "off" | "defend" | "attack";
-export type Screen = "title" | "playing" | "paused" | "gameover" | "lobby";
+export type Difficulty = "easy" | "hard";
+export type Screen = "title" | "loading" | "playing" | "paused" | "gameover" | "lobby";
 export type FightPhase = "intro" | "fight" | "won" | "lost";
 
 export interface AiBrain {
@@ -50,6 +51,7 @@ export interface Snowball {
   alive: boolean;
   range: number;
   traveled: number;
+  local?: boolean;
 }
 
 export interface Fort {
@@ -58,6 +60,8 @@ export interface Fort {
   rx: number;
   ry: number;
   hitFlash: number;
+  hp: number;
+  maxHp: number;
 }
 
 export interface Particle {
@@ -102,6 +106,7 @@ export interface GameState {
   nextId: number;
   time: number;
   trauma: number;
+  hard: boolean;
 }
 
 export type NetRole = "solo" | "host" | "guest";
@@ -129,8 +134,12 @@ export interface UiSnapshot {
   greenTotal: number;
   muted: boolean;
   ready: boolean;
+  loadDone: number;
+  loadTotal: number;
   allyMode: AllyMode;
+  difficulty: Difficulty;
   net: NetUi;
+  fps: number;
 }
 
 export interface View {
@@ -143,4 +152,6 @@ export interface View {
   buriedSize: number;
   pickRadius: number;
   ballSize: number;
+  mirror: boolean;
+  pvp: boolean;
 }

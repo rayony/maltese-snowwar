@@ -1,4 +1,4 @@
-import { holdPower, PACK_TIME, throwRange, WORLD_H, WORLD_W } from "./constants";
+import { holdPower, isCompactPlay, PACK_TIME, throwRange, WORLD_H, WORLD_W } from "./constants";
 import type { Assets } from "./assets";
 import { aimFromKid, inFort, isOut } from "./sim";
 import type { Fort, GameState, Grab, Kid, Snowball, View } from "./types";
@@ -36,19 +36,39 @@ function snowField() {
   return c;
 }
 
+export function playLayout(
+  cssW: number,
+  cssH: number,
+  mirror = false,
+  compact = false,
+) {
+  let scale = Math.min(cssW / WORLD_W, cssH / WORLD_H);
+  if (compact) scale *= 1.12;
+  const worldWcss = WORLD_W * scale;
+  const worldHcss = WORLD_H * scale;
+  let ox = (cssW - worldWcss) / 2;
+  let oy = (cssH - worldHcss) / 2;
+  if (compact && worldWcss > cssW + 1) {
+    const minOx = cssW - worldWcss;
+    ox = minOx * 0.84;
+  }
+  return { scale, ox, oy, mirror };
+}
+
 export function worldFromClient(
   canvas: HTMLCanvasElement,
   clientX: number,
   clientY: number,
+  mirror = false,
 ) {
   const rect = canvas.getBoundingClientRect();
   const cssW = rect.width;
   const cssH = rect.height;
-  const scale = Math.min(cssW / WORLD_W, cssH / WORLD_H);
-  const ox = (cssW - WORLD_W * scale) / 2;
-  const oy = (cssH - WORLD_H * scale) / 2;
+  const { scale, ox, oy } = playLayout(cssW, cssH, mirror, isCompactPlay(cssW));
+  let x = (clientX - rect.left - ox) / scale;
+  if (mirror) x = WORLD_W - x;
   return {
-    x: (clientX - rect.left - ox) / scale,
+    x,
     y: (clientY - rect.top - oy) / scale,
   };
 }
@@ -61,30 +81,31 @@ function frameOf(frames: HTMLImageElement[], t: number, fps = 7) {
 
 function kidFrame(kid: Kid, assets: Assets) {
   const set = kid.team === "red" ? assets.red : assets.green;
-  if (kid.state === "buried") return set.buried;
+  const idle = set.idle[0] ?? null;
+  if (kid.state === "buried") return set.buried ?? idle;
   if (kid.state === "throw") {
     const i = Math.min(3, Math.floor((1 - kid.stateT / 0.38) * 4));
-    return set.throw[i] ?? set.throw[0]!;
+    return set.throw[i] ?? set.throw[0] ?? idle;
   }
   if (kid.state === "hurt") {
     const i = Math.min(3, Math.floor((1 - kid.stateT / 0.42) * 4));
-    return set.hurt[i] ?? set.hurt[0]!;
+    return set.hurt[i] ?? set.hurt[0] ?? idle;
   }
   if (kid.moving && set.walk.length) {
-    return frameOf(set.walk, kid.animT, 8) ?? set.idle[0]!;
+    return frameOf(set.walk, kid.animT, 8) ?? idle;
   }
   if ((kid.state === "pack" || kid.packT > 0) && set.pack.length) {
     const u = 1 - kid.packT / PACK_TIME;
     const i = Math.min(3, Math.max(0, Math.floor(u * 4)));
-    return set.pack[i] ?? set.pack[0]!;
+    return set.pack[i] ?? set.pack[0] ?? idle;
   }
   if (kid.fidget === "dance" && set.dance.length) {
-    return frameOf(set.dance, kid.animT, 8) ?? set.idle[0]!;
+    return frameOf(set.dance, kid.animT, 8) ?? idle;
   }
   if (kid.fidget === "wave" && set.wave.length) {
-    return frameOf(set.wave, kid.animT, 7) ?? set.idle[0]!;
+    return frameOf(set.wave, kid.animT, 7) ?? idle;
   }
-  return set.idle[0]!;
+  return idle;
 }
 
 type Box = { x: number; y: number; w: number; h: number };
@@ -166,9 +187,8 @@ export function render(
     canvas.height = bh;
   }
 
-  const scale = Math.min(cssW / WORLD_W, cssH / WORLD_H);
-  const ox = (cssW - WORLD_W * scale) / 2;
-  const oy = (cssH - WORLD_H * scale) / 2;
+  const compact = isCompactPlay(cssW);
+  const { scale, ox, oy } = playLayout(cssW, cssH, view.mirror, compact);
 
   let shakeX = 0;
   let shakeY = 0;
@@ -184,6 +204,10 @@ export function render(
 
   ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * (ox + shakeX), dpr * (oy + shakeY));
   ctx.save();
+  if (view.mirror) {
+    ctx.translate(WORLD_W, 0);
+    ctx.scale(-1, 1);
+  }
   ctx.beginPath();
   ctx.rect(0, 0, WORLD_W, WORLD_H);
   ctx.clip();
@@ -201,6 +225,7 @@ export function render(
 
   const layers: { y: number; draw: () => void }[] = [];
   for (const fort of state.forts) {
+    if (fort.maxHp > 0 && fort.hp <= 0) continue;
     layers.push({
       y: fort.y - fort.ry * 0.45,
       draw: () => drawFortLayer(ctx, fort, assets, "back"),
@@ -268,31 +293,33 @@ export function render(
   }
   ctx.globalAlpha = 1;
 
-  if (view.grab) {
+  if (view.grab && state.phase === "fight") {
     const kid = state.kids.find((k) => k.id === view.grab!.id);
     if (kid && !isOut(kid)) {
       drawThrowPreview(ctx, kid, view.grab, state.kids);
     }
   }
 
-  if (state.phase === "intro") {
-    drawBanner(ctx, `Level ${state.level}`);
-  } else if (state.phase === "won") {
-    drawBanner(ctx, "Clear");
-  }
-
   ctx.restore();
+
+  if (state.phase === "intro") {
+    const n = Math.max(1, Math.ceil(state.introT));
+    drawCountdown(ctx, view.pvp ? "PVP mode" : `Level ${state.level}`, String(n));
+  }
 }
 
-function drawBanner(ctx: CanvasRenderingContext2D, text: string) {
+function drawCountdown(ctx: CanvasRenderingContext2D, kicker: string, n: string) {
   ctx.save();
-  ctx.fillStyle = "rgba(21,32,43,0.45)";
-  ctx.fillRect(0, WORLD_H / 2 - 44, WORLD_W, 88);
-  ctx.fillStyle = "#f4f7fa";
-  ctx.font = "600 42px Fraunces, Georgia, serif";
+  ctx.fillStyle = "rgba(21,32,43,0.4)";
+  ctx.fillRect(0, WORLD_H / 2 - 88, WORLD_W, 176);
+  ctx.fillStyle = "rgba(244,247,250,0.85)";
+  ctx.font = "600 22px Fraunces, Georgia, serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(text, WORLD_W / 2, WORLD_H / 2);
+  ctx.fillText(kicker, WORLD_W / 2, WORLD_H / 2 - 52);
+  ctx.fillStyle = "#f4f7fa";
+  ctx.font = "700 96px Fraunces, Georgia, serif";
+  ctx.fillText(n, WORLD_W / 2, WORLD_H / 2 + 18);
   ctx.restore();
 }
 
@@ -324,12 +351,6 @@ function drawKid(
     drawAlignedSprite(ctx, img, size, buried ? "width" : "height");
     ctx.filter = "none";
     ctx.restore();
-  } else {
-    ctx.translate(0, -lifted);
-    ctx.fillStyle = kid.team === "red" ? "#f4f7fa" : "#d4a574";
-    ctx.beginPath();
-    ctx.arc(0, -6, size * 0.28, 0, Math.PI * 2);
-    ctx.fill();
   }
 
   if (!isOut(kid)) drawPips(ctx, kid, cover);
@@ -386,6 +407,18 @@ function drawFortLayer(
     ctx.beginPath();
     ctx.ellipse(fort.x, fort.y + 6, fort.rx * 0.95, fort.ry * 0.7, 0, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
+  }
+  if (layer === "front" && fort.maxHp > 0 && fort.hp > 0) {
+    const w = Math.max(28, fort.rx * 0.9);
+    const x = fort.x - w / 2;
+    const y = fort.y + fort.ry * 0.85;
+    ctx.save();
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = "rgba(21,32,43,0.55)";
+    ctx.fillRect(x, y, w, 5);
+    ctx.fillStyle = "#f4f7fa";
+    ctx.fillRect(x, y, w * (fort.hp / fort.maxHp), 5);
     ctx.restore();
   }
 }
