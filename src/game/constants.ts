@@ -5,6 +5,8 @@ export const KID_RADIUS = 26;
 export const BALL_RADIUS = 12;
 export const PLAYER_COUNT = 3;
 export const HP = 2;
+/** Star mode (cheat): living Maltese HP. */
+export const STAR_HP = 10;
 /** Seconds of hold to reach a full-field throw. */
 export const MAX_CHARGE = 1.2;
 /** Tap / short hold lands close; full hold crosses the field. */

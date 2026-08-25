@@ -543,8 +543,9 @@ function drawFortLayer(
 function drawPips(ctx: CanvasRenderingContext2D, kid: Kid, cover: boolean) {
   const n = kid.maxHp;
   const y = 22;
-  const w = 8;
-  const gap = 4;
+  const compact = n > 4;
+  const w = compact ? 5 : 8;
+  const gap = compact ? 2 : 4;
   const total = n * w + (n - 1) * gap;
   for (let i = 0; i < n; i++) {
     ctx.fillStyle = i < kid.hp ? (kid.team === "red" ? "#c43b3b" : "#c4965a") : "rgba(21,32,43,0.18)";

@@ -3,7 +3,7 @@ import { VersusLink } from "./versus-link";
 import { stepAi, type GreenControl } from "./ai";
 import { ASSET_TOTAL, loadCoreAssets, loadRestAssets, type Assets } from "./assets";
 import { GameAudio } from "./audio";
-import { FORT_HP, FIXED_DT, MARGIN, BALL_RADIUS, playFeel, PVP_RANGE, SAVE_KEY, WORLD_H, WORLD_W, AI_WIN_LEVEL } from "./constants";
+import { FORT_HP, FIXED_DT, MARGIN, BALL_RADIUS, playFeel, PVP_RANGE, SAVE_KEY, STAR_HP, WORLD_H, WORLD_W, AI_WIN_LEVEL } from "./constants";
 import {
   applyState,
   applyPose,
@@ -422,6 +422,14 @@ export class SnowCraftGame {
     this.emit();
   }
 
+  private applyStarHp() {
+    for (const kid of this.state.kids) {
+      if (kid.team !== "red" || isOut(kid)) continue;
+      kid.maxHp = STAR_HP;
+      kid.hp = STAR_HP;
+    }
+  }
+
   tapLevelHud() {
     if (this.screen !== "playing" || this.netRole === "guest") return;
     const now = performance.now();
@@ -430,6 +438,7 @@ export class SnowCraftGame {
     if (this.godSpeed || this.levelTaps.length < 5) return;
     this.godSpeed = true;
     this.state.godSpeed = true;
+    this.applyStarHp();
     this.levelTaps = [];
     this.audio.unlock();
     this.audio.ding();
@@ -464,6 +473,7 @@ export class SnowCraftGame {
       hard: !versus && this.difficulty === "hard",
     });
     this.state.godSpeed = this.godSpeed;
+    if (this.godSpeed) this.applyStarHp();
     this.grab = null;
     this.grabGuest = null;
     this.outcomeHandled = false;
