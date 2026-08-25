@@ -41,8 +41,9 @@ const INFRA: Lib[] = [
 
 const FONTS: Lib[] = [
   { name: "Fraunces", license: "OFL-1.1", href: "https://fonts.google.com/specimen/Fraunces", use: "Display" },
-  { name: "Caveat", license: "OFL-1.1", href: "https://fonts.google.com/specimen/Caveat", use: "English slogan" },
-  { name: "Iansui", license: "OFL-1.1", href: "https://fonts.google.com/specimen/Iansui", use: "Chinese handwriting (芫荽)" },
+  { name: "Caveat", license: "OFL-1.1", href: "https://fonts.google.com/specimen/Caveat", use: "English title & motto" },
+  { name: "ChenYuluoyan 辰宇落雁體", license: "OFL-1.1", href: "https://github.com/Chenyu-otf/chenyuluoyan_thin", use: "Chinese title" },
+  { name: "Zhi Mang Xing 芝麻行", license: "OFL-1.1", href: "https://fonts.google.com/specimen/Zhi+Mang+Xing", use: "Chinese motto" },
   { name: "Outfit", license: "OFL-1.1", href: "https://fonts.google.com/specimen/Outfit", use: "UI type" },
 ];
 
