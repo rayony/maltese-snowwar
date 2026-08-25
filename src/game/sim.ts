@@ -323,10 +323,10 @@ function clashBalls(state: GameState, onClash?: () => void) {
   const balls = state.balls;
   for (let i = 0; i < balls.length; i++) {
     const a = balls[i]!;
-    if (!a.alive) continue;
+    if (!a.alive || a.ghost) continue;
     for (let j = i + 1; j < balls.length; j++) {
       const b = balls[j]!;
-      if (!b.alive || a.team === b.team) continue;
+      if (!b.alive || b.ghost || a.team === b.team) continue;
       const dx = a.x - b.x;
       const dy = a.y - b.y;
       const rr = a.r + b.r + 8;
@@ -366,6 +366,7 @@ function stepBalls(
       burst(state, ball.x, ball.y, 0, 12, "puff");
       continue;
     }
+    if (ball.ghost) continue;
     if (ball.grace <= 0) {
       const wall = inFort(ball.x, ball.y, state.forts);
       if (wall) {
