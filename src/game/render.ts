@@ -1,4 +1,5 @@
 import { holdPower, isCompactPlay, MARGIN, PACK_TIME, PVP_RANGE, throwRange, WORLD_H, WORLD_W } from "./constants";
+import { readLang, tr } from "./i18n";
 import type { Assets } from "./assets";
 import { aimFromKid, clamp, inFort, isOut } from "./sim";
 import type { Fort, GameState, Grab, Kid, Snowball, View } from "./types";
@@ -307,7 +308,8 @@ export function render(
 
   if (state.phase === "intro") {
     const n = Math.max(1, Math.ceil(state.introT));
-    drawCountdown(ctx, view.pvp ? "PVP mode" : `Level ${state.level}`, String(n));
+    const lang = readLang();
+    drawCountdown(ctx, view.pvp ? tr(lang, "pvpMode") : tr(lang, "level", { n: state.level }), String(n));
   }
 }
 

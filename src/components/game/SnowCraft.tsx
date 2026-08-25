@@ -21,6 +21,7 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { SnowCraftGame } from "@/game/game";
 import { normalizeCode } from "@/game/net";
+import { useLang, type I18nKey } from "@/game/i18n";
 import type { AllyMode, Team, UiSnapshot } from "@/game/types";
 import { cn } from "@/lib/utils";
 
@@ -55,6 +56,7 @@ const INITIAL: UiSnapshot = {
 export function SnowCraft() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<SnowCraftGame | null>(null);
+  const { lang, t, toggle } = useLang();
   const [ui, setUi] = useState<UiSnapshot>(INITIAL);
   const [portraitPhone, setPortraitPhone] = useState(false);
   const [joinCode, setJoinCode] = useState("");
@@ -173,11 +175,17 @@ export function SnowCraft() {
                 {ui.net.status !== "off" && ui.net.code
                   ? `VS ${ui.net.code}`
                   : ui.net.role !== "solo"
-                    ? "PVP mode"
-                    : `Level ${ui.level}${ui.difficulty === "hard" ? " · Hard" : ""}`}
+                    ? t("pvpMode")
+                    : ui.difficulty === "hard"
+                      ? t("levelHard", { n: ui.level })
+                      : t("level", { n: ui.level })}
               </p>
               <p className="text-xs text-ice">
-                {ui.net.team === "green" ? "Retrievers" : ui.net.status !== "off" ? "Maltese" : `Best ${ui.best}`}
+                {ui.net.team === "green"
+                  ? t("retrieverTeam")
+                  : ui.net.status !== "off"
+                    ? t("malteseTeam")
+                    : t("bestLevel", { n: ui.best })}
                 {ui.net.status !== "off" && ui.net.code
                   ? ui.net.link === "direct"
                     ? ui.net.rttMs != null
@@ -194,12 +202,12 @@ export function SnowCraft() {
               <span className="font-medium text-tan">{ui.greenAlive}</span>
             </div>
             <div className="pointer-events-auto flex flex-wrap items-center justify-end gap-2">
-              <AllyToggle mode={ui.allyMode} onChange={(m) => g?.setAllyMode(m)} />
+              <AllyToggle mode={ui.allyMode} onChange={(m) => g?.setAllyMode(m)} t={t} />
               <Button
                 variant="ghost"
                 size="icon"
                 className="bg-ink/70 backdrop-blur-sm"
-                aria-label={ui.muted ? "Unmute" : "Mute"}
+                aria-label={ui.muted ? t("unmute") : t("mute")}
                 onClick={() => g?.toggleMute()}
               >
                 {ui.muted ? <VolumeX /> : <Volume2 />}
@@ -208,7 +216,7 @@ export function SnowCraft() {
                 variant="ghost"
                 size="icon"
                 className="bg-ink/70 backdrop-blur-sm"
-                aria-label="Pause"
+                aria-label={t("pause")}
                 onClick={() => g?.pause()}
               >
                 <Pause />
@@ -221,22 +229,21 @@ export function SnowCraft() {
           <div className="mt-auto flex justify-center px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <p className="flex items-center gap-2 rounded-full bg-ink/75 px-3.5 py-2 text-xs text-surface shadow-md backdrop-blur-sm sm:text-sm">
               <Smartphone className="size-4 rotate-90" aria-hidden />
-              Rotate your phone · 橫向遊玩更順手
+              {t("rotate")}
             </p>
           </div>
         )}
 
         {playing && !portraitPhone && (
           <p className="mt-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-xs text-ink/70 sm:text-sm">
-            Hold a {myTeam === "green" ? "retriever" : "Maltese"}
             {versus
-              ? " · tap to throw · auto-aims nearest · fixed range · pack between shots"
-              : " · tap = short toss · hold = far throw · pack snow between throws"}
+              ? t("hintPvp", { dog: t(myTeam === "green" ? "retriever" : "maltese") })
+              : t("hintAi", { dog: t(myTeam === "green" ? "retriever" : "maltese") })}
           </p>
         )}
       </div>
 
-      {ui.screen === "title" && !live && <TitleBoot />}
+      {ui.screen === "title" && !live && <TitleBoot t={t} />}
 
       {ui.screen === "title" && live && (
         <div
@@ -249,64 +256,65 @@ export function SnowCraft() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-ice sm:text-xs">
-                    Season's Greetings
+                    {t("greet")}
                   </p>
                   <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight text-surface sm:text-5xl">
                     Maltese Snow War
                   </h1>
                   <p className="mt-1.5 font-script text-xl font-bold leading-tight text-[#fff3c4] sm:text-2xl">
-                    Hold, Dodge, and Throw!
+                    {t("slogan")}
                   </p>
                 </div>
-                <div className="flex shrink-0 -space-x-2 pt-1" aria-hidden>
+                <div className="flex shrink-0 flex-col items-end gap-2 pt-1">
+                  <LangToggle lang={lang} onToggle={toggle} />
+                  <div className="flex -space-x-2" aria-hidden>
                   <DogHead src="/sprites/red/idle-1.png" alt="" kind="maltese" className="z-10" />
                   <DogHead src="/sprites/green/idle-1.png" alt="" kind="retriever" />
+                  </div>
                 </div>
               </div>
               {!vsGate && !aiGate && (
                 <>
                   <p className="mt-3 text-sm leading-relaxed text-surface/80">
-                    Command three Maltese in a snowball brawl against the golden retrievers. Hold
-                    a dog to move, release to throw. Pack snow between shots.
+                    {t("blurb")}
                   </p>
                 </>
               )}
               {aiGate && (
                 <div className="mt-3">
                   <h2 className="font-display text-2xl font-semibold text-surface sm:text-3xl">
-                    Play vs AI
+                    {t("playVsAi")}
                   </h2>
                   <ol className="mt-3 space-y-1 text-sm text-surface/75">
-                    <li>1. Press and hold a white Maltese</li>
-                    <li>2. Drag to dodge and line up your lane</li>
-                    <li>3. Tap for a short toss, hold longer to throw farther</li>
+                    <li>{t("aiHow1")}</li>
+                    <li>{t("aiHow2")}</li>
+                    <li>{t("aiHow3")}</li>
                   </ol>
                   <p className="mt-3 text-sm leading-relaxed text-surface/80">
-                    Easy is the original SnowCraft pace. Clear 5 heats to win.
+                    {t("easyBlurb")}
                   </p>
-                  <p className="mt-2 text-sm font-medium text-surface/90">Hard</p>
+                  <p className="mt-2 text-sm font-medium text-surface/90">{t("hard")}</p>
                   <ul className="mt-1 list-disc space-y-0.5 pl-4 text-sm leading-relaxed text-surface/75">
-                    <li>Everyone moves 3× faster; snowballs fly 2× faster</li>
-                    <li>Retrievers mix targets and dodge well</li>
-                    <li>Forts take 10 hits</li>
-                    <li>A buried Maltese stays down next round</li>
+                    <li>{t("hard1")}</li>
+                    <li>{t("hard2")}</li>
+                    <li>{t("hard3")}</li>
+                    <li>{t("hard4")}</li>
                   </ul>
                 </div>
               )}
               {vsGate && (
                 <div className="mt-3">
                   <h2 className="font-display text-2xl font-semibold text-surface sm:text-3xl">
-                    Play vs Friend
+                    {t("playVsFriend")}
                   </h2>
                   <p className="mt-2 text-sm leading-relaxed text-surface/80">
-                    Create a room and share the 6-letter code, or join with theirs. You play the
-                    Maltese; they play the retrievers.
+                    {t("vsFriendLead")}
                   </p>
                   <ul className="mt-2 list-disc space-y-0.5 pl-4 text-sm leading-relaxed text-surface/75">
-                    <li>Hold a dog to move; release to throw</li>
-                    <li>Throws auto-aim the nearest foe — same range and speed every time</li>
-                    <li>No charge: a tap and a long hold fly the same</li>
-                    <li>Pack snow (~1s) before the next shot</li>
+                    <li>{t("vsRule1")}</li>
+                    <li>{t("vsRule2")}</li>
+                    <li>{t("vsRule3")}</li>
+                    <li>{t("vsRule4")}</li>
                   </ul>
                 </div>
               )}
@@ -329,7 +337,7 @@ export function SnowCraft() {
                     }}
                   >
                     <Leaf className="size-4 shrink-0" />
-                    Easy
+                    {t("easy")}
                   </button>
                   <button
                     type="button"
@@ -342,7 +350,7 @@ export function SnowCraft() {
                     }}
                   >
                     <Flame className="size-4 shrink-0" />
-                    Hard
+                    {t("hard")}
                   </button>
                   </div>
                   <Button
@@ -351,12 +359,12 @@ export function SnowCraft() {
                     type="button"
                     onClick={() => setAiGate(false)}
                   >
-                    Back
+                    {t("back")}
                   </Button>
                 </div>
               ) : !vsGate ? (
                 <div className="flex flex-col gap-2.5">
-                  <p className="text-center text-xs text-ice">Unofficial tribute</p>
+                  <p className="text-center text-xs text-ice">{t("unofficial")}</p>
                   <button
                     type="button"
                     data-testid="play-vs-ai"
@@ -364,7 +372,7 @@ export function SnowCraft() {
                     onClick={() => setAiGate(true)}
                   >
                     <Play className="size-4 shrink-0" />
-                    Play vs AI
+                    {t("playVsAi")}
                   </button>
                   <button
                     type="button"
@@ -373,18 +381,18 @@ export function SnowCraft() {
                     onClick={() => setVsGate(true)}
                   >
                     <Users className="size-4 shrink-0" />
-                    Play vs Friend
+                    {t("playVsFriend")}
                   </button>
                   {ui.net.error && <p className="text-center text-xs text-primary">{ui.net.error}</p>}
                   {ui.best > 0 && (
-                    <p className="text-center text-xs text-ice">Best level {ui.best}</p>
+                    <p className="text-center text-xs text-ice">{t("bestLevel", { n: ui.best })}</p>
                   )}
                   <div className="mt-3 flex items-center justify-center gap-4 text-[11px]">
                     <Link
                       to="/credits"
                       className="text-ice underline decoration-ice/40 underline-offset-2 hover:text-surface"
                     >
-                      Open Source License
+                      {t("license")}
                     </Link>
                     <a
                       href="/Maltese-Snow-War-Architecture.pdf"
@@ -393,7 +401,7 @@ export function SnowCraft() {
                       rel="noreferrer"
                       className="text-ice underline decoration-ice/40 underline-offset-2 hover:text-surface"
                     >
-                      Architecture
+                      {t("architecture")}
                     </a>
                     <a
                       href="https://github.com/rayony/maltese-snowwar"
@@ -401,38 +409,11 @@ export function SnowCraft() {
                       rel="noreferrer"
                       className="text-ice underline decoration-ice/40 underline-offset-2 hover:text-surface"
                     >
-                      GitHub
+                      {t("github")}
                     </a>
                   </div>
                   <p className="mt-3 text-center text-[11px] leading-relaxed text-surface/50">
-                    Fan tribute (二次創作). Gameplay after{" "}
-                    <a
-                      href="https://archive.org/details/snowcraft_201912"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-ice underline decoration-ice/40 underline-offset-2 hover:text-surface"
-                    >
-                      SnowCraft
-                    </a>{" "}
-                    by Nicholson NY (1998). Dogs inspired by 線條小狗, illustrated by{" "}
-                    <a
-                      href="https://www.instagram.com/moonlab_studio/"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-ice underline decoration-ice/40 underline-offset-2 hover:text-surface"
-                    >
-                      moonlab
-                    </a>
-                    . Fight feel also referenced{" "}
-                    <a
-                      href="https://github.com/jeffreywilbur/snowcraftjs"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-ice underline decoration-ice/40 underline-offset-2 hover:text-surface"
-                    >
-                      snowcraftjs
-                    </a>{" "}
-                    by jeffreywilbur.
+                    {t("fanTribute")}
                   </p>
                 </div>
               ) : (
@@ -445,7 +426,7 @@ export function SnowCraft() {
                     onClick={() => gameRef.current?.createVersus()}
                   >
                     <Users />
-                    Create room
+                    {t("createRoom")}
                   </Button>
                   <form
                     className="flex gap-2"
@@ -458,13 +439,13 @@ export function SnowCraft() {
                       value={joinCode}
                       onChange={(e) => setJoinCode(normalizeCode(e.target.value))}
                       maxLength={6}
-                      placeholder="CODE"
-                      aria-label="Room code"
+                      placeholder={t("code")}
+                      aria-label={t("roomCode")}
                       autoCapitalize="characters"
                       className="h-12 min-w-0 flex-1 rounded-xl border border-surface/20 bg-ink/60 px-3 font-mono text-lg tracking-[0.28em] text-surface placeholder:text-surface/35"
                     />
                     <Button type="submit" variant="secondary" disabled={joinCode.length !== 6}>
-                      Join
+                      {t("join")}
                     </Button>
                   </form>
                   {ui.net.error && <p className="text-center text-xs text-primary">{ui.net.error}</p>}
@@ -474,7 +455,7 @@ export function SnowCraft() {
                     type="button"
                     onClick={() => setVsGate(false)}
                   >
-                    Back
+                    {t("back")}
                   </Button>
                 </div>
               )}
@@ -486,12 +467,10 @@ export function SnowCraft() {
       {ui.screen === "loading" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/70 p-4 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-xl border border-surface/15 bg-ink/90 p-6 text-center shadow-xl">
-            <p className="text-xs font-medium uppercase tracking-[0.2em] text-ice">Almost there</p>
-            <h2 className="mt-1 font-display text-3xl font-semibold">Dogs stretching</h2>
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-ice">{t("almost")}</p>
+            <h2 className="mt-1 font-display text-3xl font-semibold">{t("stretching")}</h2>
             <p className="mt-2 text-sm text-muted">
-              {versus
-                ? "Waiting until both yards finish packing…"
-                : "Packing snowballs for the yard…"}
+              {versus ? t("packingVs") : t("packingAi")}
             </p>
             <div className="mt-5 h-2 overflow-hidden rounded-full bg-surface/15">
               <div
@@ -505,7 +484,7 @@ export function SnowCraft() {
               {Math.min(100, Math.round((ui.loadDone / Math.max(1, ui.loadTotal)) * 100))}%
             </p>
             <Button variant="secondary" className="mt-5 w-full" onClick={() => g?.toTitle()}>
-              Cancel
+              {t("cancel")}
             </Button>
           </div>
         </div>
@@ -513,9 +492,9 @@ export function SnowCraft() {
 
       {ui.screen === "lobby" && (
         <Modal>
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted">Versus</p>
+          <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted">{t("versus")}</p>
           <h2 className="mt-1 font-display text-3xl font-semibold">
-            {ui.net.role === "host" ? "Waiting" : "Joining"}
+            {ui.net.role === "host" ? t("waiting") : t("joining")}
           </h2>
           {ui.net.code && (
             <div className="mt-4 space-y-3">
@@ -527,7 +506,7 @@ export function SnowCraft() {
                 <span className="font-mono text-3xl tracking-[0.28em]">{ui.net.code}</span>
                 <span className="flex items-center gap-1 text-xs text-ice">
                   <Copy className="size-4" />
-                  {copied ? "Copied" : "Copy"}
+                  {copied ? t("copied") : t("copy")}
                 </span>
               </button>
               {ui.net.role === "host" && (
@@ -540,7 +519,7 @@ export function SnowCraft() {
                     disabled={!qrData}
                   >
                     <QrCode />
-                    {qrOpen ? "Hide QR" : "Show QR — scan to join"}
+                    {qrOpen ? t("hideQr") : t("showQr")}
                   </Button>
                   {qrOpen && qrData && (
                     <div className="flex flex-col items-center gap-2 rounded-xl bg-ink px-4 py-3">
@@ -550,7 +529,7 @@ export function SnowCraft() {
                         className="size-44 rounded-lg bg-surface sm:size-52"
                       />
                       <p className="text-center text-xs text-ice">
-                        Friend scans this to open the game and join.
+                        {t("qrHint")}
                       </p>
                     </div>
                   )}
@@ -560,17 +539,17 @@ export function SnowCraft() {
           )}
           <p className="mt-3 text-sm leading-relaxed text-muted">
             {ui.net.role === "host"
-              ? "Share the QR or the code. You are the Maltese. Throws auto-aim and always fly the same distance — pack snow between shots."
+              ? t("lobbyHost")
               : ui.net.error
                 ? ui.net.error
-                : "Looking for the host… you play the retrievers. Same throw: auto-aim, fixed range, pack between shots."}
+                : t("lobbyGuest")}
           </p>
           {ui.net.error && ui.net.role === "host" && (
             <p className="mt-2 text-sm text-primary">{ui.net.error}</p>
           )}
           <div className="mt-6 flex flex-col gap-2">
             <Button variant="secondary" onClick={() => g?.cancelLobby()}>
-              Cancel
+              {t("cancel")}
             </Button>
           </div>
         </Modal>
@@ -578,20 +557,19 @@ export function SnowCraft() {
 
       {ui.net.status === "disconnect" && (
         <Modal>
-          <h2 className="font-display text-3xl font-semibold">Friend left</h2>
+          <h2 className="font-display text-3xl font-semibold">{t("friendLeft")}</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
-            Connection dropped or timed out. You can fill their team with bots, wait in case they
-            come back, or end the match.
+            {t("friendLeftBody")}
           </p>
           <div className="mt-6 flex flex-col gap-2">
             <Button size="lg" onClick={() => g?.takeBot()}>
-              Take over with bots
+              {t("takeBots")}
             </Button>
             <Button variant="secondary" onClick={() => g?.waitForFriend()}>
-              Wait
+              {t("wait")}
             </Button>
             <Button variant="secondary" onClick={() => g?.leaveRoom()}>
-              End game
+              {t("endGame")}
             </Button>
           </div>
         </Modal>
@@ -599,14 +577,14 @@ export function SnowCraft() {
 
       {ui.net.status === "connecting" && ui.screen === "playing" && (
         <Modal>
-          <h2 className="font-display text-3xl font-semibold">Waiting…</h2>
-          <p className="mt-2 text-sm text-muted">Paused until your friend reconnects.</p>
+          <h2 className="font-display text-3xl font-semibold">{t("waitingDots")}</h2>
+          <p className="mt-2 text-sm text-muted">{t("pausedUntil")}</p>
           <div className="mt-6 flex flex-col gap-2">
             <Button size="lg" onClick={() => g?.takeBot()}>
-              Take over with bots
+              {t("takeBots")}
             </Button>
             <Button variant="secondary" onClick={() => g?.leaveRoom()}>
-              End game
+              {t("endGame")}
             </Button>
           </div>
         </Modal>
@@ -614,10 +592,9 @@ export function SnowCraft() {
 
       {ui.screen === "paused" && (
         <Modal>
-          <h2 className="font-display text-3xl font-semibold">Paused</h2>
+          <h2 className="font-display text-3xl font-semibold">{t("paused")}</h2>
           <p className="mt-2 text-sm text-muted">
-            Level {ui.level}
-            {ui.difficulty === "hard" ? " · Hard" : ""}
+            {ui.difficulty === "hard" ? t("levelHard", { n: ui.level }) : t("level", { n: ui.level })}
           </p>
           <div className="mt-6 flex flex-col gap-2">
             <Button
@@ -625,15 +602,18 @@ export function SnowCraft() {
               className="w-full bg-pine text-white shadow-sm hover:bg-pine/90"
               onClick={() => g?.resume()}
             >
-              Resume
+              {t("resume")}
             </Button>
             <Button variant="secondary" onClick={() => g?.retry()}>
               <RotateCcw />
-              Restart
+              {t("restart")}
+            </Button>
+            <Button variant="secondary" onClick={toggle}>
+              {t("langSwitch")}
             </Button>
             <Button variant="secondary" onClick={() => g?.toTitle()}>
               <Home />
-              Title
+              {t("title")}
             </Button>
           </div>
         </Modal>
@@ -647,24 +627,24 @@ export function SnowCraft() {
               <div className="flex flex-col items-center text-center">
                 <ResultMascot win={win} team={ui.net.team} />
                 <h2 className="mt-3 font-display text-3xl font-semibold">
-                  {win ? "Victory" : "Buried"}
+                  {win ? t("victory") : t("buried")}
                 </h2>
                 {win && (
-                  <p className="mt-1 font-script text-xl font-bold text-pine">Hold, Dodge, and Throw!</p>
+                  <p className="mt-1 font-script text-xl font-bold text-pine">{t("slogan")}</p>
                 )}
                 <p className="mt-2 text-sm leading-relaxed text-muted">
-                  {versusGameoverCopy(ui)}
+                  {versusGameoverCopy(ui, t)}
                 </p>
               </div>
             );
           })()}
           {ui.net.rematchTheirs && !ui.net.rematchMine && (
             <p className="mt-3 rounded-lg bg-leaf/30 px-3 py-2 text-sm">
-              Your friend wants a rematch.
+              {t("rematchAsk")}
             </p>
           )}
           {ui.net.rematchMine && !ui.net.rematchTheirs && (
-            <p className="mt-3 text-sm text-muted">Waiting for your friend to accept…</p>
+            <p className="mt-3 text-sm text-muted">{t("rematchWait")}</p>
           )}
           <div className="mt-6 flex flex-col gap-2">
             <Button
@@ -673,22 +653,22 @@ export function SnowCraft() {
               disabled={ui.net.rematchMine}
             >
               <RotateCcw />
-              {rematchOpen ? "Rematch" : "Fight again"}
+              {rematchOpen ? t("rematch") : t("fightAgain")}
             </Button>
             {rematchOpen && (
               <Button variant="secondary" onClick={() => g?.voteRematch(false)}>
-                Decline
+                {t("decline")}
               </Button>
             )}
             {!rematchOpen && ui.net.status !== "off" && ui.net.code && (
               <Button variant="secondary" onClick={() => g?.leaveRoom()}>
-                Leave room
+                {t("leaveRoom")}
               </Button>
             )}
             {ui.net.status === "off" && (
               <Button variant="secondary" onClick={() => g?.toTitle()}>
                 <Home />
-                Title
+                {t("title")}
               </Button>
             )}
           </div>
@@ -698,7 +678,9 @@ export function SnowCraft() {
   );
 }
 
-function TitleBoot() {
+type TFn = (key: I18nKey, vars?: Record<string, string | number>) => string;
+
+function TitleBoot({ t }: { t: TFn }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-ink bg-cover bg-center"
@@ -709,9 +691,9 @@ function TitleBoot() {
       <div className="absolute inset-0 bg-ink/50" />
       <div className="relative flex flex-col items-center gap-4 text-surface">
         <Loader2 className="size-10 animate-spin text-ice" aria-hidden />
-        <p className="text-xs font-medium uppercase tracking-[0.22em] text-ice">Loading</p>
+        <p className="text-xs font-medium uppercase tracking-[0.22em] text-ice">{t("loading")}</p>
         <p className="font-display text-2xl font-semibold">Maltese Snow War</p>
-        <p className="font-script text-xl font-bold text-[#fff3c4] sm:text-2xl">Hold, Dodge, and Throw!</p>
+        <p className="font-script text-xl font-bold text-[#fff3c4] sm:text-2xl">{t("slogan")}</p>
       </div>
     </div>
   );
@@ -722,21 +704,17 @@ function joinUrl(code: string) {
   return `${window.location.origin}${window.location.pathname}?vs=${code}`;
 }
 
-function versusGameoverCopy(ui: UiSnapshot) {
+function versusGameoverCopy(ui: UiSnapshot, t: TFn) {
   if (ui.net.result === "win") {
     if (ui.net.status === "off" || ui.net.role === "solo") {
-      return `You cleared ${ui.level} heats. The retrievers are buried — Hold, Dodge, and Throw!`;
+      return t("winSolo", { n: ui.level });
     }
-    return ui.net.team === "green"
-      ? "The retrievers buried the Maltese. Stay in the room for a rematch — no new code needed."
-      : "You buried the retrievers. Stay in the room for a rematch — no new code needed.";
+    return ui.net.team === "green" ? t("winGuest") : t("winHost");
   }
   if (ui.net.status === "rematch" || ui.net.role !== "solo") {
-    return ui.net.team === "green"
-      ? "The Maltese buried you. Ask your friend for a rematch — you both have to accept."
-      : "The retrievers buried you. Ask your friend for a rematch — you both have to accept.";
+    return ui.net.team === "green" ? t("loseGuest") : t("loseHost");
   }
-  return `The retrievers buried you at level ${ui.level}. Best ${ui.best}.`;
+  return t("loseSolo", { n: ui.level, best: ui.best });
 }
 
 function ResultMascot({ win, team }: { win: boolean; team: Team }) {
@@ -803,17 +781,49 @@ function DogHead({
   );
 }
 
-function AllyToggle({ mode, onChange }: { mode: AllyMode; onChange: (m: AllyMode) => void }) {
+function LangToggle({
+  lang,
+  onToggle,
+  className,
+}: {
+  lang: "en" | "zh";
+  onToggle: () => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={cn(
+        "pointer-events-auto rounded-full border border-surface/30 bg-ink/70 px-3 py-1 text-xs font-semibold tracking-wide text-[#fff3c4] backdrop-blur-sm hover:bg-ink/90",
+        className,
+      )}
+      aria-label={lang === "en" ? "Switch to Chinese" : "Switch to English"}
+    >
+      {lang === "en" ? "中文" : "EN"}
+    </button>
+  );
+}
+
+function AllyToggle({
+  mode,
+  onChange,
+  t,
+}: {
+  mode: AllyMode;
+  onChange: (m: AllyMode) => void;
+  t: TFn;
+}) {
   const opts: { id: AllyMode; label: string; icon: ReactNode }[] = [
-    { id: "off", label: "Manual", icon: <User /> },
-    { id: "defend", label: "Defend", icon: <Shield /> },
-    { id: "attack", label: "Attack", icon: <Swords /> },
+    { id: "off", label: t("allyManual"), icon: <User /> },
+    { id: "defend", label: t("allyDefend"), icon: <Shield /> },
+    { id: "attack", label: t("allyAttack"), icon: <Swords /> },
   ];
   return (
     <div
       className="flex rounded-xl bg-ink/70 p-1 backdrop-blur-sm"
       role="group"
-      aria-label="Unselected Maltese"
+      aria-label={t("allyLabel")}
     >
       {opts.map((o) => (
         <button
