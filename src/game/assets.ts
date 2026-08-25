@@ -22,9 +22,21 @@ function loadImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image();
     img.decoding = "async";
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`Failed to load ${src}`));
+    let settled = false;
+    const ok = () => {
+      if (settled) return;
+      settled = true;
+      resolve(img);
+    };
+    const fail = () => {
+      if (settled) return;
+      settled = true;
+      reject(new Error(`Failed to load ${src}`));
+    };
+    img.onload = ok;
+    img.onerror = fail;
     img.src = src;
+    window.setTimeout(fail, 8000);
   });
 }
 

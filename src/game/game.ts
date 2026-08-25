@@ -82,6 +82,9 @@ export class SnowCraftGame {
   private restPromise: Promise<void> | null = null;
   private loadDone = 0;
   private loadTotal = ASSET_TOTAL;
+  private fps = 0;
+  private fpsFrames = 0;
+  private fpsAcc = 0;
   private pendingDifficulty: Difficulty = "easy";
 
   constructor(canvas: HTMLCanvasElement, onUi: (s: UiSnapshot) => void) {
@@ -115,7 +118,7 @@ export class SnowCraftGame {
   private onLoadProgress = (done: number, total: number) => {
     this.loadDone = done;
     this.loadTotal = total;
-    this.emit();
+    if (this.screen === "loading" || done >= total) this.emit();
   };
 
   /** Idle dogs only — title already preloaded these. */
@@ -160,6 +163,7 @@ export class SnowCraftGame {
   }
 
   play(difficulty: Difficulty = "easy") {
+    if (this.screen === "playing" || this.screen === "loading") return;
     this.closeNet();
     this.versus = false;
     this.difficulty = difficulty;
@@ -172,13 +176,22 @@ export class SnowCraftGame {
     }
     this.screen = "loading";
     this.emit();
-    void this.hydrateRest().then(() => {
+    const go = () => {
       if (this.destroyed || this.screen !== "loading") return;
       this.beginSolo();
-    });
+    };
+    void this.hydrateRest().then(go, go);
+    window.setTimeout(go, 6000);
+  }
+
+  /** Start packing sprites while the difficulty panel is open. */
+  preparePlay() {
+    this.audio.unlock();
+    void this.hydrateRest();
   }
 
   private beginSolo() {
+    if (this.screen === "playing") return;
     this.audio.startMusic();
     this.screen = "playing";
     this.startLevel(1, false);
@@ -432,6 +445,7 @@ export class SnowCraftGame {
     this.lastOver = { t: "over", winner, s: packState(this.state), round: this.round };
     this.overAcc = 0;
     this.sendNet(this.lastOver);
+    this.sendNet(this.lastOver);
   }
 
   private sendSnap() {
@@ -487,18 +501,12 @@ export class SnowCraftGame {
         break;
       case "over":
         if (this.netRole === "guest" && !this.botTakeover) {
-          if (this.rematchMine || this.rematchTheirs) break;
-          if (this.screen === "playing" && this.netStatus === "live") break;
-          if (data.round != null && data.round !== this.round && this.round > 0) break;
           this.lastPeerAt = performance.now();
           this.lastOver = data;
           applyState(this.state, data.s, { hard: true });
           this.grab = null;
           this.keepBallsUntil = 0;
-          if (this.screen !== "gameover") {
-            this.outcomeHandled = false;
-            this.handleOutcome();
-          }
+          this.applyHostWinner(data.winner);
         }
         break;
       case "snap":
@@ -564,9 +572,6 @@ export class SnowCraftGame {
         this.netStatus = "rematch";
         if (this.screen === "playing" || this.screen === "paused") {
           this.screen = "gameover";
-          if (!this.versusResult) {
-            this.versusResult = this.seat === "green" ? "lose" : "win";
-          }
         }
         this.tryRematch();
         break;
@@ -665,7 +670,7 @@ export class SnowCraftGame {
   private sendAllyPose() {
     if (this.allyMode === "off" || this.netRole !== "guest") return;
     const t = performance.now();
-    if (t - this.lastAiSend < 50) return;
+    if (t - this.lastAiSend < (this.p2p?.rtcOpen ? 32 : 50)) return;
     this.lastAiSend = t;
     const kids = this.state.kids
       .filter((k) => k.team === "green" && !isOut(k) && k.id !== this.grab?.id)
@@ -682,8 +687,25 @@ export class SnowCraftGame {
   }
 
   private maybeOutcomeFromSnap() {
-    if (this.outcomeHandled || this.state.phase === "fight" || this.state.phase === "intro") return;
-    this.handleOutcome();
+    if (this.outcomeHandled) return;
+    if (this.state.phase !== "won" && this.state.phase !== "lost") return;
+    this.applyHostWinner(this.state.phase === "won" ? "red" : "green");
+  }
+
+  /** Guest/host UI from the host's declared winner — never guess locally. */
+  private applyHostWinner(winner: Team) {
+    const result = this.myTeam() === winner ? "win" : "lose";
+    if (this.outcomeHandled && this.versusResult === result && this.screen === "gameover") return;
+    const fresh = !this.outcomeHandled;
+    this.outcomeHandled = true;
+    this.versusResult = result;
+    this.screen = "gameover";
+    if (this.p2p && !this.botTakeover) this.netStatus = "rematch";
+    if (fresh) {
+      if (result === "win") this.audio.win();
+      else this.audio.lose();
+    }
+    this.emit();
   }
 
   private bind() {
@@ -713,8 +735,14 @@ export class SnowCraftGame {
   private onMenu = (e: Event) => e.preventDefault();
 
   private onPrimeAudio = () => {
-    this.audio.unlock();
-    if (this.screen === "title" || this.screen === "lobby" || this.screen === "loading") this.audio.startMenuMusic();
+    try {
+      this.audio.unlock();
+      if (this.screen === "title" || this.screen === "lobby" || this.screen === "loading") {
+        this.audio.startMenuMusic();
+      }
+    } catch {
+      /* gesture unlock must never block UI clicks */
+    }
   };
 
   private onVis = () => {
@@ -896,7 +924,8 @@ export class SnowCraftGame {
 
     if (this.netRole === "host" && this.netStatus === "live" && this.screen === "playing") {
       this.snapAcc += dt;
-      const interval = this.p2p?.rtcOpen ? 0.25 : 0.33;
+      const rtt = this.p2p?.rttMs ?? 80;
+      const interval = this.p2p?.rtcOpen ? (rtt < 50 ? 0.07 : 0.1) : 0.22;
       if (this.snapAcc >= interval) {
         this.snapAcc = 0;
         this.sendSnap();
@@ -905,10 +934,18 @@ export class SnowCraftGame {
 
     if (this.netRole === "host" && this.lastOver && this.screen === "gameover") {
       this.overAcc += dt;
-      if (this.overAcc >= 1) {
+      if (this.overAcc >= 0.35) {
         this.overAcc = 0;
         this.sendNet(this.lastOver);
       }
+    }
+
+    this.fpsFrames += 1;
+    this.fpsAcc += dt;
+    if (this.fpsAcc >= 0.4) {
+      this.fps = Math.round(this.fpsFrames / this.fpsAcc);
+      this.fpsFrames = 0;
+      this.fpsAcc = 0;
     }
 
     this.audio.tick(dt);
@@ -965,7 +1002,7 @@ export class SnowCraftGame {
         dt,
         (power, kid, hold, dx, dy) => {
           this.audio.throw(power);
-          this.keepBallsUntil = performance.now() + 220;
+          this.keepBallsUntil = performance.now() + Math.min(220, 48 + (this.p2p?.rttMs ?? 90));
           this.sendNet({
             t: "allythrow",
             id: kid.id,
@@ -1013,6 +1050,7 @@ export class SnowCraftGame {
           this.audio.splat();
         }
         this.emit();
+        if (this.netRole === "host" && this.versus) this.sendSnap();
       },
       {
         onClash: () => this.audio.clash(),
@@ -1024,17 +1062,15 @@ export class SnowCraftGame {
 
   private handleOutcome() {
     if (this.outcomeHandled) return;
+    if (this.versus && this.netRole === "guest" && !this.botTakeover) return;
     if (this.state.phase === "won") {
-      this.outcomeHandled = true;
-      this.audio.win();
       if (this.versus) {
-        this.versusResult = this.myTeam() === "red" ? "win" : "lose";
-        this.screen = "gameover";
-        this.netStatus = this.p2p && !this.botTakeover ? "rematch" : this.netStatus;
+        this.applyHostWinner("red");
         if (this.netRole === "host") this.sendOver();
-        this.emit();
         return;
       }
+      this.outcomeHandled = true;
+      this.audio.win();
       window.setTimeout(() => {
         if (this.destroyed || this.screen !== "playing") return;
         const carry =
@@ -1045,12 +1081,15 @@ export class SnowCraftGame {
       }, 1100);
     }
     if (this.state.phase === "lost") {
+      if (this.versus) {
+        this.applyHostWinner("green");
+        if (this.netRole === "host") this.sendOver();
+        return;
+      }
       this.outcomeHandled = true;
       this.audio.lose();
-      this.versusResult = this.versus ? (this.myTeam() === "red" ? "lose" : "win") : "lose";
+      this.versusResult = "lose";
       this.screen = "gameover";
-      if (this.versus && this.p2p && !this.botTakeover) this.netStatus = "rematch";
-      if (this.versus && this.netRole === "host") this.sendOver();
       this.emit();
     }
   }
@@ -1099,6 +1138,7 @@ export class SnowCraftGame {
         rttMs: this.p2p?.rttMs ?? this.netRtt,
         link: this.p2p?.rtcOpen ? "direct" : "relay",
       },
+      fps: this.fps,
     });
   }
 }

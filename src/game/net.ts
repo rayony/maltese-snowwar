@@ -187,7 +187,8 @@ export function applyState(
     }
     if (!opts.hard && prev) {
       const d = Math.hypot(prev.x - w.x, prev.y - w.y);
-      const a = d > 88 ? 1 : 0.55;
+      const lan = (opts.rttMs ?? 200) < 55;
+      const a = d > 88 ? 1 : lan ? 0.88 : 0.55;
       const keepPos =
         opts.predictTeam === w.team && w.state !== "hurt" && w.state !== "buried";
       let x = keepPos ? prev.x : prev.x + (w.x - prev.x) * a;

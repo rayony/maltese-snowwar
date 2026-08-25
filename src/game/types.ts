@@ -139,6 +139,7 @@ export interface UiSnapshot {
   allyMode: AllyMode;
   difficulty: Difficulty;
   net: NetUi;
+  fps: number;
 }
 
 export interface View {

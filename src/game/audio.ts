@@ -142,15 +142,52 @@ export class GameAudio {
   }
 
   win() {
+    this.whistle();
     [262, 330, 392, 523].forEach((f, i) => {
-      window.setTimeout(() => this.tone(f, 0.22, "triangle", 0.12), i * 110);
+      window.setTimeout(() => this.tone(f, 0.22, "triangle", 0.12), 90 + i * 110);
     });
   }
 
   lose() {
+    this.whistle();
     [220, 196, 164, 130].forEach((f, i) => {
-      window.setTimeout(() => this.tone(f, 0.28, "sine", 0.12), i * 140);
+      window.setTimeout(() => this.tone(f, 0.28, "sine", 0.12), 90 + i * 140);
     });
+  }
+
+  /** Referee-style double blast at end of a heat. */
+  private whistle() {
+    if (!this.ctx || !this.sfx) return;
+    this.blast();
+    window.setTimeout(() => this.blast(), 160);
+  }
+
+  private blast() {
+    if (!this.ctx || !this.sfx) return;
+    const t = this.ctx.currentTime;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.22, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+    g.connect(this.sfx);
+    for (const freq of [1840, 2180]) {
+      const osc = this.ctx.createOscillator();
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(freq, t);
+      const bp = this.ctx.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.value = freq;
+      bp.Q.value = 9;
+      osc.connect(bp);
+      bp.connect(g);
+      osc.start(t);
+      osc.stop(t + 0.24);
+      osc.onended = () => {
+        osc.disconnect();
+        bp.disconnect();
+      };
+    }
+    this.whoosh(0.08, 0.06, 2400);
   }
 
   count(n: number) {

@@ -77,7 +77,11 @@ export class VersusLink {
     const wire: Envelope = { n, m: msg };
     if (this.rtcOpen) {
       if (unreliable) this.rtc.broadcast(wire);
-      else this.rtc.send(wire);
+      else {
+        this.rtc.send(wire);
+        const t = msg.t;
+        if (t === "over" || t === "start" || t === "rematch") this.http.send(wire);
+      }
       return;
     }
     this.http.send(wire);

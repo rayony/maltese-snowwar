@@ -45,6 +45,7 @@ const INITIAL: UiSnapshot = {
     rttMs: null,
     link: "relay",
   },
+  fps: 0,
 };
 
 export function SnowCraft() {
@@ -91,12 +92,18 @@ export function SnowCraft() {
     };
   }, []);
 
+  const prevScreen = useRef(ui.screen);
   useEffect(() => {
-    if (ui.screen === "title") {
+    if (ui.screen === "title" && prevScreen.current !== "title") {
       setAiGate(false);
       setVsGate(false);
     }
+    prevScreen.current = ui.screen;
   }, [ui.screen]);
+
+  useEffect(() => {
+    if (aiGate) gameRef.current?.preparePlay();
+  }, [aiGate]);
 
   const g = gameRef.current;
   const playing = ui.screen === "playing";
@@ -143,7 +150,10 @@ export function SnowCraft() {
     <div className="relative h-dvh w-full overflow-hidden bg-ink text-surface">
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 size-full touch-none"
+        className={cn(
+          "absolute inset-0 z-0 size-full touch-none",
+          playing || ui.screen === "paused" ? "" : "pointer-events-none",
+        )}
         style={{ touchAction: "none" }}
       />
 
@@ -167,6 +177,7 @@ export function SnowCraft() {
                       : " · direct"
                     : " · relay"
                   : ""}
+                {playing ? ` · ${ui.fps || "–"}fps` : ""}
               </p>
             </div>
             <div className="flex items-center gap-2 rounded-xl bg-ink/70 px-3 py-2 text-sm tabular-nums backdrop-blur-sm">
@@ -217,11 +228,12 @@ export function SnowCraft() {
 
       {ui.screen === "title" && (
         <div
-          className="absolute inset-0 flex items-center justify-center overflow-y-auto bg-ink bg-cover bg-center p-3 sm:p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-ink bg-cover bg-center p-3 sm:p-4"
           style={{ backgroundImage: "url(/images/title-bg.jpg?v=3)" }}
+          onPointerDown={(e) => e.stopPropagation()}
         >
-          <div className="absolute inset-0 bg-ink/45" />
-          <div className="relative my-auto flex w-full max-w-lg max-h-[min(92dvh,680px)] flex-col overflow-hidden rounded-xl border border-surface/15 bg-ink/80 shadow-xl backdrop-blur-md landscape:max-md:max-w-3xl landscape:max-md:flex-row">
+          <div className="pointer-events-none absolute inset-0 bg-ink/45" />
+          <div className="relative z-10 my-auto flex w-full max-w-lg max-h-[min(92dvh,680px)] flex-col overflow-hidden rounded-xl border border-surface/15 bg-ink/80 shadow-xl landscape:max-md:max-w-3xl landscape:max-md:flex-row">
             <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-8 landscape:max-md:w-[55%] landscape:max-md:p-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -233,8 +245,8 @@ export function SnowCraft() {
                   </h1>
                 </div>
                 <div className="flex shrink-0 -space-x-2 pt-1" aria-hidden>
-                  <DogHead src="/sprites/red/idle-1.png" alt="" className="z-10" />
-                  <DogHead src="/sprites/green/idle-1.png" alt="" />
+                  <DogHead src="/sprites/red/idle-1.png" alt="" kind="maltese" className="z-10" />
+                  <DogHead src="/sprites/green/idle-1.png" alt="" kind="retriever" />
                 </div>
               </div>
               {!vsGate && !aiGate && (
@@ -252,7 +264,16 @@ export function SnowCraft() {
                   <p className="mt-4 text-[11px] leading-relaxed text-surface/50 landscape:max-md:mt-2 landscape:max-md:text-[10px]">
                     Fan tribute (二次創作). Gameplay after{" "}
                     <span className="text-surface/75">SnowCraft</span> by Nicholson NY (1998).
-                    Dogs inspired by 線條小狗, illustrated by moonlab.
+                    Dogs inspired by 線條小狗, illustrated by moonlab. Fight feel also referenced{" "}
+                    <a
+                      href="https://github.com/jeffreywilbur/snowcraftjs"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-ice underline decoration-ice/40 underline-offset-2 hover:text-surface"
+                    >
+                      snowcraftjs
+                    </a>{" "}
+                    by jeffreywilbur.
                   </p>
                 </>
               )}
@@ -280,10 +301,10 @@ export function SnowCraft() {
                 </div>
               )}
             </div>
-            <div className="shrink-0 border-t border-surface/10 p-4 sm:p-6 landscape:max-md:w-[45%] landscape:max-md:border-l landscape:max-md:border-t-0 landscape:max-md:p-4">
+            <div className="relative z-10 shrink-0 border-t border-surface/10 p-4 sm:p-6 landscape:max-md:w-[45%] landscape:max-md:border-l landscape:max-md:border-t-0 landscape:max-md:p-4">
               {aiGate ? (
                 <div className="flex flex-col gap-2.5 sm:gap-3">
-                  <Button size="lg" className="w-full" onClick={() => g?.play("easy")}>
+                  <Button size="lg" className="w-full" type="button" onClick={() => gameRef.current?.play("easy")}>
                     <Play />
                     Easy
                   </Button>
@@ -291,7 +312,8 @@ export function SnowCraft() {
                     size="lg"
                     variant="secondary"
                     className="w-full"
-                    onClick={() => g?.play("hard")}
+                    type="button"
+                    onClick={() => gameRef.current?.play("hard")}
                   >
                     Hard
                   </Button>
@@ -308,6 +330,7 @@ export function SnowCraft() {
                   <Button
                     size="lg"
                     className="w-full"
+                    type="button"
                     onClick={() => setAiGate(true)}
                   >
                     <Play />
@@ -317,10 +340,11 @@ export function SnowCraft() {
                     size="lg"
                     variant="secondary"
                     className="w-full"
+                    type="button"
                     onClick={() => setVsGate(true)}
                   >
                     <Users />
-                    VS friend
+                    vs Friend
                   </Button>
                   {ui.net.error && <p className="text-center text-xs text-primary">{ui.net.error}</p>}
                   <p className="text-center text-xs text-ice">
@@ -365,12 +389,6 @@ export function SnowCraft() {
               )}
             </div>
           </div>
-          {portraitPhone && (
-            <p className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full bg-ink/75 px-3.5 py-2 text-xs text-surface shadow-md backdrop-blur-sm">
-              <Smartphone className="size-4 rotate-90" aria-hidden />
-              Rotate your phone for a wider field
-            </p>
-          )}
         </div>
       )}
 
@@ -589,7 +607,17 @@ function versusGameoverCopy(ui: UiSnapshot) {
   return `The retrievers buried you at level ${ui.level}. Best ${ui.best}.`;
 }
 
-function DogHead({ src, alt, className }: { src: string; alt: string; className?: string }) {
+function DogHead({
+  src,
+  alt,
+  kind,
+  className,
+}: {
+  src: string;
+  alt: string;
+  kind: "maltese" | "retriever";
+  className?: string;
+}) {
   return (
     <span
       className={cn(
@@ -600,7 +628,12 @@ function DogHead({ src, alt, className }: { src: string; alt: string; className?
       <img
         src={src}
         alt={alt}
-        className="pointer-events-none absolute left-1/2 top-[-6%] h-[175%] w-[175%] max-w-none -translate-x-1/2 select-none object-cover object-[50%_8%]"
+        className={cn(
+          "pointer-events-none absolute left-1/2 max-w-none -translate-x-1/2 select-none object-cover",
+          kind === "retriever"
+            ? "top-[-4%] h-[155%] w-[155%] object-[50%_18%]"
+            : "top-[-8%] h-[175%] w-[175%] object-[50%_10%]",
+        )}
       />
     </span>
   );
