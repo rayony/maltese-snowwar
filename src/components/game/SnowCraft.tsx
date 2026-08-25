@@ -610,18 +610,26 @@ export function SnowCraft() {
             {ui.difficulty === "hard" ? " · Hard" : ""}
           </p>
           <div className="mt-6 flex flex-col gap-2">
-            <Button size="lg" onClick={() => g?.resume()}>
+            <Button
+              size="lg"
+              className="w-full bg-[#3d8fd4] text-white shadow-sm hover:bg-[#347ebd]"
+              onClick={() => g?.resume()}
+            >
               Resume
             </Button>
-            <Button variant="secondary" onClick={() => g?.retry()}>
+            <Button
+              size="lg"
+              className="w-full bg-amber-400 text-ink shadow-sm hover:bg-amber-300"
+              onClick={() => g?.retry()}
+            >
               <RotateCcw />
               Restart
             </Button>
-            <Button variant="secondary" onClick={() => g?.toggleMute()}>
-              {ui.muted ? <VolumeX /> : <Volume2 />}
-              {ui.muted ? "Unmute" : "Mute"}
-            </Button>
-            <Button variant="secondary" onClick={() => g?.toTitle()}>
+            <Button
+              size="lg"
+              className="w-full bg-primary text-primary-fg shadow-sm hover:bg-primary/90"
+              onClick={() => g?.toTitle()}
+            >
               <Home />
               Title
             </Button>
