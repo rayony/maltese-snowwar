@@ -1,5 +1,5 @@
 import { aiInterval, aiMoveSpeed, MARGIN, MAX_CHARGE, PACK_TIME, WORLD_H, WORLD_W } from "./constants";
-import { aimFromKid, closestEnemy, inFort, isOut, rand, throwSnowball } from "./sim";
+import { aimFromKid, closestEnemy, inFort, isOut, living, rand, throwSnowball } from "./sim";
 import type { AllyMode, GameState, Kid } from "./types";
 
 export type GreenControl = "enemy" | AllyMode;
@@ -11,6 +11,7 @@ export function stepAi(
   allyMode: AllyMode = "off",
   greenControl: GreenControl = "enemy",
   localBalls = false,
+  hard = false,
 ) {
   if (state.phase !== "fight" || state.freeze > 0) return;
   const level = state.level;
@@ -37,14 +38,14 @@ export function stepAi(
           ? "defend"
           : "attack";
 
-    const incoming = incomingBall(state, kid, stance === "defend" ? 150 : 95);
+    const incoming = incomingBall(state, kid, hard && stance === "enemy" ? 210 : stance === "defend" ? 150 : 95, hard && stance === "enemy");
     if (incoming && kid.ai.phase !== "dodge" && kid.stun <= 0) {
       kid.ai.phase = "dodge";
-      kid.ai.t = stance === "defend" ? 0.55 : 0.34;
+      kid.ai.t = hard && stance === "enemy" ? 0.5 : stance === "defend" ? 0.55 : 0.34;
       const px = -(incoming.y - kid.y);
       const py = incoming.x - kid.x;
       const len = Math.hypot(px, py) || 1;
-      const dist = stance === "defend" ? 88 : 64;
+      const dist = hard && stance === "enemy" ? 118 : stance === "defend" ? 88 : 64;
       kid.ai.destX = clampSide(kid.x + (px / len) * dist, kid.team);
       kid.ai.destY = clamp(kid.y + (py / len) * dist, MARGIN, WORLD_H - MARGIN);
       // Prefer a fort when defending
@@ -61,7 +62,8 @@ export function stepAi(
     if (kid.ai.phase === "move" || kid.ai.phase === "dodge") {
       const spd =
         aiMoveSpeed(level) *
-        (kid.ai.phase === "dodge" ? 1.5 : stance === "attack" ? 1.12 : 0.9);
+        (hard ? 3 : 1) *
+        (kid.ai.phase === "dodge" ? (hard ? 1.75 : 1.5) : stance === "attack" ? 1.12 : 0.9);
       moveToward(kid, kid.ai.destX, kid.ai.destY, spd, dt);
       if (kid.ai.t <= 0 || Math.hypot(kid.x - kid.ai.destX, kid.y - kid.ai.destY) < 10) {
         kid.ai.phase = kid.ai.phase === "dodge" ? "idle" : "windup";
@@ -80,7 +82,7 @@ export function stepAi(
       kid.ai.charge = Math.min(1, kid.ai.charge + dt / (stance === "defend" ? 1.15 : 0.85));
       if (kid.cooldown > 0 || kid.packT > 0) continue;
       if (kid.ai.t <= 0) {
-        const { dx, dy } = aimFromKid(kid, state.kids);
+        const { dx, dy } = aimFromKid(kid, state.kids, 0, 0, hard && stance === "enemy");
         const holdScale = stance === "defend" ? 0.42 + 0.35 * kid.ai.charge : 0.58 + 0.42 * kid.ai.charge;
         const hold = MAX_CHARGE * holdScale;
         const power = throwSnowball(state, kid, hold, dx, dy, localBalls);
@@ -103,14 +105,18 @@ export function stepAi(
       } else {
         kid.ai.phase = "move";
         kid.ai.t = rand(0.35, stance === "defend" ? 1.3 : 0.95);
-        pickDest(state, kid, stance);
+        pickDest(state, kid, stance, hard && stance === "enemy");
       }
     }
   }
 }
 
-function pickDest(state: GameState, kid: Kid, stance: "defend" | "attack" | "enemy") {
-  const target = closestEnemy(kid, state.kids);
+function pickDest(state: GameState, kid: Kid, stance: "defend" | "attack" | "enemy", scatter = false) {
+  const foes = living(state.kids).filter((k) => k.team !== kid.team);
+  const target =
+    scatter && foes.length && Math.random() < 0.72
+      ? foes[(Math.random() * foes.length) | 0]!
+      : closestEnemy(kid, state.kids);
   const fort = nearestFort(state, kid);
   const cover = inFort(kid.x, kid.y, state.forts);
 
@@ -186,7 +192,7 @@ function moveToward(kid: Kid, tx: number, ty: number, speed: number, dt: number)
   if (Math.abs(dx) > 2) kid.facing = dx < 0 ? -1 : 1;
 }
 
-function incomingBall(state: GameState, kid: Kid, range: number) {
+function incomingBall(state: GameState, kid: Kid, range: number, leaveCover = false) {
   for (const b of state.balls) {
     if (!b.alive || b.team === kid.team) continue;
     const dx = kid.x - b.x;
@@ -194,7 +200,7 @@ function incomingBall(state: GameState, kid: Kid, range: number) {
     const dist = Math.hypot(dx, dy);
     if (dist > range) continue;
     const closing = (b.vx * dx + b.vy * dy) / (dist || 1);
-    if (closing > 40 && !inFort(kid.x, kid.y, state.forts)) return b;
+    if (closing > (leaveCover ? 18 : 40) && (leaveCover || !inFort(kid.x, kid.y, state.forts))) return b;
   }
   return null;
 }

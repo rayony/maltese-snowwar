@@ -81,30 +81,31 @@ function frameOf(frames: HTMLImageElement[], t: number, fps = 7) {
 
 function kidFrame(kid: Kid, assets: Assets) {
   const set = kid.team === "red" ? assets.red : assets.green;
-  if (kid.state === "buried") return set.buried;
+  const idle = set.idle[0] ?? null;
+  if (kid.state === "buried") return set.buried ?? idle;
   if (kid.state === "throw") {
     const i = Math.min(3, Math.floor((1 - kid.stateT / 0.38) * 4));
-    return set.throw[i] ?? set.throw[0]!;
+    return set.throw[i] ?? set.throw[0] ?? idle;
   }
   if (kid.state === "hurt") {
     const i = Math.min(3, Math.floor((1 - kid.stateT / 0.42) * 4));
-    return set.hurt[i] ?? set.hurt[0]!;
+    return set.hurt[i] ?? set.hurt[0] ?? idle;
   }
   if (kid.moving && set.walk.length) {
-    return frameOf(set.walk, kid.animT, 8) ?? set.idle[0]!;
+    return frameOf(set.walk, kid.animT, 8) ?? idle;
   }
   if ((kid.state === "pack" || kid.packT > 0) && set.pack.length) {
     const u = 1 - kid.packT / PACK_TIME;
     const i = Math.min(3, Math.max(0, Math.floor(u * 4)));
-    return set.pack[i] ?? set.pack[0]!;
+    return set.pack[i] ?? set.pack[0] ?? idle;
   }
   if (kid.fidget === "dance" && set.dance.length) {
-    return frameOf(set.dance, kid.animT, 8) ?? set.idle[0]!;
+    return frameOf(set.dance, kid.animT, 8) ?? idle;
   }
   if (kid.fidget === "wave" && set.wave.length) {
-    return frameOf(set.wave, kid.animT, 7) ?? set.idle[0]!;
+    return frameOf(set.wave, kid.animT, 7) ?? idle;
   }
-  return set.idle[0]!;
+  return idle;
 }
 
 type Box = { x: number; y: number; w: number; h: number };
@@ -224,6 +225,7 @@ export function render(
 
   const layers: { y: number; draw: () => void }[] = [];
   for (const fort of state.forts) {
+    if (fort.maxHp > 0 && fort.hp <= 0) continue;
     layers.push({
       y: fort.y - fort.ry * 0.45,
       draw: () => drawFortLayer(ctx, fort, assets, "back"),
@@ -349,12 +351,6 @@ function drawKid(
     drawAlignedSprite(ctx, img, size, buried ? "width" : "height");
     ctx.filter = "none";
     ctx.restore();
-  } else {
-    ctx.translate(0, -lifted);
-    ctx.fillStyle = kid.team === "red" ? "#f4f7fa" : "#d4a574";
-    ctx.beginPath();
-    ctx.arc(0, -6, size * 0.28, 0, Math.PI * 2);
-    ctx.fill();
   }
 
   if (!isOut(kid)) drawPips(ctx, kid, cover);
@@ -411,6 +407,18 @@ function drawFortLayer(
     ctx.beginPath();
     ctx.ellipse(fort.x, fort.y + 6, fort.rx * 0.95, fort.ry * 0.7, 0, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
+  }
+  if (layer === "front" && fort.maxHp > 0 && fort.hp > 0) {
+    const w = Math.max(28, fort.rx * 0.9);
+    const x = fort.x - w / 2;
+    const y = fort.y + fort.ry * 0.85;
+    ctx.save();
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = "rgba(21,32,43,0.55)";
+    ctx.fillRect(x, y, w, 5);
+    ctx.fillStyle = "#f4f7fa";
+    ctx.fillRect(x, y, w * (fort.hp / fort.maxHp), 5);
     ctx.restore();
   }
 }

@@ -124,6 +124,28 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
+function iceServersFromEnv(): RTCIceServer[] {
+  const stun = (process.env.VITE_STUN_URLS ?? "")
+    .split(",")
+    .map((u) => u.trim())
+    .filter(Boolean);
+  const servers: RTCIceServer[] = [
+    {
+      urls: stun.length ? stun : ["stun:stun.l.google.com:19302", "stun:stun.cloudflare.com:3478"],
+    },
+  ];
+  const turnUrls = (process.env.TURN_URLS ?? "")
+    .split(",")
+    .map((u) => u.trim())
+    .filter(Boolean);
+  const username = process.env.TURN_USERNAME?.trim();
+  const credential = process.env.TURN_CREDENTIAL?.trim();
+  if (turnUrls.length && username && credential) {
+    servers.push({ urls: turnUrls, username, credential });
+  }
+  return servers;
+}
+
 async function handleSse(url: URL, request: Request): Promise<Response> {
   const parsed = z
     .object({
@@ -250,6 +272,7 @@ async function handleGet(url: URL): Promise<Response> {
       kind: r.kind,
       payload: r.payload,
     })),
+    iceServers: iceServersFromEnv(),
   };
   if (busSince >= 0) {
     const busRows = await sql.query<{ id: number; from_peer: string; payload: unknown }>(

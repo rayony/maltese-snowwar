@@ -64,18 +64,22 @@ function makeKid(state: GameState, team: Team, x: number, y: number): Kid {
   };
 }
 
-export function makeForts(): Fort[] {
+export function makeForts(hp = 0): Fort[] {
   return [
-    { x: 390, y: 168, rx: 92, ry: 40, hitFlash: 0 },
-    { x: 545, y: 372, rx: 108, ry: 46, hitFlash: 0 },
+    { x: 390, y: 168, rx: 92, ry: 40, hitFlash: 0, hp, maxHp: hp },
+    { x: 545, y: 372, rx: 108, ry: 46, hitFlash: 0, hp, maxHp: hp },
   ];
 }
 
-export function createState(level: number, versus = false): GameState {
+export function createState(
+  level: number,
+  versus = false,
+  opts: { fortHp?: number; buriedRed?: boolean[]; hard?: boolean } = {},
+): GameState {
   const state: GameState = {
     kids: [],
     balls: [],
-    forts: makeForts(),
+    forts: makeForts(opts.fortHp ?? 0),
     particles: [],
     footprints: [],
     flakes: [],
@@ -86,11 +90,19 @@ export function createState(level: number, versus = false): GameState {
     nextId: 1,
     time: 0,
     trauma: 0,
+    hard: !!opts.hard,
   };
 
   const redYs = [128, 270, 412];
   for (let i = 0; i < PLAYER_COUNT; i++) {
-    state.kids.push(makeKid(state, "red", 790 + (i % 2) * 36, redYs[i]!));
+    const kid = makeKid(state, "red", 790 + (i % 2) * 36, redYs[i]!);
+    if (opts.buriedRed?.[i]) {
+      kid.hp = 0;
+      kid.state = "buried";
+      kid.stateT = 0;
+      kid.fidget = null;
+    }
+    state.kids.push(kid);
   }
 
   const n = versus ? PLAYER_COUNT : enemyCountForLevel(level);
@@ -129,6 +141,7 @@ export function createState(level: number, versus = false): GameState {
 
 export function inFort(x: number, y: number, forts: Fort[]) {
   for (const f of forts) {
+    if (f.maxHp > 0 && f.hp <= 0) continue;
     const dx = (x - f.x) / f.rx;
     const dy = (y - f.y) / f.ry;
     if (dx * dx + dy * dy <= 1) return f;
@@ -177,7 +190,7 @@ export function throwSnowball(
   }
   const nx = dirX / len;
   const ny = dirY / len;
-  const speed = throwSpeed(power);
+  const speed = throwSpeed(power) * (state.hard ? 2 : 1);
   const range = throwRange(power);
   const cover = inFort(kid.x, kid.y, state.forts);
   const ball: Snowball = {
@@ -358,6 +371,13 @@ function stepBalls(
       if (wall) {
         ball.alive = false;
         wall.hitFlash = 0.28;
+        if (wall.maxHp > 0 && wall.hp > 0) {
+          wall.hp -= 1;
+          if (wall.hp <= 0) {
+            wall.hp = 0;
+            burst(state, wall.x, wall.y, 0, 22, "puff");
+          }
+        }
         burst(state, ball.x, ball.y, 0, 16, "puff");
         extra?.onFort?.();
         continue;
@@ -572,10 +592,11 @@ export function stepSim(
   else if (greens === 0) state.phase = "won";
 }
 
-export function aimFromKid(kid: Kid, kids: Kid[], extraX = 0, extraY = 0) {
+export function aimFromKid(kid: Kid, kids: Kid[], extraX = 0, extraY = 0, scatter = false) {
   void extraX;
   void extraY;
-  const target = closestEnemy(kid, kids);
+  const foes = kids.filter((k) => k.team !== kid.team && !isOut(k));
+  const target = scatter && foes.length ? foes[(Math.random() * foes.length) | 0]! : closestEnemy(kid, kids);
   if (!target) {
     return { dx: kid.team === "red" ? -1 : 1, dy: 0 };
   }

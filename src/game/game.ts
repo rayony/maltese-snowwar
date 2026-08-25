@@ -1,9 +1,9 @@
 import { type RoomPeer } from "./room-channel";
 import { VersusLink } from "./versus-link";
 import { stepAi, type GreenControl } from "./ai";
-import { loadAssets, type Assets } from "./assets";
+import { ASSET_TOTAL, loadCoreAssets, loadRestAssets, type Assets } from "./assets";
 import { GameAudio } from "./audio";
-import { FIXED_DT, MARGIN, playFeel, SAVE_KEY, WORLD_H, WORLD_W } from "./constants";
+import { FORT_HP, FIXED_DT, MARGIN, playFeel, SAVE_KEY, WORLD_H, WORLD_W } from "./constants";
 import {
   applyState,
   makeRoomCode,
@@ -16,6 +16,7 @@ import { render, worldFromClient } from "./render";
 import { aimFromKid, burst, clamp, createState, isOut, living, puffMissingBalls, snapCombatFx, stepPresentation, stepSim, throwSnowball } from "./sim";
 import type {
   AllyMode,
+  Difficulty,
   GameState,
   Grab,
   Kid,
@@ -49,6 +50,7 @@ export class SnowCraftGame {
   private outcomeHandled = false;
   private loaded = false;
   private allyMode: AllyMode = "off";
+  private difficulty: Difficulty = "easy";
   private guestAlly: AllyMode = "off";
 
   private netRole: NetRole = "solo";
@@ -76,6 +78,11 @@ export class SnowCraftGame {
   private lastCount = -1;
   private lastOver: Extract<NetMsg, { t: "over" }> | null = null;
   private overAcc = 0;
+  private restLoading = false;
+  private restPromise: Promise<void> | null = null;
+  private loadDone = 0;
+  private loadTotal = ASSET_TOTAL;
+  private pendingDifficulty: Difficulty = "easy";
 
   constructor(canvas: HTMLCanvasElement, onUi: (s: UiSnapshot) => void) {
     this.canvas = canvas;
@@ -96,15 +103,52 @@ export class SnowCraftGame {
   }
 
   async start() {
-    try {
-      this.assets = await loadAssets();
-    } catch (err) {
-      console.warn("Sprites failed to load, using fallbacks", err);
-    }
     this.loaded = true;
     this.emit();
     this.last = performance.now() / 1000;
     this.raf = requestAnimationFrame(this.loop);
+    window.setTimeout(() => {
+      if (!this.destroyed && !this.assets) void this.hydrateCore();
+    }, 400);
+  }
+
+  private onLoadProgress = (done: number, total: number) => {
+    this.loadDone = done;
+    this.loadTotal = total;
+    this.emit();
+  };
+
+  /** Idle dogs only — title already preloaded these. */
+  private async hydrateCore() {
+    if (this.assets) return this.assets;
+    try {
+      this.assets = await loadCoreAssets(this.onLoadProgress);
+      this.loadDone = Math.max(this.loadDone, 3);
+      this.emit();
+    } catch (err) {
+      console.warn("Sprites failed to load, using fallbacks", err);
+    }
+    return this.assets;
+  }
+
+  /** Full pose set. Resolves when match sprites are in. */
+  private hydrateRest(): Promise<void> {
+    if (this.assets?.ready) return Promise.resolve();
+    if (this.restPromise) return this.restPromise;
+    this.restLoading = true;
+    this.restPromise = (async () => {
+      const core = await this.hydrateCore();
+      if (!core) return;
+      if (core.ready) return;
+      try {
+        await loadRestAssets(core, this.onLoadProgress);
+        this.loadDone = this.loadTotal;
+        this.emit();
+      } catch (err) {
+        console.warn("Extra sprites failed", err);
+      }
+    })();
+    return this.restPromise;
   }
 
   destroy() {
@@ -115,10 +159,26 @@ export class SnowCraftGame {
     this.closeNet();
   }
 
-  play() {
+  play(difficulty: Difficulty = "easy") {
     this.closeNet();
     this.versus = false;
+    this.difficulty = difficulty;
+    this.pendingDifficulty = difficulty;
     this.audio.unlock();
+    this.audio.startMenuMusic();
+    if (this.assets?.ready) {
+      this.beginSolo();
+      return;
+    }
+    this.screen = "loading";
+    this.emit();
+    void this.hydrateRest().then(() => {
+      if (this.destroyed || this.screen !== "loading") return;
+      this.beginSolo();
+    });
+  }
+
+  private beginSolo() {
     this.audio.startMusic();
     this.screen = "playing";
     this.startLevel(1, false);
@@ -126,6 +186,8 @@ export class SnowCraftGame {
 
   async createVersus() {
     this.audio.unlock();
+    this.audio.startMenuMusic();
+    this.hydrateRest();
     this.closeNet();
     const code = makeRoomCode();
     this.netCode = code;
@@ -151,6 +213,8 @@ export class SnowCraftGame {
 
   async joinVersus(raw: string) {
     this.audio.unlock();
+    this.audio.startMenuMusic();
+    this.hydrateRest();
     const code = normalizeCode(raw);
     if (code.length !== 6) {
       this.netError = "Enter a 6-letter code.";
@@ -182,6 +246,7 @@ export class SnowCraftGame {
   cancelLobby() {
     this.closeNet();
     this.screen = "title";
+    this.audio.startMenuMusic();
     this.emit();
   }
 
@@ -190,6 +255,16 @@ export class SnowCraftGame {
     this.closeNet();
     this.screen = "title";
     this.versus = false;
+    this.audio.startMenuMusic();
+    this.emit();
+  }
+
+  toTitle() {
+    if (this.versus && this.p2p && !this.botTakeover) this.sendNet({ t: "bye" });
+    this.closeNet();
+    this.versus = false;
+    this.screen = "title";
+    this.audio.startMenuMusic();
     this.emit();
   }
 
@@ -275,11 +350,15 @@ export class SnowCraftGame {
     return this.seat;
   }
 
-  private startLevel(level: number, versus = this.versus) {
+  private startLevel(level: number, versus = this.versus, buriedRed?: boolean[]) {
     this.versus = versus;
     this.round += 1;
     this.lastCount = -1;
-    this.state = createState(level, versus);
+    this.state = createState(level, versus, {
+      fortHp: !versus && this.difficulty === "hard" ? FORT_HP : 0,
+      buriedRed: !versus && this.difficulty === "hard" ? buriedRed : undefined,
+      hard: !versus && this.difficulty === "hard",
+    });
     this.grab = null;
     this.grabGuest = null;
     this.outcomeHandled = false;
@@ -615,6 +694,7 @@ export class SnowCraftGame {
     c.addEventListener("pointercancel", this.onUp);
     c.addEventListener("contextmenu", this.onMenu);
     window.addEventListener("keydown", this.onKey);
+    window.addEventListener("pointerdown", this.onPrimeAudio);
     document.addEventListener("visibilitychange", this.onVis);
   }
 
@@ -626,10 +706,16 @@ export class SnowCraftGame {
     c.removeEventListener("pointercancel", this.onUp);
     c.removeEventListener("contextmenu", this.onMenu);
     window.removeEventListener("keydown", this.onKey);
+    window.removeEventListener("pointerdown", this.onPrimeAudio);
     document.removeEventListener("visibilitychange", this.onVis);
   }
 
   private onMenu = (e: Event) => e.preventDefault();
+
+  private onPrimeAudio = () => {
+    this.audio.unlock();
+    if (this.screen === "title" || this.screen === "lobby" || this.screen === "loading") this.audio.startMenuMusic();
+  };
 
   private onVis = () => {
     if (document.visibilityState === "visible") this.audio.unlock();
@@ -785,6 +871,7 @@ export class SnowCraftGame {
     const paused =
       this.screen === "paused" ||
       this.screen === "title" ||
+      this.screen === "loading" ||
       this.screen === "lobby" ||
       netHold;
 
@@ -907,7 +994,15 @@ export class SnowCraftGame {
     }
 
     const redMode = this.botTakeover && this.seat === "green" ? "attack" : this.allyMode;
-    stepAi(this.state, dt, (power) => this.audio.throw(power), redMode, this.greenControl());
+    stepAi(
+      this.state,
+      dt,
+      (power) => this.audio.throw(power),
+      redMode,
+      this.greenControl(),
+      false,
+      this.difficulty === "hard" && !this.versus,
+    );
     stepSim(
       this.state,
       dt,
@@ -942,7 +1037,11 @@ export class SnowCraftGame {
       }
       window.setTimeout(() => {
         if (this.destroyed || this.screen !== "playing") return;
-        this.startLevel(this.state.level + 1, false);
+        const carry =
+          this.difficulty === "hard"
+            ? this.state.kids.filter((k) => k.team === "red").map((k) => isOut(k))
+            : undefined;
+        this.startLevel(this.state.level + 1, false, carry);
       }, 1100);
     }
     if (this.state.phase === "lost") {
@@ -984,7 +1083,10 @@ export class SnowCraftGame {
       greenTotal: this.state.kids.filter((k) => k.team === "green").length,
       muted: this.audio.muted,
       ready: this.loaded,
+      loadDone: this.loadDone,
+      loadTotal: this.loadTotal,
       allyMode: this.allyMode,
+      difficulty: this.versus ? "easy" : this.difficulty,
       net: {
         role: this.netRole,
         status: this.netStatus,

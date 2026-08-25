@@ -29,6 +29,7 @@ export interface SignalRow {
 export interface RtcPollResponse {
   peers: PeerRow[];
   signals: SignalRow[];
+  iceServers?: RTCIceServer[];
 }
 
 export interface PeerInfo {
@@ -106,6 +107,7 @@ export class P2PRoom {
   private closed = false;
   private everPolled = false;
   private lastPeersFingerprint = "";
+  private iceServers: RTCIceServer[] = defaultIceServers();
 
   constructor(opts: P2PRoomOptions) {
     this.opts = opts;
@@ -210,6 +212,7 @@ export class P2PRoom {
     if (!res.ok) throw new Error(`signaling poll failed: ${res.status}`);
     const body = (await res.json()) as RtcPollResponse;
     if (this.closed) return;
+    if (body.iceServers?.length) this.iceServers = body.iceServers;
     if (!this.everPolled) {
       this.everPolled = true;
       this.opts.onConnected?.();
@@ -259,7 +262,7 @@ export class P2PRoom {
   private connectTo(peerId: string, name: string, initiator: boolean): PeerSlot | null {
     if (this.closed) return null;
     const pc = new RTCPeerConnection({
-      iceServers: this.opts.iceServers ?? defaultIceServers(),
+      iceServers: this.opts.iceServers ?? this.iceServers,
     });
     const slot: PeerSlot = {
       pc,

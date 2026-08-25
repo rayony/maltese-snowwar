@@ -112,6 +112,8 @@ export function packState(state: GameState): WireState {
           rx: f.rx,
           ry: f.ry,
           hitFlash: Math.round(f.hitFlash * 20) / 20,
+          hp: f.hp,
+          maxHp: f.maxHp,
         }))
       : undefined;
   return {
