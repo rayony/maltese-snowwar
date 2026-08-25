@@ -106,6 +106,8 @@ export class SnowCraftGame {
   private predHits: { id: number; at: number; hp: number; state: Kid["state"] }[] = [];
   private poseHist: PoseSample[] = [];
 
+  private titleArm: (() => void) | null = null;
+
   constructor(canvas: HTMLCanvasElement, onUi: (s: UiSnapshot) => void) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d")!;
@@ -128,9 +130,10 @@ export class SnowCraftGame {
     this.reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     this.bind();
     this.emit();
-    const tap = () => this.armTitleAudio();
-    window.addEventListener("pointerdown", tap, { once: true, capture: true });
-    window.addEventListener("keydown", tap, { once: true, capture: true });
+    this.titleArm = () => this.armTitleAudio();
+    window.addEventListener("pointerdown", this.titleArm, { capture: true });
+    window.addEventListener("touchstart", this.titleArm, { capture: true });
+    window.addEventListener("keydown", this.titleArm, { capture: true });
   }
 
   async start() {
@@ -191,6 +194,11 @@ export class SnowCraftGame {
     this.destroyed = true;
     cancelAnimationFrame(this.raf);
     this.unbind();
+    if (this.titleArm) {
+      window.removeEventListener("pointerdown", this.titleArm, { capture: true });
+      window.removeEventListener("touchstart", this.titleArm, { capture: true });
+      window.removeEventListener("keydown", this.titleArm, { capture: true });
+    }
     this.audio.stopMusic();
     this.closeNet();
   }

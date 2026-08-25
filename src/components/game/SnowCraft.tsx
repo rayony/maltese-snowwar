@@ -245,7 +245,9 @@ export function SnowCraft() {
         )}
       </div>
 
-      {ui.screen === "title" && !live && <TitleBoot t={t} lang={lang} />}
+      {ui.screen === "title" && !live && (
+        <TitleBoot t={t} lang={lang} onArm={() => gameRef.current?.armTitleAudio()} />
+      )}
 
       {ui.screen === "title" && live && (
         <div
@@ -697,13 +699,14 @@ export function SnowCraft() {
 
 type TFn = (key: I18nKey, vars?: Record<string, string | number>) => string;
 
-function TitleBoot({ t, lang }: { t: TFn; lang: "en" | "zh" }) {
+function TitleBoot({ t, lang, onArm }: { t: TFn; lang: "en" | "zh"; onArm?: () => void }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-ink bg-cover bg-center"
       style={{ backgroundImage: "url(/images/title-bg.jpg?v=3)" }}
       aria-busy="true"
       aria-live="polite"
+      onPointerDown={() => onArm?.()}
     >
       <div className="absolute inset-0 bg-ink/50" />
       <div className="relative flex flex-col items-center gap-4 text-surface">
