@@ -22,12 +22,12 @@ function gitInfo() {
       return "";
     }
   };
-  let branch = process.env.VERCEL_GIT_COMMIT_REF || run("git rev-parse --abbrev-ref HEAD") || "dev";
+  let branch = process.env.VERCEL_GIT_COMMIT_REF || run("git rev-parse --abbrev-ref HEAD") || "beta";
   let sha = process.env.VERCEL_GIT_COMMIT_SHA || run("git rev-parse --short=7 HEAD");
-  if (branch === "HEAD" || branch === "detached") branch = process.env.VERCEL_GIT_COMMIT_REF || "dev";
-  if (branch.startsWith("pr/")) branch = branch.slice(3);
+  if (branch === "HEAD" || branch === "detached") branch = process.env.VERCEL_GIT_COMMIT_REF || "beta";
+  const channel = branch === "main" || branch === "master" ? "main" : "beta";
   sha = sha.slice(0, 7);
-  return { branch, sha };
+  return { branch: channel, sha };
 }
 
 function hasGlobbedMigrations(root: string): boolean {

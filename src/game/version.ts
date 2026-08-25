@@ -1,4 +1,4 @@
-const branch = typeof __APP_BRANCH__ === "string" && __APP_BRANCH__ ? __APP_BRANCH__ : "dev";
+const branch = typeof __APP_BRANCH__ === "string" && __APP_BRANCH__ ? __APP_BRANCH__ : "beta";
 const sha = typeof __APP_SHA__ === "string" ? __APP_SHA__.slice(0, 7) : "";
 
 export const APP_BRANCH = branch;
