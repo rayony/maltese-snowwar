@@ -99,6 +99,7 @@ export function createState(
     trauma: 0,
     hard: !!opts.hard,
     pvp: versus,
+    godSpeed: false,
   };
 
   const redYs = [128, 270, 412];
@@ -198,7 +199,8 @@ export function throwSnowball(
   }
   const nx = dirX / len;
   const ny = dirY / len;
-  const speed = state.pvp ? PVP_SPEED : throwSpeed(power) * (state.hard ? 2 : 1);
+  let speed = state.pvp ? PVP_SPEED : throwSpeed(power) * (state.hard ? 2 : 1);
+  if (state.godSpeed && kid.team === "red") speed *= 3;
   const range = state.pvp ? PVP_RANGE : throwRange(power);
   const cover = inFort(kid.x, kid.y, state.forts);
   const ball: Snowball = {
@@ -657,17 +659,20 @@ export function stepSim(
   else if (greens === 0) state.phase = "won";
 }
 
-export function aimFromKid(kid: Kid, kids: Kid[], extraX = 0, extraY = 0, scatter = false) {
-  void extraX;
-  void extraY;
+export function aimFromKid(kid: Kid, kids: Kid[], extraX = 0, extraY = 0, scatter = false, allowBack = false) {
   const foes = kids.filter((k) => k.team !== kid.team && !isOut(k));
   const target = scatter && foes.length ? foes[(Math.random() * foes.length) | 0]! : closestEnemy(kid, kids);
+  const back =
+    allowBack && kid.team === "red" && extraX > 10 && Math.hypot(extraX, extraY) > 12;
+  if (back) return { dx: extraX, dy: extraY };
   if (!target) {
     return { dx: kid.team === "red" ? -1 : 1, dy: 0 };
   }
   let dx = target.x - kid.x;
   let dy = target.y - kid.y;
-  if (kid.team === "red") dx = Math.min(dx, -28);
-  else dx = Math.max(dx, 28);
+  if (!allowBack) {
+    if (kid.team === "red") dx = Math.min(dx, -28);
+    else dx = Math.max(dx, 28);
+  }
   return { dx, dy };
 }

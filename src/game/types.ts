@@ -94,6 +94,8 @@ export interface Grab {
   vx: number;
   vy: number;
   packLeft: number;
+  originX: number;
+  originY: number;
 }
 
 export interface GameState {
@@ -112,6 +114,7 @@ export interface GameState {
   trauma: number;
   hard: boolean;
   pvp: boolean;
+  godSpeed: boolean;
 }
 
 export type NetRole = "solo" | "host" | "guest";
@@ -145,6 +148,7 @@ export interface UiSnapshot {
   loadTotal: number;
   allyMode: AllyMode;
   difficulty: Difficulty;
+  godSpeed: boolean;
   net: NetUi;
   fps: number;
 }

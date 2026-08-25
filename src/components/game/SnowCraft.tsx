@@ -40,6 +40,7 @@ const INITIAL: UiSnapshot = {
   loadTotal: 1,
   allyMode: "off",
   difficulty: "easy",
+  godSpeed: false,
   net: {
     role: "solo",
     status: "off",
@@ -179,7 +180,16 @@ export function SnowCraft() {
               landscapePhone ? "px-2 pb-1" : "gap-3 p-3 sm:p-4",
             )}
           >
-            <div className={cn("rounded-xl bg-ink/70 backdrop-blur-sm", landscapePhone ? "px-2 py-1" : "px-3 py-2")}>
+            <div
+              className={cn(
+                "pointer-events-auto cursor-pointer select-none rounded-xl bg-ink/70 backdrop-blur-sm",
+                landscapePhone ? "px-2 py-1" : "px-3 py-2",
+              )}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                g?.tapLevelHud();
+              }}
+            >
               <p
                 className={cn(
                   "font-sans font-semibold leading-tight tracking-tight",
@@ -194,6 +204,11 @@ export function SnowCraft() {
                       ? t("levelHard", { n: ui.level })
                       : t("level", { n: ui.level })}
               </p>
+              {ui.godSpeed && (
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-300 sm:text-xs">
+                  {t("godSpeed")}
+                </p>
+              )}
               {!landscapePhone && (
               <p className="text-xs text-ice">
                 {ui.net.team === "green"

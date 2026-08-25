@@ -227,6 +227,11 @@ export class GameAudio {
     this.tone(f, 0.18, "triangle", 0.12);
   }
 
+  ding() {
+    this.tone(1047, 0.08, "sine", 0.2);
+    window.setTimeout(() => this.tone(1568, 0.18, "triangle", 0.18), 70);
+  }
+
   go() {
     this.kickoff();
   }
