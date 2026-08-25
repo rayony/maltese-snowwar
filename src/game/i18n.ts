@@ -125,7 +125,7 @@ const EN = {
 
 const ZH: Record<keyof typeof EN, string> = {
   greet: "季節的問候",
-  slogan: "按住、閃開、丟！",
+  slogan: "拎起、閃開、掉出！",
   blurb: "率領三隻小白，跟小金毛打一場雪仗。按住狗狗移動，放手丟雪球。兩次出手之間要搓雪。",
   unofficial: "非官方致敬",
   playVsAi: "對戰電腦",
@@ -210,7 +210,7 @@ const ZH: Record<keyof typeof EN, string> = {
   allyLabel: "未選中的小白",
   langSwitch: "EN",
   langSwitchToEn: "中文",
-  winSolo: "你過了 {n} 關。小金毛都被埋了 — 按住、閃開、丟！",
+  winSolo: "你過了 {n} 關。小金毛都被埋了 — 拎起、閃開、掉出！",
   winGuest: "小金毛埋掉了小白。留在房間再來一局，不用重新輸入代碼。",
   winHost: "你埋掉了小金毛。留在房間再來一局，不用重新輸入代碼。",
   loseGuest: "小白把你埋了。請朋友再來一局——雙方都要同意。",
