@@ -14,6 +14,7 @@ import {
   VolumeX,
 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { SnowCraftGame } from "@/game/game";
 import { normalizeCode } from "@/game/net";
@@ -263,8 +264,24 @@ export function SnowCraft() {
                   </ol>
                   <p className="mt-4 text-[11px] leading-relaxed text-surface/50 landscape:max-md:mt-2 landscape:max-md:text-[10px]">
                     Fan tribute (二次創作). Gameplay after{" "}
-                    <span className="text-surface/75">SnowCraft</span> by Nicholson NY (1998).
-                    Dogs inspired by 線條小狗, illustrated by moonlab. Fight feel also referenced{" "}
+                    <a
+                      href="https://archive.org/details/snowcraft_201912"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-ice underline decoration-ice/40 underline-offset-2 hover:text-surface"
+                    >
+                      SnowCraft
+                    </a>{" "}
+                    by Nicholson NY (1998). Dogs inspired by 線條小狗, illustrated by{" "}
+                    <a
+                      href="https://www.instagram.com/moonlab_studio/"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-ice underline decoration-ice/40 underline-offset-2 hover:text-surface"
+                    >
+                      moonlab
+                    </a>
+                    . Fight feel also referenced{" "}
                     <a
                       href="https://github.com/jeffreywilbur/snowcraftjs"
                       target="_blank"
@@ -273,7 +290,14 @@ export function SnowCraft() {
                     >
                       snowcraftjs
                     </a>{" "}
-                    by jeffreywilbur.
+                    by jeffreywilbur.{" "}
+                    <Link
+                      to="/credits"
+                      className="text-ice underline decoration-ice/40 underline-offset-2 hover:text-surface"
+                    >
+                      Open-source licenses
+                    </Link>
+                    .
                   </p>
                 </>
               )}
@@ -338,13 +362,13 @@ export function SnowCraft() {
                   </Button>
                   <Button
                     size="lg"
-                    variant="secondary"
+                    variant="sky"
                     className="w-full"
                     type="button"
                     onClick={() => setVsGate(true)}
                   >
                     <Users />
-                    vs Friend
+                    Play vs Friend
                   </Button>
                   {ui.net.error && <p className="text-center text-xs text-primary">{ui.net.error}</p>}
                   <p className="text-center text-xs text-ice">
