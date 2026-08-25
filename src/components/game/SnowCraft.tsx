@@ -10,9 +10,7 @@ import {
   RotateCcw,
   Shield,
   Smartphone,
-  Snowflake,
   Swords,
-  Trophy,
   User,
   Users,
   Volume2,
@@ -23,7 +21,7 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { SnowCraftGame } from "@/game/game";
 import { normalizeCode } from "@/game/net";
-import type { AllyMode, UiSnapshot } from "@/game/types";
+import type { AllyMode, Team, UiSnapshot } from "@/game/types";
 import { cn } from "@/lib/utils";
 
 const INITIAL: UiSnapshot = {
@@ -647,19 +645,8 @@ export function SnowCraft() {
             const win = ui.net.result === "win";
             return (
               <div className="flex flex-col items-center text-center">
-                <div
-                  className={cn(
-                    "flex size-16 items-center justify-center rounded-full",
-                    win ? "bg-pine/15 text-pine" : "bg-ice/40 text-ink",
-                  )}
-                  aria-hidden
-                >
-                  {win ? <Trophy className="size-8" /> : <Snowflake className="size-8" />}
-                </div>
-                <p className="mt-3 text-2xl leading-none" aria-hidden>
-                  {win ? "🏆✨🐶" : "❄️🐶💨"}
-                </p>
-                <h2 className="mt-2 font-display text-3xl font-semibold">
+                <ResultMascot win={win} team={ui.net.team} />
+                <h2 className="mt-3 font-display text-3xl font-semibold">
                   {win ? "Victory" : "Buried"}
                 </h2>
                 {win && (
@@ -747,6 +734,38 @@ function versusGameoverCopy(ui: UiSnapshot) {
       : "The retrievers buried you. Ask your friend for a rematch — you both have to accept.";
   }
   return `The retrievers buried you at level ${ui.level}. Best ${ui.best}.`;
+}
+
+function ResultMascot({ win, team }: { win: boolean; team: Team }) {
+  const side = team === "green" ? "green" : "red";
+  const kind = team === "green" ? "retriever" : "maltese";
+  const dance = [1, 2, 3, 4].map((i) => `/sprites/${side}/dance-${i}.png`);
+  const [frame, setFrame] = useState(0);
+  useEffect(() => {
+    if (!win) return;
+    const id = window.setInterval(() => setFrame((f) => (f + 1) % 4), 140);
+    return () => window.clearInterval(id);
+  }, [win, side]);
+  const src = win ? dance[frame]! : `/sprites/fx/buried-${side}.png?v=3`;
+  return (
+    <span
+      className="relative size-24 overflow-hidden rounded-full border border-ink/10 bg-[#c5d6e2] shadow-inner sm:size-28"
+      aria-hidden
+    >
+      <img
+        src={src}
+        alt=""
+        className={cn(
+          "pointer-events-none absolute left-1/2 max-w-none -translate-x-1/2 select-none object-cover",
+          win
+            ? kind === "retriever"
+              ? "top-[-2%] h-[150%] w-[150%] object-[50%_12%]"
+              : "top-[-6%] h-[165%] w-[165%] object-[50%_8%]"
+            : "top-[8%] h-[110%] w-[110%] object-[50%_70%]",
+        )}
+      />
+    </span>
+  );
 }
 
 function DogHead({
