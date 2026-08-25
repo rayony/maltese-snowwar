@@ -29,6 +29,7 @@ try:
 except Exception:
     pdfmetrics.registerFont(TTFont("Noto", "/usr/share/fonts/opentype/unifont/unifont.otf"))
 CJK = "Noto"
+pdfmetrics.registerFont(TTFont("Caveat", "/workspace/public/fonts/Caveat-Bold.ttf"))
 
 OUT = "/workspace/artifacts/Maltese-Snow-War-Architecture.pdf"
 
@@ -341,15 +342,18 @@ def cover_page(canv, doc):
     canv.setFillColor(white)
     canv.setFont("Times-Bold", 28)
     canv.drawString(22 * mm, A4[1] - 58 * mm, "Maltese Snow War")
+    canv.setFillColor(HexColor("#FFF3C4"))
+    canv.setFont("Caveat", 22)
+    canv.drawString(22 * mm, A4[1] - 72 * mm, "Hold, Dodge, and Throw!")
     canv.setFont("Times-Italic", 13)
     canv.setFillColor(ICE)
-    canv.drawString(22 * mm, A4[1] - 70 * mm, "Code structure, runtime flow, and P2P smoothness")
+    canv.drawString(22 * mm, A4[1] - 86 * mm, "Code structure, runtime flow, and P2P smoothness")
     canv.setStrokeColor(ICE)
     canv.setLineWidth(0.6)
-    canv.line(22 * mm, A4[1] - 78 * mm, 90 * mm, A4[1] - 78 * mm)
+    canv.line(22 * mm, A4[1] - 94 * mm, 90 * mm, A4[1] - 94 * mm)
     canv.setFillColor(SNOW)
     canv.setFont("Times-Roman", 11)
-    y = A4[1] - 98 * mm
+    y = A4[1] - 114 * mm
     for line in [
         "A browser remake of the 1998 Flash game SnowCraft,",
         "with moonlab’s Line Puppy dogs: Maltese vs golden retrievers.",
@@ -387,6 +391,16 @@ def build():
         spaceBefore=10,
         spaceAfter=5,
         leading=16,
+    )
+    motto = ParagraphStyle(
+        "Motto",
+        parent=styles["Normal"],
+        fontName="Caveat",
+        fontSize=18,
+        textColor=HexColor("#5A3A10"),
+        leading=22,
+        spaceAfter=8,
+        alignment=TA_LEFT,
     )
     body = ParagraphStyle(
         "Body",
@@ -440,6 +454,7 @@ def build():
 
     # 1
     story.append(Paragraph("1. What this is", h1))
+    story.append(Paragraph("Hold, Dodge, and Throw!", motto))
     story.append(
         Paragraph(
             "Maltese Snow War is a canvas snowball fight in the browser. "
