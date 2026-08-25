@@ -110,6 +110,7 @@ export interface GameState {
   time: number;
   trauma: number;
   hard: boolean;
+  pvp: boolean;
 }
 
 export type NetRole = "solo" | "host" | "guest";

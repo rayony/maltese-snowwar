@@ -228,8 +228,10 @@ export function SnowCraft() {
 
         {playing && !portraitPhone && (
           <p className="mt-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-xs text-ink/70 sm:text-sm">
-            Hold a {myTeam === "green" ? "retriever" : "Maltese"} · tap = short toss · hold = far throw
-            {versus ? "" : " · pack snow between throws"}
+            Hold a {myTeam === "green" ? "retriever" : "Maltese"}
+            {versus
+              ? " · tap to throw (same range) · pack snow between throws"
+              : " · tap = short toss · hold = far throw · pack snow between throws"}
           </p>
         )}
       </div>

@@ -7,6 +7,8 @@ import {
   MARGIN,
   PACK_TIME,
   PLAYER_COUNT,
+  PVP_RANGE,
+  PVP_SPEED,
   playFeel,
   THROW_COOLDOWN,
   throwRange,
@@ -91,6 +93,7 @@ export function createState(
     time: 0,
     trauma: 0,
     hard: !!opts.hard,
+    pvp: versus,
   };
 
   const redYs = [128, 270, 412];
@@ -181,7 +184,7 @@ export function throwSnowball(
   local = false,
 ) {
   if (kid.packT > 0 || kid.state === "pack") return 0;
-  const power = holdPower(charge);
+  const power = state.pvp ? 1 : holdPower(charge);
   let len = Math.hypot(dirX, dirY);
   if (len < 0.001) {
     dirX = kid.team === "red" ? -1 : 1;
@@ -190,8 +193,8 @@ export function throwSnowball(
   }
   const nx = dirX / len;
   const ny = dirY / len;
-  const speed = throwSpeed(power) * (state.hard ? 2 : 1);
-  const range = throwRange(power);
+  const speed = state.pvp ? PVP_SPEED : throwSpeed(power) * (state.hard ? 2 : 1);
+  const range = state.pvp ? PVP_RANGE : throwRange(power);
   const cover = inFort(kid.x, kid.y, state.forts);
   const ball: Snowball = {
     x: kid.x + nx * 30,

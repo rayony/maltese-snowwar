@@ -1,4 +1,4 @@
-import { holdPower, isCompactPlay, PACK_TIME, throwRange, WORLD_H, WORLD_W } from "./constants";
+import { holdPower, isCompactPlay, PACK_TIME, PVP_RANGE, throwRange, WORLD_H, WORLD_W } from "./constants";
 import type { Assets } from "./assets";
 import { aimFromKid, inFort, isOut } from "./sim";
 import type { Fort, GameState, Grab, Kid, Snowball, View } from "./types";
@@ -297,7 +297,7 @@ export function render(
   if (view.grab && state.phase === "fight") {
     const kid = state.kids.find((k) => k.id === view.grab!.id);
     if (kid && !isOut(kid)) {
-      drawThrowPreview(ctx, kid, view.grab, state.kids);
+      drawThrowPreview(ctx, kid, view.grab, state.kids, view.pvp);
     }
   }
 
@@ -361,7 +361,11 @@ function drawKid(
 
   const hovered = view.hoverId === kid.id || view.grab?.id === kid.id;
   if (hovered && kid.team === "red" && !isOut(kid)) {
-    const power = view.grab?.id === kid.id ? holdPower((performance.now() - view.grab.startedAt) / 1000) : 0;
+    const power = view.pvp
+      ? 0.7
+      : view.grab?.id === kid.id
+        ? holdPower((performance.now() - view.grab.startedAt) / 1000)
+        : 0;
     drawBullseye(ctx, power, view.pickRadius);
   }
   ctx.restore();
@@ -490,11 +494,17 @@ function drawBullseye(ctx: CanvasRenderingContext2D, power: number, pick: number
   ctx.restore();
 }
 
-function drawThrowPreview(ctx: CanvasRenderingContext2D, kid: Kid, grab: Grab, kids: Kid[]) {
+function drawThrowPreview(
+  ctx: CanvasRenderingContext2D,
+  kid: Kid,
+  grab: Grab,
+  kids: Kid[],
+  pvp: boolean,
+) {
   const packing = kid.packT > 0;
   const seconds = packing ? 0 : Math.max(0, (performance.now() - grab.startedAt) / 1000 - grab.packLeft);
-  const power = holdPower(seconds);
-  const range = throwRange(power);
+  const power = pvp ? 1 : holdPower(seconds);
+  const range = packing ? 0 : pvp ? PVP_RANGE : throwRange(power);
   const dir = aimFromKid(kid, kids);
   const len = Math.hypot(dir.dx, dir.dy) || 1;
   const nx = dir.dx / len;
