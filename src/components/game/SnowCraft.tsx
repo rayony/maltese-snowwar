@@ -10,7 +10,9 @@ import {
   RotateCcw,
   Shield,
   Smartphone,
+  Snowflake,
   Swords,
+  Trophy,
   User,
   Users,
   Volume2,
@@ -640,13 +642,35 @@ export function SnowCraft() {
       )}
 
       {(ui.screen === "gameover" || ui.net.status === "rematch") && (
-        <Modal>
-          <h2 className="font-display text-3xl font-semibold">
-            {ui.net.result === "win" ? "Victory" : "Buried"}
-          </h2>
-          <p className="mt-2 text-sm leading-relaxed text-muted">
-            {versusGameoverCopy(ui)}
-          </p>
+        <Modal appear>
+          {(() => {
+            const win = ui.net.result === "win";
+            return (
+              <div className="flex flex-col items-center text-center">
+                <div
+                  className={cn(
+                    "flex size-16 items-center justify-center rounded-full",
+                    win ? "bg-pine/15 text-pine" : "bg-ice/40 text-ink",
+                  )}
+                  aria-hidden
+                >
+                  {win ? <Trophy className="size-8" /> : <Snowflake className="size-8" />}
+                </div>
+                <p className="mt-3 text-2xl leading-none" aria-hidden>
+                  {win ? "🏆✨🐶" : "❄️🐶💨"}
+                </p>
+                <h2 className="mt-2 font-display text-3xl font-semibold">
+                  {win ? "Victory" : "Buried"}
+                </h2>
+                {win && (
+                  <p className="mt-1 font-script text-xl font-bold text-pine">Hold, Dodge, and Throw!</p>
+                )}
+                <p className="mt-2 text-sm leading-relaxed text-muted">
+                  {versusGameoverCopy(ui)}
+                </p>
+              </div>
+            );
+          })()}
           {ui.net.rematchTheirs && !ui.net.rematchMine && (
             <p className="mt-3 rounded-lg bg-leaf/30 px-3 py-2 text-sm">
               Your friend wants a rematch.
@@ -788,12 +812,18 @@ function AllyToggle({ mode, onChange }: { mode: AllyMode; onChange: (m: AllyMode
   );
 }
 
-function Modal({ children }: { children: ReactNode }) {
+function Modal({ children, appear }: { children: ReactNode; appear?: boolean }) {
   return (
-    <div className="absolute inset-0 flex items-center justify-center bg-ink/55 p-4 backdrop-blur-[2px]">
+    <div
+      className={cn(
+        "absolute inset-0 flex items-center justify-center bg-ink/55 p-4 backdrop-blur-[2px]",
+        appear && "modal-veil",
+      )}
+    >
       <div
         className={cn(
           "w-full max-w-sm rounded-xl border border-surface/15 bg-surface p-6 text-ink shadow-xl sm:p-7",
+          appear && "modal-pop",
         )}
       >
         {children}

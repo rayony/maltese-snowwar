@@ -47,6 +47,22 @@
   }
 }
 
+@keyframes modal-veil {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes modal-pop {
+  from { opacity: 0; transform: translateY(14px) scale(0.94); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.modal-veil {
+  animation: modal-veil 420ms var(--ease-out) both;
+}
+.modal-pop {
+  animation: modal-pop 520ms var(--ease-out) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
