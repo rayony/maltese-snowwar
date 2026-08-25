@@ -3,11 +3,13 @@ import { VersusLink } from "./versus-link";
 import { stepAi, type GreenControl } from "./ai";
 import { ASSET_TOTAL, loadCoreAssets, loadRestAssets, type Assets } from "./assets";
 import { GameAudio } from "./audio";
-import { FORT_HP, FIXED_DT, MARGIN, playFeel, SAVE_KEY, WORLD_H, WORLD_W } from "./constants";
+import { FORT_HP, FIXED_DT, MARGIN, BALL_RADIUS, playFeel, SAVE_KEY, WORLD_H, WORLD_W } from "./constants";
 import {
   applyState,
+  applyPose,
   makeRoomCode,
   normalizeCode,
+  packPose,
   packState,
   roomIdFromCode,
   type NetMsg,
@@ -88,6 +90,9 @@ export class SnowCraftGame {
   private pendingDifficulty: Difficulty = "easy";
   private selfPacked = false;
   private peerPacked = false;
+  private throwQ: { at: number; id: number; hold: number; dx: number; dy: number }[] = [];
+  private poseBuf: { t: number; msg: Extract<NetMsg, { t: "pose" }> }[] = [];
+  private keyframeAcc = 0;
 
   constructor(canvas: HTMLCanvasElement, onUi: (s: UiSnapshot) => void) {
     this.canvas = canvas;
@@ -383,6 +388,8 @@ export class SnowCraftGame {
     this.versus = versus;
     this.round += 1;
     this.lastCount = -1;
+    this.throwQ = [];
+    this.poseBuf = [];
     this.state = createState(level, versus, {
       fortHp: !versus && this.difficulty === "hard" ? FORT_HP : 0,
       buriedRed: !versus && this.difficulty === "hard" ? buriedRed : undefined,
@@ -444,6 +451,9 @@ export class SnowCraftGame {
     this.botTakeover = false;
     this.selfPacked = false;
     this.peerPacked = false;
+    this.throwQ = [];
+    this.poseBuf = [];
+    this.keyframeAcc = 0;
     this.rematchMine = false;
     this.rematchTheirs = false;
     this.guestAlly = "off";
@@ -454,8 +464,81 @@ export class SnowCraftGame {
 
   private sendNet(msg: NetMsg) {
     const pose =
-      msg.t === "allypose" || msg.t === "hb" || (msg.t === "input" && msg.kind === "move");
-    this.p2p?.send(msg, pose ? "pose" : "event");
+      msg.t === "pose" ||
+      msg.t === "allypose" ||
+      msg.t === "hb" ||
+      (msg.t === "input" && msg.kind === "move");
+    const kind = msg.t === "snap" ? "snap" : pose ? "pose" : "event";
+    this.p2p?.send(msg, kind);
+  }
+
+  private hostDelayMs() {
+    if (!this.versus || this.netRole !== "host" || this.botTakeover) return 0;
+    const rtt = this.p2p?.rttMs ?? 80;
+    return Math.max(30, Math.min(80, rtt / 2));
+  }
+
+  private sendPose() {
+    if (this.netRole !== "host" || !this.p2p) return;
+    const msg = packPose(this.state);
+    const delay = this.hostDelayMs();
+    const now = performance.now();
+    if (delay <= 0) {
+      this.sendNet(msg);
+      return;
+    }
+    this.poseBuf.push({ t: now, msg });
+    while (this.poseBuf.length && now - this.poseBuf[0]!.t >= delay) {
+      this.sendNet(this.poseBuf.shift()!.msg);
+    }
+  }
+
+  private broadcastThrow(kid: Kid) {
+    if (this.netRole !== "host" || !this.versus) return;
+    let ball = null as (typeof this.state.balls)[number] | null;
+    for (let i = this.state.balls.length - 1; i >= 0; i--) {
+      const b = this.state.balls[i]!;
+      if (b.alive && b.fromId === kid.id) {
+        ball = b;
+        break;
+      }
+    }
+    if (!ball) return;
+    this.sendNet({
+      t: "throw",
+      id: kid.id,
+      x: Math.round(ball.x),
+      y: Math.round(ball.y),
+      vx: Math.round(ball.vx),
+      vy: Math.round(ball.vy),
+      team: kid.team,
+    });
+  }
+
+  private commitThrow(kid: Kid, hold: number, dx: number, dy: number, local = false) {
+    const power = throwSnowball(this.state, kid, hold, dx, dy, local);
+    if (power > 0) {
+      this.audio.throw(power);
+      this.broadcastThrow(kid);
+    }
+    return power;
+  }
+
+  private flushThrowQ() {
+    const now = performance.now();
+    while (this.throwQ.length && this.throwQ[0]!.at <= now) {
+      const job = this.throwQ.shift()!;
+      const kid = this.state.kids.find((k) => k.id === job.id);
+      if (!kid || isOut(kid) || this.state.phase !== "fight") {
+        if (kid && kid.state === "grabbed") kid.state = kid.packT > 0 ? "pack" : "idle";
+        continue;
+      }
+      if (kid.packT > 0) {
+        kid.state = "pack";
+        continue;
+      }
+      this.commitThrow(kid, job.hold, job.dx, job.dy);
+    }
   }
 
   private sendOver() {
@@ -575,6 +658,22 @@ export class SnowCraftGame {
           this.maybeOutcomeFromSnap();
         }
         break;
+      case "pose":
+        if (this.netRole === "guest" && !this.botTakeover) {
+          this.lastPeerAt = performance.now();
+          applyPose(this.state, data, {
+            grabId: this.grab?.id ?? null,
+            predictTeam: this.seat,
+            rttMs: this.p2p?.rttMs,
+          });
+        }
+        break;
+      case "throw":
+        if (this.netRole === "guest" && !this.botTakeover) this.applyHostThrow(data);
+        break;
+      case "hit":
+        if (this.netRole === "guest" && !this.botTakeover) this.applyHostHit(data);
+        break;
       case "input":
         if (this.netRole === "host") this.applyGuestInput(data);
         break;
@@ -666,8 +765,7 @@ export class SnowCraftGame {
     const aimVx = msg.vx ?? grab.vx;
     const aimVy = msg.vy ?? grab.vy;
     const { dx, dy } = aimFromKid(kid, this.state.kids, aimVx, aimVy);
-    const power = throwSnowball(this.state, kid, seconds, dx, dy);
-    this.audio.throw(power);
+    this.commitThrow(kid, seconds, dx, dy);
   }
 
   private applyAllyPose(msg: Extract<NetMsg, { t: "allypose" }>) {
@@ -690,7 +788,60 @@ export class SnowCraftGame {
     kid.x = clamp(msg.x, MARGIN, WORLD_W - MARGIN);
     kid.y = clamp(msg.y, MARGIN, WORLD_H - MARGIN);
     const power = throwSnowball(this.state, kid, Math.max(0, msg.hold), msg.dx, msg.dy);
-    if (power > 0) this.audio.throw(power);
+    if (power > 0) {
+      this.audio.throw(power);
+      this.broadcastThrow(kid);
+    }
+  }
+
+  private applyHostThrow(msg: Extract<NetMsg, { t: "throw" }>) {
+    this.lastPeerAt = performance.now();
+    const dup = this.state.balls.some(
+      (b) => b.alive && b.fromId === msg.id && Math.hypot(b.x - msg.x, b.y - msg.y) < 90,
+    );
+    if (dup) return;
+    this.state.balls.push({
+      x: msg.x,
+      y: msg.y,
+      vx: msg.vx,
+      vy: msg.vy,
+      team: msg.team,
+      r: BALL_RADIUS,
+      fromId: msg.id,
+      grace: 0.08,
+      spin: 0,
+      alive: true,
+      range: 2400,
+      traveled: 0,
+      local: true,
+    });
+    const kid = this.state.kids.find((k) => k.id === msg.id);
+    if (kid && kid.state !== "hurt" && kid.state !== "buried") {
+      kid.state = "throw";
+      kid.stateT = 0.38;
+      kid.facing = msg.vx < 0 ? -1 : 1;
+    }
+    this.audio.throw(0.5);
+  }
+
+  private applyHostHit(msg: Extract<NetMsg, { t: "hit" }>) {
+    this.lastPeerAt = performance.now();
+    const kid = this.state.kids.find((k) => k.id === msg.id);
+    if (!kid) return;
+    kid.hp = msg.hp;
+    kid.flash = 0.2;
+    if (msg.heavy || kid.hp <= 0) {
+      kid.state = "buried";
+      kid.stateT = 0;
+      this.audio.bury();
+    } else {
+      kid.state = "hurt";
+      kid.stateT = 0.45;
+      kid.stun = 0.35;
+      this.audio.hit();
+      this.audio.splat();
+    }
+    burst(this.state, kid.x, kid.y, 0, 14, "spark");
   }
 
   private sendAllyPose() {
@@ -875,8 +1026,12 @@ export class SnowCraftGame {
     }
     const seconds = Math.max(0, (performance.now() - grab.startedAt) / 1000 - grab.packLeft);
     const { dx, dy } = aimFromKid(kid, this.state.kids, grab.vx, grab.vy);
-    const power = throwSnowball(this.state, kid, seconds, dx, dy, this.netRole === "guest");
-    this.audio.throw(power);
+    const delay = this.netRole === "host" ? this.hostDelayMs() : 0;
+    if (delay > 0) {
+      this.throwQ.push({ at: performance.now() + delay, id: kid.id, hold: seconds, dx, dy });
+      return;
+    }
+    this.commitThrow(kid, seconds, dx, dy, this.netRole === "guest");
   }
 
   private loop = (nowMs: number) => {
@@ -937,11 +1092,17 @@ export class SnowCraftGame {
     }
 
     if (this.netRole === "host" && this.netStatus === "live" && this.screen === "playing") {
+      this.flushThrowQ();
       this.snapAcc += dt;
+      this.keyframeAcc += dt;
       const rtt = this.p2p?.rttMs ?? 80;
-      const interval = this.p2p?.rtcOpen ? (rtt < 50 ? 0.07 : 0.1) : 0.22;
+      const interval = this.p2p?.rtcOpen ? (rtt < 50 ? 0.05 : 0.07) : 0.14;
       if (this.snapAcc >= interval) {
         this.snapAcc = 0;
+        this.sendPose();
+      }
+      if (this.keyframeAcc >= 1.2) {
+        this.keyframeAcc = 0;
         this.sendSnap();
       }
     }
@@ -985,7 +1146,7 @@ export class SnowCraftGame {
 
   private flyPredictedBalls(dt: number) {
     for (const b of this.state.balls) {
-      if (!b.alive || !b.local || b.team !== this.seat) continue;
+      if (!b.alive || !b.local) continue;
       b.x += b.vx * dt;
       b.y += b.vy * dt;
       b.traveled += Math.hypot(b.vx, b.vy) * dt;
@@ -1048,12 +1209,16 @@ export class SnowCraftGame {
     stepAi(
       this.state,
       dt,
-      (power) => this.audio.throw(power),
+      (power, kid) => {
+        this.audio.throw(power);
+        this.broadcastThrow(kid);
+      },
       redMode,
       this.greenControl(),
       false,
       this.difficulty === "hard" && !this.versus,
     );
+    const hpBefore = new Map(this.state.kids.map((k) => [k.id, k.hp]));
     stepSim(
       this.state,
       dt,
@@ -1064,7 +1229,15 @@ export class SnowCraftGame {
           this.audio.splat();
         }
         this.emit();
-        if (this.netRole === "host" && this.versus) this.sendSnap();
+        if (this.netRole === "host" && this.versus) {
+          for (const k of this.state.kids) {
+            const prev = hpBefore.get(k.id);
+            if (prev != null && k.hp !== prev) {
+              this.sendNet({ t: "hit", id: k.id, hp: k.hp, heavy: heavy || k.hp <= 0 });
+            }
+          }
+          this.sendPose();
+        }
       },
       {
         onClash: () => this.audio.clash(),

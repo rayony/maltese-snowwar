@@ -23,8 +23,10 @@ export class VersusLink {
   private rtc: P2PRoom;
   private seq = 1;
   private snapSeq = 1;
+  private poseSeq = 1;
   private lastIn = 0;
   private lastSnap = 0;
+  private lastPose = 0;
   private closed = false;
   private iceTried = false;
   private iceGaveUp = false;
@@ -73,14 +75,18 @@ export class VersusLink {
   send(msg: NetMsg, kind: SendKind = "event") {
     if (this.closed) return;
     const unreliable = kind === "pose" || kind === "snap";
-    const n = unreliable ? (kind === "snap" ? this.snapSeq++ : 0) : this.seq++;
+    const n = unreliable
+      ? kind === "snap"
+        ? this.snapSeq++
+        : this.poseSeq++
+      : this.seq++;
     const wire: Envelope = { n, m: msg };
     if (this.rtcOpen) {
       if (unreliable) this.rtc.broadcast(wire);
       else {
         this.rtc.send(wire);
         const t = msg.t;
-        if (t === "over" || t === "start" || t === "rematch") this.http.send(wire);
+        if (t === "over" || t === "start" || t === "rematch" || t === "throw" || t === "hit") this.http.send(wire);
       }
       return;
     }
@@ -115,6 +121,12 @@ export class VersusLink {
     if (env.m.t === "snap") {
       if (env.n > 0 && env.n < this.lastSnap) return;
       if (env.n > 0) this.lastSnap = env.n;
+      onMessage(env.m);
+      return;
+    }
+    if (env.m.t === "pose") {
+      if (env.n > 0 && env.n < this.lastPose) return;
+      if (env.n > 0) this.lastPose = env.n;
       onMessage(env.m);
       return;
     }

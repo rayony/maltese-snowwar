@@ -29,6 +29,9 @@ export type NetMsg =
   | { t: "ally"; mode: AllyMode }
   | { t: "allypose"; kids: { id: number; x: number; y: number }[] }
   | { t: "allythrow"; id: number; x: number; y: number; hold: number; dx: number; dy: number }
+  | { t: "pose"; kids: PoseKid[]; intro: number; phase: FightPhase }
+  | { t: "throw"; id: number; x: number; y: number; vx: number; vy: number; team: Team }
+  | { t: "hit"; id: number; hp: number; heavy: boolean }
   | { t: "rematch"; yes: boolean }
   | { t: "bye" }
   | { t: "bot" }
@@ -68,6 +71,16 @@ export interface WireBall {
   alive: boolean;
   range: number;
   traveled: number;
+}
+
+export interface PoseKid {
+  i: number;
+  x: number;
+  y: number;
+  f: 1 | -1;
+  s: KidState;
+  h: number;
+  m: boolean;
 }
 
 export interface WireState {
@@ -138,6 +151,57 @@ export function packState(state: GameState): WireState {
     nextId: state.nextId,
     time: Math.round(state.time * 20) / 20,
   };
+}
+
+export function packPose(state: GameState): Extract<NetMsg, { t: "pose" }> {
+  return {
+    t: "pose",
+    kids: state.kids.map((k) => ({
+      i: k.id,
+      x: q(k.x),
+      y: q(k.y),
+      f: k.facing,
+      s: k.state,
+      h: k.hp,
+      m: k.moving,
+    })),
+    intro: Math.round(state.introT * 20) / 20,
+    phase: state.phase,
+  };
+}
+
+export function applyPose(
+  state: GameState,
+  msg: Extract<NetMsg, { t: "pose" }>,
+  opts: { grabId?: number | null; predictTeam?: Team | null; rttMs?: number | null } = {},
+) {
+  const lan = (opts.rttMs ?? 200) < 55;
+  const a = lan ? 0.82 : 0.58;
+  for (const w of msg.kids) {
+    const kid = state.kids.find((k) => k.id === w.i);
+    if (!kid) continue;
+    if (opts.grabId === w.i) {
+      kid.hp = w.h;
+      continue;
+    }
+    const keep = opts.predictTeam === kid.team && kid.state !== "hurt" && kid.state !== "buried";
+    if (!keep) {
+      kid.x = kid.x + (w.x - kid.x) * a;
+      kid.y = kid.y + (w.y - kid.y) * a;
+      kid.facing = w.f;
+      kid.moving = w.m;
+      if (w.s === "hurt" || w.s === "buried" || w.s === "throw" || w.s === "pack") {
+        kid.state = w.s;
+      } else if (kid.state !== "grabbed") {
+        kid.state = w.s;
+      }
+    }
+    kid.hp = w.h;
+  }
+  if (msg.phase === "intro" || msg.phase === "fight") {
+    state.introT = msg.intro;
+    if (state.phase === "intro" || state.phase === "fight") state.phase = msg.phase;
+  }
 }
 
 export function applyState(
