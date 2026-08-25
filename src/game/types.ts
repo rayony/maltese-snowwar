@@ -36,6 +36,8 @@ export interface Kid {
   fidgetWait: number;
   moving: boolean;
   ai: AiBrain | null;
+  viewX?: number;
+  viewY?: number;
 }
 
 export interface Snowball {

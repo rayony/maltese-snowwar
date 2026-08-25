@@ -236,8 +236,9 @@ export function render(
     });
   }
   for (const kid of state.kids) {
+    const y = kid.viewY ?? kid.y;
     layers.push({
-      y: kid.y,
+      y,
       draw: () => drawKid(ctx, kid, assets, view, state.forts),
     });
   }
@@ -332,11 +333,13 @@ function drawKid(
 ) {
   const lifted = kid.state === "grabbed" ? 8 : 0;
   const buried = kid.state === "buried";
-  const cover = !buried && !!inFort(kid.x, kid.y, forts);
+  const px = kid.viewX ?? kid.x;
+  const py = kid.viewY ?? kid.y;
+  const cover = !buried && !!inFort(px, py, forts);
   const duck = cover ? 11 : 0;
   const size = buried ? view.buriedSize : view.drawSize;
   ctx.save();
-  ctx.translate(kid.x, kid.y + duck);
+  ctx.translate(px, py + duck);
   ctx.fillStyle = "rgba(40,60,80,0.22)";
   ctx.beginPath();
   ctx.ellipse(0, 16, buried ? size * 0.42 : lifted ? size * 0.18 : size * 0.24, buried ? 8 : 6, 0, 0, Math.PI * 2);
@@ -496,14 +499,16 @@ function drawThrowPreview(ctx: CanvasRenderingContext2D, kid: Kid, grab: Grab, k
   const len = Math.hypot(dir.dx, dir.dy) || 1;
   const nx = dir.dx / len;
   const ny = dir.dy / len;
-  const ex = kid.x + nx * range;
-  const ey = kid.y + ny * range;
+  const px = kid.viewX ?? kid.x;
+  const py = kid.viewY ?? kid.y;
+  const ex = px + nx * range;
+  const ey = py + ny * range;
   ctx.save();
   ctx.strokeStyle = "rgba(21,32,43,0.45)";
   ctx.setLineDash([7, 7]);
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(kid.x + nx * 26, kid.y + ny * 8);
+  ctx.moveTo(px + nx * 26, py + ny * 8);
   ctx.lineTo(ex, ey);
   ctx.stroke();
   ctx.setLineDash([]);

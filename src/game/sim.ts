@@ -421,6 +421,61 @@ function hitKid(
   onHit(kid.hp <= 0);
 }
 
+/** Fly one ball for catch-up, hitting kids at historical (or current) positions. */
+export function stepOneBall(
+  state: GameState,
+  ball: Snowball,
+  dt: number,
+  kidPos: (id: number) => { x: number; y: number } | null,
+  onHit: (heavy: boolean) => void,
+) {
+  if (!ball.alive) return;
+  const stepX = ball.vx * dt;
+  const stepY = ball.vy * dt;
+  ball.x += stepX;
+  ball.y += stepY;
+  ball.traveled += Math.hypot(stepX, stepY);
+  ball.spin += dt * 10;
+  ball.grace = Math.max(0, ball.grace - dt);
+  if (ball.x < -20 || ball.x > WORLD_W + 20 || ball.y < -20 || ball.y > WORLD_H + 20) {
+    ball.alive = false;
+    return;
+  }
+  if (ball.traveled >= ball.range) {
+    ball.alive = false;
+    burst(state, ball.x, ball.y, 0, 12, "puff");
+    return;
+  }
+  if (ball.ghost) return;
+  if (ball.grace <= 0 && inFort(ball.x, ball.y, state.forts)) {
+    const wall = inFort(ball.x, ball.y, state.forts);
+    ball.alive = false;
+    if (wall) {
+      wall.hitFlash = 0.28;
+      burst(state, ball.x, ball.y, 0, 16, "puff");
+    }
+    return;
+  }
+  for (const kid of state.kids) {
+    if (isOut(kid) || kid.team === ball.team) continue;
+    if (kid.id === ball.fromId && ball.grace > 0) continue;
+    const p = kidPos(kid.id) ?? kid;
+    if (inFort(p.x, p.y, state.forts)) continue;
+    const dx = p.x - ball.x;
+    const dy = p.y - 10 - ball.y;
+    const hitR = playFeel().hit + ball.r;
+    if (dx * dx + dy * dy > hitR * hitR) continue;
+    ball.alive = false;
+    const saved = { x: kid.x, y: kid.y };
+    kid.x = p.x;
+    kid.y = p.y;
+    hitKid(state, kid, ball, onHit);
+    kid.x = saved.x;
+    kid.y = saved.y;
+    break;
+  }
+}
+
 function clearFidget(kid: Kid) {
   kid.fidget = null;
   kid.fidgetT = 0;
