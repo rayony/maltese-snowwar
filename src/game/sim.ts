@@ -40,6 +40,11 @@ function makeBrain(x: number, y: number) {
   };
 }
 
+export function ensureAi(kid: Kid) {
+  if (!kid.ai) kid.ai = makeBrain(kid.x, kid.y);
+  return kid;
+}
+
 function makeKid(state: GameState, team: Team, x: number, y: number): Kid {
   return {
     id: nextId(state),

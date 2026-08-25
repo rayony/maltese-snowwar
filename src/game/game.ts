@@ -484,6 +484,14 @@ export class SnowCraftGame {
     }
   }
 
+  private inFreshRound() {
+    return (
+      this.screen === "playing" &&
+      !this.outcomeHandled &&
+      (this.state.phase === "intro" || this.state.phase === "fight")
+    );
+  }
+
   private closeNet(reset = true) {
     this.p2p?.close();
     this.p2p = null;
@@ -764,8 +772,15 @@ export class SnowCraftGame {
           this.netStatus = "live";
           this.versus = true;
           this.lastOver = null;
+          this.rematchMine = false;
+          this.rematchTheirs = false;
           this.audio.startMusic();
-          if (this.screen !== "playing") this.startLevel(1, true);
+          const fresh =
+            this.screen !== "playing" ||
+            this.outcomeHandled ||
+            this.state.phase === "won" ||
+            this.state.phase === "lost";
+          if (fresh) this.startLevel(1, true);
           this.screen = "playing";
         }
         break;
@@ -877,12 +892,17 @@ export class SnowCraftGame {
         break;
       case "rematch":
         this.lastPeerAt = performance.now();
-        this.rematchTheirs = data.yes;
         if (!data.yes) {
           this.netError = "Friend left the rematch.";
           this.leaveRoom();
           break;
         }
+        if (this.inFreshRound()) {
+          this.rematchTheirs = true;
+          this.netStatus = "live";
+          break;
+        }
+        this.rematchTheirs = true;
         this.netStatus = "rematch";
         if (this.screen === "playing" || this.screen === "paused") {
           this.screen = "gameover";
@@ -935,6 +955,20 @@ export class SnowCraftGame {
       kid.state = "grabbed";
       this.audio.grab();
       return;
+    }
+    if (msg.kind === "up" && !this.grabGuest) {
+      const kid = this.pickTeam("green", msg.x, msg.y);
+      if (!kid || isOut(kid)) return;
+      this.grabGuest = {
+        id: kid.id,
+        pointerId: -1,
+        startedAt: performance.now() - Math.max(0, (msg.hold ?? 0) * 1000),
+        lastX: msg.x,
+        lastY: msg.y,
+        vx: msg.vx ?? 0,
+        vy: msg.vy ?? 0,
+        packLeft: 0,
+      };
     }
     if (!this.grabGuest) return;
     const kid = this.state.kids.find((k) => k.id === this.grabGuest!.id);

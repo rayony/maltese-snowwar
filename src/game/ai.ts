@@ -1,5 +1,5 @@
 import { aiInterval, aiMoveSpeed, MARGIN, MAX_CHARGE, PACK_TIME, WORLD_H, WORLD_W } from "./constants";
-import { aimFromKid, closestEnemy, inFort, isOut, living, rand, throwSnowball } from "./sim";
+import { aimFromKid, closestEnemy, ensureAi, inFort, isOut, living, rand, throwSnowball } from "./sim";
 import type { AllyMode, GameState, Kid } from "./types";
 
 export type GreenControl = "enemy" | AllyMode;
@@ -17,7 +17,9 @@ export function stepAi(
   const level = state.level;
 
   for (const kid of state.kids) {
-    if (isOut(kid) || !kid.ai) continue;
+    if (isOut(kid)) continue;
+    ensureAi(kid);
+    if (!kid.ai) continue;
     if (kid.state === "throw" || kid.state === "hurt") continue;
     if (kid.team === "red") {
       if (allyMode === "off" || kid.state === "grabbed") continue;

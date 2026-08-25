@@ -635,7 +635,8 @@ export function SnowCraft() {
         </Modal>
       )}
 
-      {(ui.screen === "gameover" || ui.net.status === "rematch") && (
+      {(ui.screen === "gameover" ||
+        (ui.net.status === "rematch" && ui.screen !== "playing" && ui.screen !== "loading")) && (
         <Modal appear>
           {(() => {
             const win = ui.net.result === "win";

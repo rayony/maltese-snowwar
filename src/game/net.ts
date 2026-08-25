@@ -1,5 +1,6 @@
 import type { AllyMode, FightPhase, Fidget, GameState, Kid, KidState, Team } from "./types";
 import { BALL_RADIUS } from "./constants";
+import { ensureAi } from "./sim";
 
 const ABC = "ABCDEFGHJKLMNPQRSTUVWXYZ";
 
@@ -330,6 +331,7 @@ export function applyState(
       ai,
     };
   });
+  for (const k of state.kids) ensureAi(k);
   if (!opts.hard) {
     const hostBalls = wire.balls.map((b) => ({
       x: b.x,
