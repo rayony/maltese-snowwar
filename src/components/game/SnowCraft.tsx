@@ -259,7 +259,7 @@ export function SnowCraft() {
                     {t("greet")}
                   </p>
                   <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight text-surface sm:text-5xl">
-                    Maltese Snow War
+                    {t("gameTitle")}
                   </h1>
                   <p
                     className={cn(
@@ -704,7 +704,7 @@ function TitleBoot({ t, lang }: { t: TFn; lang: "en" | "zh" }) {
       <div className="relative flex flex-col items-center gap-4 text-surface">
         <Loader2 className="size-10 animate-spin text-ice" aria-hidden />
         <p className="text-xs font-medium uppercase tracking-[0.22em] text-ice">{t("loading")}</p>
-        <p className="font-display text-2xl font-semibold">Maltese Snow War</p>
+        <p className="font-display text-2xl font-semibold">{t("gameTitle")}</p>
         <p
           className={cn(
             "text-xl font-bold text-[#fff3c4] sm:text-2xl",
@@ -819,7 +819,7 @@ function LangToggle({
       )}
       aria-label={lang === "en" ? "Switch to Chinese" : "Switch to English"}
     >
-      {lang === "en" ? "中文" : "EN"}
+      {lang === "en" ? "繁中" : "EN"}
     </button>
   );
 }

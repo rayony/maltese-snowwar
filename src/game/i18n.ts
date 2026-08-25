@@ -26,6 +26,7 @@ export function writeLang(lang: Lang) {
 const EN = {
   greet: "Season's Greetings",
   slogan: "Hold, Dodge, and Throw!",
+  gameTitle: "Maltese Snow War",
   blurb:
     "Command three Maltese in a snowball brawl against the golden retrievers. Hold a dog to move, release to throw. Pack snow between shots.",
   unofficial: "Unofficial tribute",
@@ -113,7 +114,7 @@ const EN = {
   allyDefend: "Defend",
   allyAttack: "Attack",
   allyLabel: "Unselected Maltese",
-  langSwitch: "中文",
+  langSwitch: "繁中",
   langSwitchToEn: "EN",
   winSolo: "You cleared {n} heats. The retrievers are buried — Hold, Dodge, and Throw!",
   winGuest: "The retrievers buried the Maltese. Stay in the room for a rematch — no new code needed.",
@@ -126,6 +127,7 @@ const EN = {
 const ZH: Record<keyof typeof EN, string> = {
   greet: "季節的問候",
   slogan: "拎起、閃開、掉出！",
+  gameTitle: "線條小狗 大雪戰",
   blurb: "率領三隻小白，跟小金毛打一場雪仗。按住狗狗移動，放手丟雪球。兩次出手之間要搓雪。",
   unofficial: "非官方致敬",
   playVsAi: "對戰電腦",
@@ -182,7 +184,7 @@ const ZH: Record<keyof typeof EN, string> = {
   paused: "暫停",
   resume: "繼續",
   restart: "重來",
-  title: "標題",
+  title: "回到主頁",
   victory: "勝利",
   buried: "埋了",
   rematchAsk: "朋友想再來一局。",
@@ -209,7 +211,7 @@ const ZH: Record<keyof typeof EN, string> = {
   allyAttack: "進攻",
   allyLabel: "未選中的小白",
   langSwitch: "EN",
-  langSwitchToEn: "中文",
+  langSwitchToEn: "繁中",
   winSolo: "你過了 {n} 關。小金毛都被埋了 — 拎起、閃開、掉出！",
   winGuest: "小金毛埋掉了小白。留在房間再來一局，不用重新輸入代碼。",
   winHost: "你埋掉了小金毛。留在房間再來一局，不用重新輸入代碼。",
