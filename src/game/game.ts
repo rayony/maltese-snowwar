@@ -82,6 +82,7 @@ export class SnowCraftGame {
   private lobbyAt = 0;
   private hbAcc = 0;
   private lastMoveSend = 0;
+  private lastHostDragSend = 0;
   private keepBallsUntil = 0;
   private lastAiSend = 0;
   private round = 0;
@@ -542,10 +543,10 @@ export class SnowCraftGame {
     return Math.max(30, Math.min(80, rtt / 2));
   }
 
-  private sendPose() {
+  private sendPose(immediate = false) {
     if (this.netRole !== "host" || !this.p2p) return;
     const msg = packPose(this.state, this.posePrev);
-    const delay = this.hostDelayMs();
+    const delay = immediate ? 0 : this.hostDelayMs();
     const now = performance.now();
     if (delay <= 0) {
       this.sendNet(msg);
@@ -1252,6 +1253,12 @@ export class SnowCraftGame {
       if (t - this.lastMoveSend > gap) {
         this.lastMoveSend = t;
         this.sendNet({ t: "input", kind: "move", x: p.x, y: p.y, at: performance.now() });
+      }
+    } else if (this.netRole === "host" && this.versus) {
+      const t = performance.now();
+      if (t - this.lastHostDragSend > 24) {
+        this.lastHostDragSend = t;
+        this.sendPose(true);
       }
     }
   };
