@@ -249,6 +249,7 @@ export function SnowCraft() {
         <div
           className="fixed inset-0 z-50 flex items-stretch justify-center bg-ink bg-cover bg-center p-3 sm:p-4"
           style={{ backgroundImage: "url(/images/title-bg.jpg?v=3)", touchAction: "manipulation" }}
+          onPointerDown={() => gameRef.current?.armTitleAudio()}
         >
           <div className="pointer-events-none absolute inset-0 bg-ink/45" />
           <div className="relative z-10 flex h-full max-h-[min(92dvh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-surface/15 bg-ink/80 shadow-xl">

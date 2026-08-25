@@ -49,6 +49,10 @@ export class GameAudio {
       this.master.connect(this.ctx.destination);
       this.noise = this.makeNoise(1.2);
       this.applyMute();
+      if (this.musicOn && this.track !== "off") {
+        this.musicNext = this.ctx.currentTime + 0.08;
+        if (this.music) this.music.gain.setTargetAtTime(this.track === "menu" ? 0.16 : 0.2, this.ctx.currentTime, 0.05);
+      }
     }
     if (this.ctx.state === "suspended") void this.ctx.resume();
   }
@@ -89,6 +93,7 @@ export class GameAudio {
 
   tick(_dt: number) {
     if (!this.musicOn || this.track === "off" || !this.ctx || this.muted) return;
+    if (this.ctx.state !== "running") return;
     const eighth = this.track === "menu" ? MENU_EIGHTH : PLAY_EIGHTH;
     const len = this.track === "menu" ? MENU_MELODY.length : PLAY_MELODY.length;
     const ahead = this.ctx.currentTime + 0.9;

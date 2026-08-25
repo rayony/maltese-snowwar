@@ -119,6 +119,9 @@ export class SnowCraftGame {
     this.reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     this.bind();
     this.emit();
+    const tap = () => this.armTitleAudio();
+    window.addEventListener("pointerdown", tap, { once: true, capture: true });
+    window.addEventListener("keydown", tap, { once: true, capture: true });
   }
 
   async start() {
@@ -127,6 +130,14 @@ export class SnowCraftGame {
     this.last = performance.now() / 1000;
     this.raf = requestAnimationFrame(this.loop);
   }
+
+  /** Browsers block BGM until a tap. First gesture on title starts the menu loop. */
+  armTitleAudio = () => {
+    this.audio.unlock();
+    if (this.screen === "title" || this.screen === "lobby" || this.screen === "loading") {
+      this.audio.startMenuMusic();
+    }
+  };
 
   private onLoadProgress = (done: number, total: number) => {
     this.loadDone = done;
