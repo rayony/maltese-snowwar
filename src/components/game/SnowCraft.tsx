@@ -1,6 +1,8 @@
 import {
   Copy,
+  Flame,
   Home,
+  Leaf,
   Pause,
   Play,
   QrCode,
@@ -304,13 +306,18 @@ export function SnowCraft() {
               {aiGate && (
                 <div className="mt-3 landscape:max-md:mt-2">
                   <h2 className="font-display text-2xl font-semibold text-surface sm:text-3xl">
-                    Vs AI
+                    Play vs AI
                   </h2>
                   <p className="mt-2 text-sm leading-relaxed text-surface/80 landscape:max-md:text-xs">
-                    Easy is the classic fight. Hard: both sides move 3× faster, snowballs fly at
-                    2×, retrievers mix targets and dodge well, forts take 10 hits, and a buried
-                    Maltese stays down next round.
+                    Easy is the original SnowCraft pace.
                   </p>
+                  <p className="mt-2 text-sm font-medium text-surface/90 landscape:max-md:text-xs">Hard</p>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4 text-sm leading-relaxed text-surface/75 landscape:max-md:text-xs">
+                    <li>Everyone moves 3× faster; snowballs fly 2× faster</li>
+                    <li>Retrievers mix targets and dodge well</li>
+                    <li>Forts take 10 hits</li>
+                    <li>A buried Maltese stays down next round</li>
+                  </ul>
                 </div>
               )}
               {vsGate && (
@@ -328,19 +335,27 @@ export function SnowCraft() {
             <div className="relative z-10 shrink-0 border-t border-surface/10 p-4 sm:p-6 landscape:max-md:w-[45%] landscape:max-md:border-l landscape:max-md:border-t-0 landscape:max-md:p-4">
               {aiGate ? (
                 <div className="flex flex-col gap-2.5 sm:gap-3">
-                  <Button size="lg" className="w-full" type="button" onClick={() => gameRef.current?.play("easy")}>
-                    <Play />
-                    Easy
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="secondary"
-                    className="w-full"
-                    type="button"
-                    onClick={() => gameRef.current?.play("hard")}
-                  >
-                    Hard
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      size="lg"
+                      variant="pine"
+                      className="min-w-0 flex-1 px-3"
+                      type="button"
+                      onClick={() => gameRef.current?.play("easy")}
+                    >
+                      <Leaf />
+                      Easy
+                    </Button>
+                    <Button
+                      size="lg"
+                      className="min-w-0 flex-1 px-3"
+                      type="button"
+                      onClick={() => gameRef.current?.play("hard")}
+                    >
+                      <Flame />
+                      Hard
+                    </Button>
+                  </div>
                   <Button
                     variant="ghost"
                     className="w-full text-surface"
