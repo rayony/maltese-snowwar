@@ -1,6 +1,9 @@
 import {
   Copy,
+  Flame,
   Home,
+  Leaf,
+  Loader2,
   Pause,
   Play,
   QrCode,
@@ -60,6 +63,8 @@ export function SnowCraft() {
   const [aiGate, setAiGate] = useState(false);
   const [qrData, setQrData] = useState<string | null>(null);
   const [qrOpen, setQrOpen] = useState(false);
+  const pendingPlay = useRef<"easy" | "hard" | null>(null);
+  const [live, setLive] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -67,6 +72,12 @@ export function SnowCraft() {
     const game = new SnowCraftGame(canvas, setUi);
     gameRef.current = game;
     void game.start();
+    setLive(true);
+    const queued = pendingPlay.current;
+    if (queued) {
+      pendingPlay.current = null;
+      game.play(queued);
+    }
     const params = new URLSearchParams(window.location.search);
     const vs = params.get("vs");
     if (vs && normalizeCode(vs).length === 6) {
@@ -101,10 +112,6 @@ export function SnowCraft() {
     }
     prevScreen.current = ui.screen;
   }, [ui.screen]);
-
-  useEffect(() => {
-    if (aiGate) gameRef.current?.preparePlay();
-  }, [aiGate]);
 
   const g = gameRef.current;
   const playing = ui.screen === "playing";
@@ -227,15 +234,16 @@ export function SnowCraft() {
         )}
       </div>
 
-      {ui.screen === "title" && (
+      {ui.screen === "title" && !live && <TitleBoot />}
+
+      {ui.screen === "title" && live && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-ink bg-cover bg-center p-3 sm:p-4"
-          style={{ backgroundImage: "url(/images/title-bg.jpg?v=3)" }}
-          onPointerDown={(e) => e.stopPropagation()}
+          className="fixed inset-0 z-50 flex items-stretch justify-center bg-ink bg-cover bg-center p-3 sm:p-4"
+          style={{ backgroundImage: "url(/images/title-bg.jpg?v=3)", touchAction: "manipulation" }}
         >
           <div className="pointer-events-none absolute inset-0 bg-ink/45" />
-          <div className="relative z-10 my-auto flex w-full max-w-lg max-h-[min(92dvh,680px)] flex-col overflow-hidden rounded-xl border border-surface/15 bg-ink/80 shadow-xl landscape:max-md:max-w-3xl landscape:max-md:flex-row">
-            <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-8 landscape:max-md:w-[55%] landscape:max-md:p-5">
+          <div className="relative z-10 flex h-full max-h-[min(92dvh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-surface/15 bg-ink/80 shadow-xl">
+            <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-8">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-ice sm:text-xs">
@@ -252,17 +260,17 @@ export function SnowCraft() {
               </div>
               {!vsGate && !aiGate && (
                 <>
-                  <p className="mt-3 text-sm leading-relaxed text-surface/80 landscape:max-md:mt-2 landscape:max-md:text-xs">
+                  <p className="mt-3 text-sm leading-relaxed text-surface/80">
                     Command three Maltese in a snowball brawl against the golden retrievers. Hold
                     to move, release to throw — a tap drops nearby, a long hold flies across the
                     field.
                   </p>
-                  <ol className="mt-3 space-y-1 text-sm text-surface/75 landscape:max-md:mt-2 landscape:max-md:text-xs">
+                  <ol className="mt-3 space-y-1 text-sm text-surface/75">
                     <li>1. Press and hold a white Maltese</li>
                     <li>2. Drag to dodge and line up your lane</li>
                     <li>3. Tap for a short toss, hold longer to throw farther</li>
                   </ol>
-                  <p className="mt-4 text-[11px] leading-relaxed text-surface/50 landscape:max-md:mt-2 landscape:max-md:text-[10px]">
+                  <p className="mt-4 text-[11px] leading-relaxed text-surface/50">
                     Fan tribute (二次創作). Gameplay after{" "}
                     <a
                       href="https://archive.org/details/snowcraft_201912"
@@ -302,85 +310,110 @@ export function SnowCraft() {
                 </>
               )}
               {aiGate && (
-                <div className="mt-3 landscape:max-md:mt-2">
+                <div className="mt-3">
                   <h2 className="font-display text-2xl font-semibold text-surface sm:text-3xl">
-                    Vs AI
+                    Play vs AI
                   </h2>
-                  <p className="mt-2 text-sm leading-relaxed text-surface/80 landscape:max-md:text-xs">
-                    Easy is the classic fight. Hard: both sides move 3× faster, snowballs fly at
-                    2×, retrievers mix targets and dodge well, forts take 10 hits, and a buried
-                    Maltese stays down next round.
+                  <p className="mt-2 text-sm leading-relaxed text-surface/80">
+                    Easy is the original SnowCraft pace.
                   </p>
+                  <p className="mt-2 text-sm font-medium text-surface/90">Hard</p>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4 text-sm leading-relaxed text-surface/75">
+                    <li>Everyone moves 3× faster; snowballs fly 2× faster</li>
+                    <li>Retrievers mix targets and dodge well</li>
+                    <li>Forts take 10 hits</li>
+                    <li>A buried Maltese stays down next round</li>
+                  </ul>
                 </div>
               )}
               {vsGate && (
-                <div className="mt-3 landscape:max-md:mt-2">
+                <div className="mt-3">
                   <h2 className="font-display text-2xl font-semibold text-surface sm:text-3xl">
-                    Versus a friend
+                    Play vs Friend
                   </h2>
-                  <p className="mt-2 text-sm leading-relaxed text-surface/80 landscape:max-md:text-xs">
+                  <p className="mt-2 text-sm leading-relaxed text-surface/80">
                     Create a room and share the 6-letter code, or join with theirs. You play the
                     Maltese; they play the retrievers.
                   </p>
                 </div>
               )}
             </div>
-            <div className="relative z-10 shrink-0 border-t border-surface/10 p-4 sm:p-6 landscape:max-md:w-[45%] landscape:max-md:border-l landscape:max-md:border-t-0 landscape:max-md:p-4">
+            <div
+              className="relative z-20 shrink-0 border-t border-surface/10 bg-ink/90 p-4 sm:p-5"
+              style={{ touchAction: "manipulation" }}
+            >
               {aiGate ? (
-                <div className="flex flex-col gap-2.5 sm:gap-3">
-                  <Button size="lg" className="w-full" type="button" onClick={() => gameRef.current?.play("easy")}>
-                    <Play />
-                    Easy
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="secondary"
-                    className="w-full"
+                <div className="flex flex-col gap-2.5">
+                  <div className="flex gap-2">
+                  <button
                     type="button"
-                    onClick={() => gameRef.current?.play("hard")}
+                    data-testid="play-easy"
+                    className="inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-pine px-3 text-base font-medium text-white shadow-sm [touch-action:manipulation] hover:bg-pine/90"
+                    onClick={() => {
+                      const g = gameRef.current;
+                      if (g) g.play("easy");
+                      else pendingPlay.current = "easy";
+                    }}
                   >
+                    <Leaf className="size-4 shrink-0" />
+                    Easy
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="play-hard"
+                    className="inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-3 text-base font-medium text-primary-fg shadow-sm [touch-action:manipulation] hover:bg-primary/90"
+                    onClick={() => {
+                      const g = gameRef.current;
+                      if (g) g.play("hard");
+                      else pendingPlay.current = "hard";
+                    }}
+                  >
+                    <Flame className="size-4 shrink-0" />
                     Hard
-                  </Button>
+                  </button>
+                  </div>
                   <Button
                     variant="ghost"
                     className="w-full text-surface"
+                    type="button"
                     onClick={() => setAiGate(false)}
                   >
                     Back
                   </Button>
                 </div>
               ) : !vsGate ? (
-                <div className="flex flex-col gap-2.5 sm:gap-3">
-                  <Button
-                    size="lg"
-                    className="w-full"
+                <div className="flex flex-col gap-2.5">
+                  <button
                     type="button"
+                    data-testid="play-vs-ai"
+                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-7 text-base font-medium text-primary-fg shadow-sm [touch-action:manipulation] hover:bg-primary/90"
                     onClick={() => setAiGate(true)}
                   >
-                    <Play />
+                    <Play className="size-4 shrink-0" />
                     Play vs AI
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="sky"
-                    className="w-full"
+                  </button>
+                  <button
                     type="button"
+                    data-testid="play-vs-friend"
+                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#3d8fd4] px-7 text-base font-medium text-white shadow-sm [touch-action:manipulation] hover:bg-[#347ebd]"
                     onClick={() => setVsGate(true)}
                   >
-                    <Users />
+                    <Users className="size-4 shrink-0" />
                     Play vs Friend
-                  </Button>
+                  </button>
                   {ui.net.error && <p className="text-center text-xs text-primary">{ui.net.error}</p>}
                   <p className="text-center text-xs text-ice">
                     {ui.best > 0 ? `Best level ${ui.best}` : "Unofficial tribute"}
                   </p>
                 </div>
               ) : (
-                <div className="flex flex-col gap-2.5 sm:gap-3">
+                <div className="flex flex-col gap-2.5">
                   <Button
                     size="lg"
                     className="w-full"
-                    onClick={() => g?.createVersus()}
+                    type="button"
+                    data-testid="create-room"
+                    onClick={() => gameRef.current?.createVersus()}
                   >
                     <Users />
                     Create room
@@ -389,7 +422,7 @@ export function SnowCraft() {
                     className="flex gap-2"
                     onSubmit={(e) => {
                       e.preventDefault();
-                      g?.joinVersus(joinCode);
+                      gameRef.current?.joinVersus(joinCode);
                     }}
                   >
                     <input
@@ -406,7 +439,12 @@ export function SnowCraft() {
                     </Button>
                   </form>
                   {ui.net.error && <p className="text-center text-xs text-primary">{ui.net.error}</p>}
-                  <Button variant="ghost" className="w-full text-surface" onClick={() => setVsGate(false)}>
+                  <Button
+                    variant="ghost"
+                    className="w-full text-surface"
+                    type="button"
+                    onClick={() => setVsGate(false)}
+                  >
                     Back
                   </Button>
                 </div>
@@ -417,11 +455,15 @@ export function SnowCraft() {
       )}
 
       {ui.screen === "loading" && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-ink/70 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/70 p-4 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-xl border border-surface/15 bg-ink/90 p-6 text-center shadow-xl">
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-ice">Almost there</p>
             <h2 className="mt-1 font-display text-3xl font-semibold">Dogs stretching</h2>
-            <p className="mt-2 text-sm text-muted">Packing snowballs for the yard…</p>
+            <p className="mt-2 text-sm text-muted">
+              {versus
+                ? "Waiting until both yards finish packing…"
+                : "Packing snowballs for the yard…"}
+            </p>
             <div className="mt-5 h-2 overflow-hidden rounded-full bg-surface/15">
               <div
                 className="h-full rounded-full bg-ice transition-[width] duration-200"
@@ -560,6 +602,10 @@ export function SnowCraft() {
               {ui.muted ? <VolumeX /> : <Volume2 />}
               {ui.muted ? "Unmute" : "Mute"}
             </Button>
+            <Button variant="secondary" onClick={() => g?.toTitle()}>
+              <Home />
+              Title
+            </Button>
           </div>
         </Modal>
       )}
@@ -608,6 +654,24 @@ export function SnowCraft() {
           </div>
         </Modal>
       )}
+    </div>
+  );
+}
+
+function TitleBoot() {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink bg-cover bg-center"
+      style={{ backgroundImage: "url(/images/title-bg.jpg?v=3)" }}
+      aria-busy="true"
+      aria-live="polite"
+    >
+      <div className="absolute inset-0 bg-ink/50" />
+      <div className="relative flex flex-col items-center gap-4 text-surface">
+        <Loader2 className="size-10 animate-spin text-ice" aria-hidden />
+        <p className="text-xs font-medium uppercase tracking-[0.22em] text-ice">Loading</p>
+        <p className="font-display text-2xl font-semibold">Maltese Snow War</p>
+      </div>
     </div>
   );
 }

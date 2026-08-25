@@ -153,14 +153,6 @@ function CreditsPage() {
           <p className="mt-1 mb-2 text-xs text-surface/55">Grok app template. Extra Radix packages in package.json are unused.</p>
           <LibList rows={INFRA} />
         </div>
-        <div className="shrink-0 border-t border-surface/10 p-4 sm:p-5">
-          <Button asChild size="lg" variant="secondary" className="w-full">
-            <Link to="/">
-              <ArrowLeft />
-              Back to title
-            </Link>
-          </Button>
-        </div>
       </div>
     </div>
   );
