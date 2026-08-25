@@ -1,6 +1,6 @@
 import { holdPower, isCompactPlay, PACK_TIME, PVP_RANGE, throwRange, WORLD_H, WORLD_W } from "./constants";
 import type { Assets } from "./assets";
-import { aimFromKid, inFort, isOut } from "./sim";
+import { aimFromKid, clamp, inFort, isOut } from "./sim";
 import type { Fort, GameState, Grab, Kid, Snowball, View } from "./types";
 
 let field: HTMLCanvasElement | null = null;
@@ -301,12 +301,88 @@ export function render(
     }
   }
 
+  drawOffscreenArrows(ctx, state, view, cssW, cssH, scale, ox, oy);
+
   ctx.restore();
 
   if (state.phase === "intro") {
     const n = Math.max(1, Math.ceil(state.introT));
     drawCountdown(ctx, view.pvp ? "PVP mode" : `Level ${state.level}`, String(n));
   }
+}
+
+function visibleWorld(
+  cssW: number,
+  cssH: number,
+  scale: number,
+  ox: number,
+  oy: number,
+  mirror: boolean,
+) {
+  const y0 = -oy / scale;
+  const y1 = (cssH - oy) / scale;
+  if (!mirror) {
+    return { x0: -ox / scale, x1: (cssW - ox) / scale, y0, y1 };
+  }
+  const a = WORLD_W + ox / scale;
+  const b = WORLD_W - (cssW - ox) / scale;
+  return { x0: Math.min(a, b), x1: Math.max(a, b), y0, y1 };
+}
+
+function drawOffscreenArrows(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  view: View,
+  cssW: number,
+  cssH: number,
+  scale: number,
+  ox: number,
+  oy: number,
+) {
+  const mine = view.mirror ? "green" : "red";
+  const vis = visibleWorld(cssW, cssH, scale, ox, oy, view.mirror);
+  const pad = 28;
+  const x0 = vis.x0 + pad;
+  const x1 = vis.x1 - pad;
+  const y0 = vis.y0 + pad;
+  const y1 = vis.y1 - pad;
+  if (x1 - x0 < 40 || y1 - y0 < 40) return;
+  for (const kid of state.kids) {
+    if (kid.team === mine || isOut(kid)) continue;
+    const x = kid.viewX ?? kid.x;
+    const y = kid.viewY ?? kid.y;
+    if (x >= x0 && x <= x1 && y >= y0 && y <= y1) continue;
+    const cx = clamp(x, x0, x1);
+    const cy = clamp(y, y0, y1);
+    const ang = Math.atan2(y - cy, x - cx);
+    drawEdgeArrow(ctx, cx, cy, ang, kid.team === "green" ? "#c4965a" : "#c43b3b");
+  }
+}
+
+function drawEdgeArrow(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  ang: number,
+  fill: string,
+) {
+  const len = 16;
+  const w = 11;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(ang);
+  ctx.beginPath();
+  ctx.moveTo(len, 0);
+  ctx.lineTo(-len * 0.45, w);
+  ctx.lineTo(-len * 0.18, 0);
+  ctx.lineTo(-len * 0.45, -w);
+  ctx.closePath();
+  ctx.fillStyle = fill;
+  ctx.strokeStyle = "rgba(255,248,240,0.95)";
+  ctx.lineWidth = 2;
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
 }
 
 function drawCountdown(ctx: CanvasRenderingContext2D, kicker: string, n: string) {
