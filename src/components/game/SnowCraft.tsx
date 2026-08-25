@@ -230,7 +230,7 @@ export function SnowCraft() {
           <p className="mt-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-xs text-ink/70 sm:text-sm">
             Hold a {myTeam === "green" ? "retriever" : "Maltese"}
             {versus
-              ? " · tap to throw (same range) · pack snow between throws"
+              ? " · tap to throw · auto-aims nearest · fixed range · pack between shots"
               : " · tap = short toss · hold = far throw · pack snow between throws"}
           </p>
         )}
@@ -300,6 +300,12 @@ export function SnowCraft() {
                     Create a room and share the 6-letter code, or join with theirs. You play the
                     Maltese; they play the retrievers.
                   </p>
+                  <ul className="mt-2 list-disc space-y-0.5 pl-4 text-sm leading-relaxed text-surface/75">
+                    <li>Hold a dog to move; release to throw</li>
+                    <li>Throws auto-aim the nearest foe — same range and speed every time</li>
+                    <li>No charge: a tap and a long hold fly the same</li>
+                    <li>Pack snow (~1s) before the next shot</li>
+                  </ul>
                 </div>
               )}
             </div>
@@ -552,10 +558,10 @@ export function SnowCraft() {
           )}
           <p className="mt-3 text-sm leading-relaxed text-muted">
             {ui.net.role === "host"
-              ? "Share the QR or the code. Your friend scans it (or types the letters) on this same game. You are the Maltese."
+              ? "Share the QR or the code. You are the Maltese. Throws auto-aim and always fly the same distance — pack snow between shots."
               : ui.net.error
                 ? ui.net.error
-                : "Looking for the host in this game… both of you need the same page, not two different copies."}
+                : "Looking for the host… you play the retrievers. Same throw: auto-aim, fixed range, pack between shots."}
           </p>
           {ui.net.error && ui.net.role === "host" && (
             <p className="mt-2 text-sm text-primary">{ui.net.error}</p>
