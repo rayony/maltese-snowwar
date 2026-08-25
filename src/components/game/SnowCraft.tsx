@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { SnowCraftGame } from "@/game/game";
 import { normalizeCode } from "@/game/net";
 import { useLang, formatClock, type I18nKey } from "@/game/i18n";
+import { APP_COMMIT_URL, APP_VERSION } from "@/game/version";
 import type { AllyMode, Team, UiSnapshot } from "@/game/types";
 import { cn } from "@/lib/utils";
 
@@ -472,6 +473,15 @@ export function SnowCraft() {
                   <p className="mt-3 text-center text-[11px] leading-relaxed text-surface/50">
                     {t("fanTribute")}
                   </p>
+                  <a
+                    href={APP_COMMIT_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mx-auto mt-2 block w-fit font-mono text-[10px] tracking-wide text-surface/40 hover:text-ice"
+                    title={APP_VERSION}
+                  >
+                    {APP_VERSION}
+                  </a>
                 </div>
               ) : (
                 <div className="flex flex-col gap-2.5">
