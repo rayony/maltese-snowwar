@@ -1,8 +1,5 @@
 **- Maltese Snow War -**
-
-_**Hold, Dodge, and Throw!**_
-
-<img width="1280" height="800" alt="fix-aim" src="https://github.com/user-attachments/assets/5ee330b8-d494-44d2-900c-ec2f58541a24" />
+<img width="1792" height="1008" alt="81baeaaf-b9b6-4768-ac2b-5a68e879795e" src="https://github.com/user-attachments/assets/b7122350-a3a8-4901-a208-d2569200165f" />
 
 Maltese Snow War is a canvas snowball fight in the browser. Hold a dog to move, release to throw, pack snow between shots. Two-hit bury, ellipse forts, pack-snow cooldown.  It is an unofficial fan tribute to Nicholson NY’s SnowCraft (1998) using moonlab’s puppy illustrations named Maltese.
 
@@ -17,3 +14,7 @@ To understand more, pls refer:
 https://github.com/rayony/maltese-snowwar/blob/main/public/Maltese-Snow-War-Architecture.pdf
 
 _This is my first vibe coding project, let me know if you have any thoughts! - Gary.TC_
+
+<img width="1138" height="825" alt="擷取" src="https://github.com/user-attachments/assets/10dbde96-4dcf-4d43-8d39-02843b9b11a0" />
+<img width="696" height="554" alt="擷取2" src="https://github.com/user-attachments/assets/6edac842-4cd3-4fe4-a42a-cac1589d0b79" />
+
