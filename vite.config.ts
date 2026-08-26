@@ -179,6 +179,8 @@ export default defineConfig(({ command, isPreview }) => {
   define: {
     __APP_BRANCH__: JSON.stringify(git.branch),
     __APP_SHA__: JSON.stringify(git.sha),
+    "import.meta.env.VITE_GIT_BRANCH": JSON.stringify(git.branch),
+    "import.meta.env.VITE_GIT_SHA": JSON.stringify(git.sha),
   },
   plugins: [
     pgliteBootstrapPlugin(),

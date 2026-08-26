@@ -225,11 +225,14 @@ export class SnowCraftGame {
     }
     this.screen = "loading";
     this.emit();
+    let started = false;
     const go = () => {
-      if (this.destroyed || this.screen !== "loading") return;
+      if (started || this.destroyed || this.screen !== "loading") return;
+      started = true;
       this.beginSolo();
     };
     void this.hydrateRest().then(go, go);
+    window.setTimeout(go, 10000);
   }
 
   private beginSolo() {

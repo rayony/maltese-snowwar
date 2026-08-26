@@ -74,24 +74,34 @@ export function SnowCraft() {
   const [live, setLive] = useState(false);
 
   useEffect(() => {
+    const boot = window.setTimeout(() => setLive(true), 50);
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    const game = new SnowCraftGame(canvas, setUi);
-    gameRef.current = game;
-    void game.start();
-    setLive(true);
-    const queued = pendingPlay.current;
-    if (queued) {
-      pendingPlay.current = null;
-      game.play(queued);
+    if (!canvas) {
+      setLive(true);
+      return () => window.clearTimeout(boot);
     }
-    const params = new URLSearchParams(window.location.search);
-    const vs = params.get("vs");
-    if (vs && normalizeCode(vs).length === 6) {
-      window.setTimeout(() => game.joinVersus(vs), 400);
+    try {
+      const game = new SnowCraftGame(canvas, setUi);
+      gameRef.current = game;
+      void game.start();
+      setLive(true);
+      const queued = pendingPlay.current;
+      if (queued) {
+        pendingPlay.current = null;
+        game.play(queued);
+      }
+      const params = new URLSearchParams(window.location.search);
+      const vs = params.get("vs");
+      if (vs && normalizeCode(vs).length === 6) {
+        window.setTimeout(() => game.joinVersus(vs), 400);
+      }
+    } catch (err) {
+      console.error(err);
+      setLive(true);
     }
     return () => {
-      game.destroy();
+      window.clearTimeout(boot);
+      gameRef.current?.destroy();
       gameRef.current = null;
     };
   }, []);
