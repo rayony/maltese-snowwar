@@ -1,6 +1,7 @@
 import {
   Copy,
   Flame,
+  Globe,
   Home,
   Leaf,
   Loader2,
@@ -21,7 +22,7 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { SnowCraftGame } from "@/game/game";
 import { normalizeCode } from "@/game/net";
-import { useLang, formatClearTime, type I18nKey, type Lang } from "@/game/i18n";
+import { LANGS, useLang, formatClearTime, type I18nKey, type Lang } from "@/game/i18n";
 import { APP_COMMIT_URL, APP_VERSION } from "@/game/version";
 import type { AllyMode, Team, UiSnapshot } from "@/game/types";
 import { cn } from "@/lib/utils";
@@ -62,7 +63,7 @@ const INITIAL: UiSnapshot = {
 export function SnowCraft() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<SnowCraftGame | null>(null);
-  const { lang, t, toggle, nextLabel } = useLang();
+  const { lang, t, setLang } = useLang();
   const [ui, setUi] = useState<UiSnapshot>(INITIAL);
   const [portraitPhone, setPortraitPhone] = useState(false);
   const [landscapePhone, setLandscapePhone] = useState(false);
@@ -336,7 +337,7 @@ export function SnowCraft() {
                     >
                       {ui.muted ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}
                     </button>
-                    <LangToggle nextLabel={nextLabel} onToggle={toggle} />
+                    <LangMenu lang={lang} onChange={setLang} label={t("language")} tone="title" />
                   </div>
                   <div className="flex -space-x-2" aria-hidden>
                   <DogHead src="/sprites/red/idle-1.png" alt="" kind="maltese" className="z-10" />
@@ -708,9 +709,7 @@ export function SnowCraft() {
               <RotateCcw />
               {t("restart")}
             </Button>
-            <Button variant="secondary" onClick={toggle}>
-              {nextLabel}
-            </Button>
+            <LangMenu lang={lang} onChange={setLang} label={t("language")} tone="modal" className="w-full" />
             <Button variant="secondary" onClick={() => g?.toTitle()}>
               <Home />
               {t("title")}
@@ -883,27 +882,97 @@ function DogHead({
   );
 }
 
-function LangToggle({
-  nextLabel,
-  onToggle,
+function LangMenu({
+  lang,
+  onChange,
+  label,
+  tone = "title",
   className,
 }: {
-  nextLabel: string;
-  onToggle: () => void;
+  lang: Lang;
+  onChange: (l: Lang) => void;
+  label: string;
+  tone?: "title" | "modal";
   className?: string;
 }) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: PointerEvent) => {
+      if (root.current && !root.current.contains(e.target as Node)) setOpen(false);
+    };
+    window.addEventListener("pointerdown", close, true);
+    return () => window.removeEventListener("pointerdown", close, true);
+  }, [open]);
+
+  const dark = tone === "title";
+
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className={cn(
-        "pointer-events-auto rounded-full border border-surface/30 bg-ink/70 px-3 py-1 text-xs font-semibold tracking-wide text-[#fff3c4] backdrop-blur-sm hover:bg-ink/90",
-        className,
-      )}
-      aria-label={`Switch language (next: ${nextLabel})`}
+    <div
+      ref={root}
+      className={cn("relative pointer-events-auto", className)}
+      onPointerDown={(e) => e.stopPropagation()}
     >
-      {nextLabel}
-    </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        className={cn(
+          "inline-flex items-center justify-center gap-1.5 rounded-full border text-xs font-semibold backdrop-blur-sm",
+          dark
+            ? "border-surface/30 bg-ink/70 p-1.5 text-[#fff3c4] hover:bg-ink/90"
+            : "h-10 w-full border-ink/15 bg-ink/5 px-3 text-ink hover:bg-ink/10",
+        )}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={label}
+      >
+        <Globe className={dark ? "size-3.5" : "size-4"} />
+        {!dark && <span>{LANGS.find((l) => l.id === lang)?.label ?? "English"}</span>}
+      </button>
+      {open && (
+        <ul
+          role="listbox"
+          className={cn(
+            "absolute z-50 mt-1 min-w-36 overflow-hidden rounded-xl border py-1 shadow-xl",
+            dark
+              ? "right-0 border-surface/20 bg-ink/95 text-[#fff3c4]"
+              : "left-0 right-0 border-ink/10 bg-surface text-ink",
+          )}
+        >
+          {LANGS.map((opt) => (
+            <li key={opt.id}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={opt.id === lang}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChange(opt.id);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "flex w-full items-center px-3 py-2 text-left text-sm",
+                  opt.id === lang
+                    ? dark
+                      ? "bg-surface/15 font-semibold"
+                      : "bg-ink/10 font-semibold"
+                    : dark
+                      ? "hover:bg-surface/10"
+                      : "hover:bg-ink/5",
+                )}
+              >
+                {opt.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
