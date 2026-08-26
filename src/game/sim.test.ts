@@ -1,6 +1,6 @@
 /**
  * Unit tests for pure sim helpers (issue #13).
- * Run: node --experimental-strip-types --test src/game/sim.test.ts
+ * Run: npx tsx --test src/game/sim.test.ts
  */
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
@@ -11,8 +11,8 @@ import {
   createState,
   isOut,
   living,
-} from "./sim.ts";
-import type { Kid } from "./types.ts";
+} from "./sim";
+import type { Kid } from "./types";
 
 function kid(partial: Partial<Kid> & Pick<Kid, "id" | "team" | "x" | "y">): Kid {
   return {
@@ -69,12 +69,11 @@ describe("aimFromKid", () => {
   it("locks onto nearest foe for red (forward hemisphere)", () => {
     const me = kid({ id: 1, team: "red", x: 700, y: 200 });
     const foe = kid({ id: 2, team: "green", x: 200, y: 250 });
-    const { dx, dy } = aimFromKid(me, [me, foe], 5, 0, false, true);
+    const { dx } = aimFromKid(me, [me, foe], 5, 0, false, true);
     assert.ok(dx < 0, "red should aim left toward foe");
-    assert.ok(Math.abs(dy) > 0 || dy === 0);
   });
 
-  it("ignores small rightward wobble in star mode (not intentional back)", () => {
+  it("ignores small rightward wobble in star mode", () => {
     const me = kid({ id: 1, team: "red", x: 700, y: 200 });
     const foe = kid({ id: 2, team: "green", x: 200, y: 200 });
     const { dx } = aimFromKid(me, [me, foe], 20, 5, false, true);
