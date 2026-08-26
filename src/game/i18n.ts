@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 
-export type Lang = "en" | "zh";
+export type Lang = "en" | "zh" | "zh-CN";
 
 const KEY = "snowcraft-lang";
+const ORDER: Lang[] = ["en", "zh", "zh-CN"];
 
 export function readLang(): Lang {
   try {
     const v = localStorage.getItem(KEY);
-    if (v === "zh" || v === "en") return v;
+    if (v === "zh" || v === "en" || v === "zh-CN") return v;
   } catch {
     /* ignore */
   }
@@ -20,7 +21,23 @@ export function writeLang(lang: Lang) {
   } catch {
     /* ignore */
   }
-  if (typeof document !== "undefined") document.documentElement.lang = lang === "zh" ? "zh-Hant" : "en";
+  if (typeof document !== "undefined") {
+    document.documentElement.lang =
+      lang === "zh" ? "zh-Hant" : lang === "zh-CN" ? "zh-Hans" : "en";
+  }
+}
+
+function nextLang(cur: Lang): Lang {
+  const i = ORDER.indexOf(cur);
+  return ORDER[(i + 1) % ORDER.length]!;
+}
+
+/** Label shown on the toggle = the language you switch *to*. */
+export function nextLangLabel(cur: Lang): string {
+  const n = nextLang(cur);
+  if (n === "en") return "EN";
+  if (n === "zh") return "繁中";
+  return "简体";
 }
 
 const EN = {
@@ -232,10 +249,119 @@ const ZH: Record<keyof typeof EN, string> = {
   loseSolo: "小金毛在第 {n} 關把你埋了。最高 {best}。",
 };
 
+/** Simplified Chinese — same meaning as 繁中, Mainland orthography. */
+const ZH_CN: Record<keyof typeof EN, string> = {
+  greet: "季节的问候",
+  slogan: "拎起、闪开、扔出！",
+  gameTitle: "线条小狗 大雪战",
+  blurb: "率领三只小白，跟小金毛打一场雪仗。按住狗狗移动，放手扔雪球。两次出手之间要搓雪。",
+  unofficial: "非官方致敬",
+  playVsAi: "对战电脑",
+  playVsFriend: "对战朋友",
+  bestLevel: "最高关卡 {n}",
+  topEasy: "通关(简易) : {t}",
+  topEasyStar: "通关(简易,星星模式启动) : {t}",
+  topHard: "通关(困难) : {t}",
+  topHardStar: "通关(困难,星星模式启动) : {t}",
+  license: "开源授权",
+  architecture: "架构说明",
+  github: "GitHub",
+  fanTribute:
+    "同人致敬（二次创作）。玩法源自 Nicholson NY 的 SnowCraft（1998）。狗狗造型灵感来自线条小狗，插画 moonlab。对战手感亦参考 jeffreywilbur 的 snowcraftjs。",
+  producedBy: "制作：Gary.TC",
+  aiHow1: "1. 按住一只小白",
+  aiHow2: "2. 拖动闪避、对准通道",
+  aiHow3: "3. 轻点近扔，长按扔得更远",
+  easyBlurb: "简单是原版 SnowCraft 节奏。过 5 关即胜利。",
+  hard: "困难",
+  hard1: "大家移动快 3 倍；雪球快 2 倍",
+  hard2: "小金毛会换目标、更懂闪",
+  hard3: "雪堆要打 10 下",
+  hard4: "倒下的小白下一回合不会复活",
+  easy: "简单",
+  back: "返回",
+  vsFriendLead: "开房分享 6 位代码，或输入对方的码。你操控小白；对方操控小金毛。",
+  vsRule1: "按住狗狗移动；放手扔球",
+  vsRule2: "自动瞄最近敌人——每次射程、球速相同",
+  vsRule3: "没有蓄力：轻点同长按一样远",
+  vsRule4: "出手后搓雪约 1 秒才能再扔",
+  createRoom: "建立房间",
+  join: "加入",
+  code: "代码",
+  roomCode: "房间代码",
+  loading: "载入中",
+  almost: "就快好",
+  stretching: "狗狗在伸懒腰",
+  packingVs: "等两边都搓好雪球…",
+  packingAi: "正在为雪场搓雪球…",
+  cancel: "取消",
+  versus: "对战",
+  waiting: "等候中",
+  joining: "加入中",
+  copied: "已复制",
+  copy: "复制",
+  hideQr: "收起 QR",
+  showQr: "显示 QR — 扫码加入",
+  qrHint: "朋友扫这个即可打开游戏并加入。",
+  lobbyHost: "分享 QR 或代码。你是小白。扔球自动瞄准，每次距离相同——记得搓雪。",
+  lobbyGuest: "正在找房主…你操控小金毛。同样是自动瞄、固定射程、搓雪再扔。",
+  friendLeft: "朋友离开了",
+  friendLeftBody: "连线中断或超时。可以用电脑接手、继续等候，或结束比赛。",
+  takeBots: "用电脑接手",
+  wait: "等候",
+  endGame: "结束游戏",
+  waitingDots: "等候中…",
+  pausedUntil: "暂停，等朋友重新连上。",
+  paused: "暂停",
+  resume: "继续",
+  restart: "重来",
+  title: "回到主页",
+  victory: "胜利",
+  buried: "被埋了…",
+  rematchAsk: "朋友想再来一局。",
+  rematchWait: "等朋友接受…",
+  rematch: "再来一局",
+  fightAgain: "再打一次",
+  decline: "拒绝",
+  leaveRoom: "离开房间",
+  rotate: "请把手机转横 · landscape is better",
+  hintAi: "按住{dog} · 轻点近扔 · 长按远扔 · 出手后搓雪",
+  hintPvp: "按住{dog} · 轻点扔出 · 自动瞄最近 · 固定射程 · 出手后搓雪",
+  maltese: "小白",
+  retriever: "小金毛",
+  malteseTeam: "小白",
+  retrieverTeam: "小金毛",
+  pvpMode: "对战模式",
+  level: "第 {n} 关",
+  levelHard: "第 {n} 关 · 困难",
+  godSpeed: "星星模式",
+  mute: "静音",
+  unmute: "开声",
+  pause: "暂停",
+  allyManual: "手动",
+  allyDefend: "防守",
+  allyAttack: "进攻",
+  allyLabel: "未选中的小白",
+  langSwitch: "EN",
+  langSwitchToEn: "繁中",
+  winSolo: "你过了 {n} 关。小金毛都被埋了 — 拎起、闪开、扔出！",
+  winGuest: "小金毛埋掉了小白。留在房间再来一局，不用重新输入代码。",
+  winHost: "你埋掉了小金毛。留在房间再来一局，不用重新输入代码。",
+  loseGuest: "小白把你埋了。请朋友再来一局——双方都要同意。",
+  loseHost: "小金毛把你埋了。请朋友再来一局——双方都要同意。",
+  loseSolo: "小金毛在第 {n} 关把你埋了。最高 {best}。",
+};
+
 export type I18nKey = keyof typeof EN;
 
+function table(lang: Lang): Record<I18nKey, string> {
+  if (lang === "zh") return ZH;
+  if (lang === "zh-CN") return ZH_CN;
+  return EN as unknown as Record<I18nKey, string>;
+}
+
 export function tr(lang: Lang, key: I18nKey, vars?: Record<string, string | number>) {
-  let s: string = (lang === "zh" ? ZH : EN)[key];
+  let s: string = table(lang)[key];
   if (vars) {
     for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, String(v));
   }
@@ -253,7 +379,7 @@ export function formatClearTime(ms: number, lang: Lang) {
   const s = Math.max(0, Math.round(ms / 1000));
   const m = Math.floor(s / 60);
   const r = s % 60;
-  return lang === "zh" ? `${m}分${r}秒` : `${m}m${r}s`;
+  return lang === "en" ? `${m}m${r}s` : `${m}分${r}秒`;
 }
 
 export function useLang() {
@@ -265,11 +391,11 @@ export function useLang() {
   }, []);
   const toggle = useCallback(() => {
     setLang((cur) => {
-      const next: Lang = cur === "en" ? "zh" : "en";
+      const next = nextLang(cur);
       writeLang(next);
       return next;
     });
   }, []);
   const t = useCallback((key: I18nKey, vars?: Record<string, string | number>) => tr(lang, key, vars), [lang]);
-  return { lang, t, toggle };
+  return { lang, t, toggle, nextLabel: nextLangLabel(lang) };
 }
