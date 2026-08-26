@@ -10,6 +10,9 @@ There is two modes: Play vs AI (Easy / Hard) on one machine, and Play vs Friend 
 
 There is no dedicated game-simulation server — the host’s browser is the authority; a small signaling server only helps the two browsers find each other, and various netcode techniques.
 
+Try the demo here:
+[maltese-snowwar.grok.me](https://maltese-snowwar.grok.me/)
+
 To understand more, pls refer:
 https://github.com/rayony/maltese-snowwar/blob/main/public/Maltese-Snow-War-Architecture.pdf
 
