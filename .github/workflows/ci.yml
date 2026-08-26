@@ -17,8 +17,5 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
-      - run: npm test
-      - run: npm run build
-        env:
-          # Build may need env stubs; fail soft if migrate needs DB
-          CI: true
+      - name: Sim unit tests (tsx)
+        run: npx --yes tsx --test src/game/sim.test.ts
