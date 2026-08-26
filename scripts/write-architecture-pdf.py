@@ -636,7 +636,8 @@ def build():
             "(a few dogs, occasional throws) but unforgiving: if a hit lands a beat late, "
             "it feels broken. The host’s machine runs the real simulation. The guest’s machine "
             "predicts, interpolates, and is corrected. There is no GGPO rollback and no "
-            "dedicated sim server — on purpose. Below is every technique that is actually in the code.",
+            "dedicated sim server — on purpose (see 5.8). Below is every technique that is actually in the code, "
+            "then a separate graveyard of attempts that did not stay.",
             body,
         )
     )
@@ -671,7 +672,7 @@ def build():
         [
             Paragraph("Guest (retriever)", cellb),
             Paragraph("Waits a full snapshot (~70–220 ms) to see anything.", cell),
-            Paragraph("Own move/throw are local. Opponent pose is interpolated 55–70 ms. Hits flash locally, then confirm.", cell),
+            Paragraph("Own move/throw are local. Opponent pose interpolates 55–70 ms. Hit spark may paint early on high RTT; HP/SFX wait for host <font face='Courier'>hit</font>.", cell),
         ],
     ]
     story.append(contrast_table(delay_tbl, [32 * mm, 69 * mm, 69 * mm]))
@@ -680,7 +681,8 @@ def build():
     story.append(
         Paragraph(
             "Early builds sent the whole yard 10–14 times a second (every kid, every ball, forts, phase). "
-            "That is simple and laggy. The current split:",
+            "That is simple and laggy — see 5.8. The current split. Pose also copies onto the reliable channel "
+            "because LAN WebRTC unordered often drops:",
             body,
         )
     )
@@ -688,12 +690,18 @@ def build():
         [Paragraph("Message", head), Paragraph("Channel", head), Paragraph("Rate / when", head), Paragraph("Payload", head)],
         [
             Paragraph("pose", cellb),
-            Paragraph("Unreliable (may drop)", cell),
+            Paragraph("Unreliable + reliable copy", cell),
             Paragraph("~14–20 Hz", cell),
-            Paragraph("id, x, y, vx, vy, facing, state, hp", cell),
+            Paragraph("id, x, y, vx, vy, facing, state, hp + live balls", cell),
         ],
         [
-            Paragraph("throw", cellb),
+            Paragraph("allypose", cellb),
+            Paragraph("Unreliable + reliable copy", cell),
+            Paragraph("Guest ~15–25 Hz, always", cell),
+            Paragraph("Guest-yard kids x,y (even Manual idle)", cell),
+        ],
+        [
+            Paragraph("throw / allythrow", cellb),
             Paragraph("Reliable + HTTP copy", cell),
             Paragraph("On release", cell),
             Paragraph("id, origin, velocity, team, t0", cell),
@@ -702,11 +710,11 @@ def build():
             Paragraph("hit", cellb),
             Paragraph("Reliable + HTTP copy", cell),
             Paragraph("On damage", cell),
-            Paragraph("id, hp, heavy (bury)", cell),
+            Paragraph("id, hp, heavy (bury). Only host.", cell),
         ],
         [
             Paragraph("snap", cellb),
-            Paragraph("Unreliable keyframe", cell),
+            Paragraph("Unreliable + reliable copy", cell),
             Paragraph("Every 1.2 s + start", cell),
             Paragraph("Full field for recovery only", cell),
         ],
@@ -718,13 +726,13 @@ def build():
         ],
         [
             Paragraph("input", cellb),
-            Paragraph("Move = pose; down/up = reliable", cell),
+            Paragraph("Move dual-sent; down/up reliable", cell),
             Paragraph("Guest stick + throw", cell),
             Paragraph("x, y, hold, vx, vy, at (timestamp)", cell),
         ],
         [
             Paragraph("ping / pong", cellb),
-            Paragraph("Unreliable", cell),
+            Paragraph("Unreliable + reliable copy", cell),
             Paragraph("2 s", cell),
             Paragraph("t0, t1 → RTT + clock offset", cell),
         ],
@@ -759,17 +767,17 @@ def build():
             "and also send input.at to the host. Pose packets do not overwrite the grabbed dog.",
         ),
         (
-            "4. Guest predicted hits",
-            "If a local ball overlaps an enemy, the guest flashes hurt + SFX at once, without changing HP. "
-            "A matching hit packet confirms (HP/bury). If nothing arrives in ~140 ms, the flash is rolled back. "
-            "Juice is instant; score is still host-declared.",
+            "4. RTT-tiered hit juice (cosmetic only)",
+            "HP, bury, bark, and winner are host-only. Guest paint depends on smoothed RTT, "
+            "decided live (not at room setup): <55 ms wait for host; 55–120 ms spark only; "
+            ">120 ms spark + light hurt pose that rolls back. Upgrade is instant; downgrade waits 2 s. "
+            "Aim uses the latest pose plus half-RTT, not the interpolated ghost.",
         ),
         (
-            "5. Remote interpolation (not dead reckoning)",
-            "Opponent dogs are painted 55–70 ms in the past, lerped between two pose samples. "
-            "The grabbed local dog is not interpolated. This replaced vx·lead extrapolation, which "
-            "fought with lag compensation. Balls still fly in present time; kids on screen lag a beat "
-            "so motion is smooth instead of snapping at 14 Hz.",
+            "5. Remote interpolation (guest only, paint only)",
+            "Guest paints host Maltese 55–70 ms in the past, lerped between pose samples. "
+            "The grabbed local dog is not interpolated. Host draws guest dogs at live sim x,y "
+            "(no second delay). This replaced vx·lead extrapolation.",
         ),
         (
             "6. Clock offset",
@@ -783,10 +791,10 @@ def build():
             "from the same thrower is already nearby. Predicted throws no longer pop out of existence.",
         ),
         (
-            "8. Two data channels + HTTP belt",
-            "Unreliable channel: poses, pings (drop stale). Ordered reliable: throws, hits, over. "
-            "over / start / rematch / packed / bye also copy onto the unreliable channel and HTTP/SSE, "
-            "and they ignore the sequence filter so a late snapshot cannot eat the winner.",
+            "8. Two data channels + always-copy poses",
+            "Unordered ‘state’ channel plus ordered ‘event’ channel. Throws, hits, over stay reliable + HTTP. "
+            "Poses, allypose, input-move, and snaps also copy onto reliable: LAN/iOS unordered SCTP silently drops, "
+            "and dogs used to freeze until dragged. Separate seq spaces (lastIn vs lastPose) so a pose cannot eat rematch.",
         ),
         (
             "9. Outcome is not a snapshot",
@@ -812,15 +820,14 @@ def build():
         ),
         (
             "13. Ally bots on the guest",
-            "Defend / Attack for unselected Maltese (or retrievers on guest) step locally; "
-            "poses and throws are sent up. The guest does not wait for the host to wiggle idle dogs.",
+            "Defend / Attack step locally on the guest; allythrow + allypose go up. "
+            "Guest always sends yard poses, even in Manual, after clamp-to-screen. "
+            "Guest presentation ticks packT and cooldown so bots do not freeze after the first throw.",
         ),
         (
-            "14. What we did not do",
-            "No GGPO rollback (sim is not deterministic: Math.random, wall clocks). "
-            "No dedicated game server (1v1 friend rooms; signaling is enough). "
-            "No binary protobuf yet — JSON poses are already small. "
-            "Those remain valid later if this becomes ranked matchmaking.",
+            "14. Live clock, not room-setup lag class",
+            "RTT EMA (0.8/0.2) drives host delay, interpolation window, and hit-FX tier. "
+            "A lobby ping is stale: ICE can flip STUN→TURN mid-match. Upgrade hit-tier immediately; hold 2 s to drop.",
         ),
         (
             "15. Throw timestamps (t0) on both seats",
@@ -849,9 +856,9 @@ def build():
     story.append(Paragraph("5.4 Throw path (sequence)", h2))
     story.append(
         Paragraph(
-            "Host runs the real collision. Guest only paints: local ball, predicted flash, interpolated dogs. "
+            "Host runs the real collision. Guest only paints: local ball, optional spark, interpolated Maltese. "
             "HP changes on <font face='Courier'>hit</font>; the heat ends on <font face='Courier'>over</font>. "
-            "A wrong prediction rolls back the flash, not the whole field.",
+            "A wrong spark rolls back; the whole field does not.",
             body,
         )
     )
@@ -860,12 +867,12 @@ def build():
         SeqDiag(
             ["Guest 畫面", "Host sim"],
             [
-                ("self", 0, "本地波 + 預測閃"),
+                ("self", 0, "本地波（高 RTT 先出火花）"),
                 ("msg", 0, 1, "throw / input.at"),
                 ("self", 1, "權威碰撞（可 catch-up）"),
-                ("msg", 1, 0, "hit 或 timeout 撤回", True),
+                ("msg", 1, 0, "hit → HP / 狗叫 / 埋", True),
             ],
-            caption="Guest 出手：畫面即時，HP 等 host。",
+            caption="Guest 出手：畫面可以即時，HP 同聲效等 host。",
         )
     )
     story.append(Spacer(1, 3 * mm))
@@ -1017,6 +1024,113 @@ def build():
     )
     story.append(Spacer(1, 4 * mm))
 
+    # 5.8 failed / unused
+    story.append(Paragraph("5.8 Failed and unused netcode", h1))
+    story.append(
+        Paragraph(
+            "This section is the graveyard: ideas we shipped, then ripped out, or never merged. "
+            "They are not in the live stack. Keeping them here so the next pass does not rebuild the same trap.",
+            body,
+        )
+    )
+    fail = [
+        [Paragraph("Attempt", head), Paragraph("What happened", head), Paragraph("Kept instead", head)],
+        [
+            Paragraph("Full-yard snapshot 12–20 Hz as the live stream", cellb),
+            Paragraph("Simple. Fat. Guest felt 70–220 ms behind even on LAN. Balls popped when a snap arrived late.", cell),
+            Paragraph("Thin pose + event throws/hits. Snap only as a 1.2 s keyframe that does not clobber local balls.", cell),
+        ],
+        [
+            Paragraph("HTTP poll ~40 ms as the primary pipe", cellb),
+            Paragraph("Worked through bad NATs. Added a full RTT of jitter and serialized the yard through JSON poll.", cell),
+            Paragraph("WebRTC first. HTTP/SSE is a belt for join, ICE, and rare event copies when the DC is down.", cell),
+        ],
+        [
+            Paragraph("Unreliable-only poses (unordered SCTP)", cellb),
+            Paragraph("LAN/iOS often dropped the unordered channel with no error. Dogs froze until that dog was dragged (the drag used a reliable input).", cell),
+            Paragraph("Every pose / allypose / snap is copied onto the reliable channel. Unreliable stays for freshness.", cell),
+        ],
+        [
+            Paragraph("One sequence space for poses and events", cellb),
+            Paragraph("A high pose seq made the guest drop rematch / over / start as ‘stale’.", cell),
+            Paragraph("lastIn for events, lastPose for pose-class. Outcome packets ignore seq drop.", cell),
+        ],
+        [
+            Paragraph("Guest always-on hit prediction (HP/SFX)", cellb),
+            Paragraph("Felt snappy, then ‘打中但實際無’: spark + bark on a miss because the guest tested against a lagged dog.", cell),
+            Paragraph("Host hit is the only HP/SFX. Cosmetic spark is RTT-tiered against latest pose + half-RTT, never viewX.", cell),
+        ],
+        [
+            Paragraph("Predict hits on interpolated viewX", cellb),
+            Paragraph("The paint pose is 55–70 ms in the past. Testing the ball against that ghost false-positives more.", cell),
+            Paragraph("Hit juice uses sim x,y (or pose history velocity), not the interpolated sprite.", cell),
+        ],
+        [
+            Paragraph("Wait ~220 ms before reconciling balls", cellb),
+            Paragraph("Ghost balls hung on the guest; real balls appeared late; clashes looked random.", cell),
+            Paragraph("Guest flies every ball now. Unmatched local host-throws prune after a short hold, not 220 ms.", cell),
+        ],
+        [
+            Paragraph("vx·lead dead reckoning", cellb),
+            Paragraph("Extrapolating opponent x += vx·rtt fought host delay and made dogs skate through forts.", cell),
+            Paragraph("Interpolation in the past on guest only. Host draws guest dogs live.", cell),
+        ],
+        [
+            Paragraph("Host interpolating guest dogs from poseHist", cellb),
+            Paragraph("Host already has guest input. Adding 70 ms of lerp made the host see their own applied moves late.", cell),
+            Paragraph("Only the guest interpolates remote (Maltese). Host viewX = sim x.", cell),
+        ],
+        [
+            Paragraph("allypose only while Defend/Attack", cellb),
+            Paragraph("Manual guest still clamp-to-screen locally. Host never heard those x,y until that dog was dragged.", cell),
+            Paragraph("Guest always streams living retriever poses, grabbed dog excluded (that one uses input-move).", cell),
+        ],
+        [
+            Paragraph("Guest skipping cooldown / pack ticks", cellb),
+            Paragraph("Guest does not run stepSim. After the first ally throw, cooldown stuck > 0, windup never finished. Bots stood still.", cell),
+            Paragraph("stepPresentation now ticks cooldown, packT, stun, freeze. Windup falls back to idle if blocked.", cell),
+        ],
+        [
+            Paragraph("Fat WireState over packet", cellb),
+            Paragraph("Easy to drop; guest and host could show different winners.", cell),
+            Paragraph("Tiny { winner } on reliable + HTTP, resent 0.35 s, plus pose.phase won/lost.", cell),
+        ],
+        [
+            Paragraph("Charge-based PvP throws", cellb),
+            Paragraph("Tap-near / hold-far disagreed across seats (different hold seconds, different RTT). Unfair on WAN.", cell),
+            Paragraph("Versus: auto-aim direction, fixed range 520, speed 440, pack 0.92 s. Charge remains Vs AI only.", cell),
+        ],
+        [
+            Paragraph("GGPO / full rollback", cellb),
+            Paragraph("Needs a deterministic sim. Ours uses Math.random, wall clocks, sprite timers. Six dogs + balls is a lot to rewind every frame.", cell),
+            Paragraph("Listen-server. Cosmetic rollback of a spark only. See 5.7.", cell),
+        ],
+        [
+            Paragraph("Dedicated sim server", cellb),
+            Paragraph("Fairer RTT (both sides guests) and anti-cheat. 24/7 ops. LAN would get slower, not faster.", cell),
+            Paragraph("Host browser + signaling + TURN. Revisit if public matchmaking or ranked anti-cheat.", cell),
+        ],
+        [
+            Paragraph("Binary protobuf / bit-packed poses", cellb),
+            Paragraph("JSON pose is already ~a few hundred bytes at 20 Hz. Extra schema tax for little gain.", cell),
+            Paragraph("JSON envelopes. Revisit if we add 4-player or mobile data caps.", cell),
+        ],
+        [
+            Paragraph("TURN credentials in the repo", cellb),
+            Paragraph("Would leak ExpressTURN on GitHub.", cell),
+            Paragraph("Server env only. Public .env.example stays empty.", cell),
+        ],
+    ]
+    story.append(contrast_table(fail, [42 * mm, 64 * mm, 64 * mm]))
+    story.append(Spacer(1, 3 * mm))
+    story.append(
+        Paragraph(
+            "Rule of thumb we landed on: <b>host owns score, guest owns feel, never trust a dropped UDP as truth, "
+            "never predict HP</b>. Everything in the table above broke one of those.",
+            body,
+        )
+    )
+
     # 6
     story.append(Paragraph("6. Vs AI (for contrast)", h1))
     story.append(
@@ -1069,7 +1183,8 @@ def build():
     story.append(
         Paragraph(
             "End of briefing. Source of truth is the beta branch of the GitHub repo; "
-            "this PDF describes the P2P pose/prediction stack as of August 2026.",
+            "this PDF describes the live P2P stack as of August 2026 (pose dual-send, RTT-tiered juice, guest ally timers). "
+            "Section 5.8 lists netcode that was tried and removed.",
             note,
         )
     )
