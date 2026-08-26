@@ -1,7 +1,6 @@
-**- Maltese Snow War -**
 <img width="1792" height="1008" alt="81baeaaf-b9b6-4768-ac2b-5a68e879795e" src="https://github.com/user-attachments/assets/b7122350-a3a8-4901-a208-d2569200165f" />
 
-Maltese Snow War is a canvas snowball fight in the browser. Hold a dog to move, release to throw, pack snow between shots. Two-hit bury, ellipse forts, pack-snow cooldown.  It is an unofficial fan tribute to Nicholson NY’s SnowCraft (1998) using moonlab’s puppy illustrations named Maltese.
+**Maltese Snow War** is a canvas snowball fight in the browser. Hold a dog to move, release to throw, pack snow between shots. Two-hit bury, ellipse forts, pack-snow cooldown.  It is an unofficial fan tribute to Nicholson NY’s SnowCraft (1998) using moonlab’s puppy illustrations named Maltese.
 
 There is two modes: Play vs AI (Easy / Hard) on one machine, and Play vs Friend connected two devices via a 6-letter room code.  VS AI uses three white Maltese (red hats) stand on the right against several brown Retriever (green hats) on the left.  For VS Friend, the host always plays the Maltese, guest is mirrored and plays the Retriever.
 
