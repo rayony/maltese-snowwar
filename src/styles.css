@@ -30,9 +30,9 @@
   --color-letterbox: #9bb4c6;
   --font-sans: "Outfit", "PingFang TC", "Hiragino Sans", "Hiragino Sans GB", "Apple SD Gothic Neo", "Noto Sans TC", "Noto Sans SC", "Noto Sans JP", "Noto Sans KR", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Fraunces", "PingFang TC", "Songti TC", "Hiragino Mincho ProN", "Apple SD Gothic Neo", "Noto Serif TC", "Microsoft JhengHei", ui-serif, Georgia, serif;
-  --font-script: "Caveat", "ChenYuluoyan", "Yomogi", "Gaegu", "YuKyokasho", "Hiragino Maru Gothic ProN", "PingFang TC", cursive;
-  --font-title-script: "Caveat", "ChenYuluoyan", "Yomogi", "Gaegu", "YuKyokasho", "Hiragino Maru Gothic ProN", "PingFang TC", cursive;
-  --font-motto-script: "Caveat", "ChenYuluoyan", "Yomogi", "Gaegu", "YuKyokasho", "Hiragino Maru Gothic ProN", "PingFang TC", cursive;
+  --font-script: "Caveat", "ChenYuluoyan", "Klee One", "Gaegu", cursive;
+  --font-title-script: "Caveat", "ChenYuluoyan", "Klee One", "Gaegu", cursive;
+  --font-motto-script: "Caveat", "ChenYuluoyan", "Klee One", "Gaegu", cursive;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
@@ -74,18 +74,25 @@
     overflow-wrap: anywhere;
   }
 
+  /* One Japanese hand family for kana + kanji (Yomogi lacks 雪/戦 → mixed fallback). */
   html[lang="ja"] .font-title-script,
-  html[lang="ja"] .font-motto-script {
-    font-family: "Yomogi", "YuKyokasho", "Yu Kyokasho", "Hiragino Maru Gothic ProN", "Hiragino Mincho ProN", "Yu Gothic", sans-serif;
-    font-weight: 400;
+  html[lang="ja"] .font-motto-script,
+  .font-title-script:lang(ja),
+  .font-motto-script:lang(ja) {
+    font-family: "Klee One", "YuKyokasho", "Yu Kyokasho", "Klee", sans-serif;
+    font-weight: 600;
     font-synthesis: none;
     -webkit-text-stroke: 0;
     paint-order: normal;
-    letter-spacing: 0.06em;
-    line-height: 1.3;
+    letter-spacing: 0.04em;
+    line-height: 1.35;
     word-break: keep-all;
     line-break: strict;
     overflow-wrap: anywhere;
+  }
+  html[lang="ja"] .font-motto-script,
+  .font-motto-script:lang(ja) {
+    font-weight: 400;
   }
 
   html[lang="ko"] .font-title-script,

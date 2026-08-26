@@ -22,7 +22,7 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { SnowCraftGame } from "@/game/game";
 import { normalizeCode } from "@/game/net";
-import { LANGS, useLang, formatClearTime, type I18nKey, type Lang } from "@/game/i18n";
+import { LANGS, htmlLang, useLang, formatClearTime, type I18nKey, type Lang } from "@/game/i18n";
 import { APP_COMMIT_URL, APP_VERSION } from "@/game/version";
 import type { AllyMode, Team, UiSnapshot } from "@/game/types";
 import { cn } from "@/lib/utils";
@@ -333,10 +333,16 @@ export function SnowCraft() {
               </div>
               <div className="mt-2 flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <h1 className="font-title-script text-[clamp(1.7rem,7.2vw,3rem)] leading-snug tracking-tight text-surface sm:text-5xl">
+                  <h1
+                    lang={htmlLang(lang)}
+                    className="font-title-script text-[clamp(1.7rem,7.2vw,3rem)] leading-snug tracking-tight text-surface sm:text-5xl"
+                  >
                     {t("gameTitle")}
                   </h1>
-                  <p className="mt-1.5 font-motto-script text-[clamp(1.05rem,4.6vw,1.5rem)] leading-snug text-[#fff3c4] sm:text-2xl">
+                  <p
+                    lang={htmlLang(lang)}
+                    className="mt-1.5 font-motto-script text-[clamp(1.05rem,4.6vw,1.5rem)] leading-snug text-[#fff3c4] sm:text-2xl"
+                  >
                     {t("slogan")}
                   </p>
                 </div>
@@ -730,7 +736,7 @@ export function SnowCraft() {
                   {win ? t("victory") : t("buried")}
                 </h2>
                 {win && (
-                  <p className="mt-1 font-motto-script text-xl text-pine">{t("slogan")}</p>
+                  <p lang={htmlLang(lang)} className="mt-1 font-motto-script text-xl text-pine">{t("slogan")}</p>
                 )}
                 <p className="mt-2 text-sm leading-relaxed text-muted">
                   {versusGameoverCopy(ui, t)}
@@ -780,7 +786,7 @@ export function SnowCraft() {
 
 type TFn = (key: I18nKey, vars?: Record<string, string | number>) => string;
 
-function TitleBoot({ t, lang: _lang, onArm }: { t: TFn; lang: Lang; onArm?: () => void }) {
+function TitleBoot({ t, lang, onArm }: { t: TFn; lang: Lang; onArm?: () => void }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-ink bg-cover bg-center"
@@ -793,8 +799,8 @@ function TitleBoot({ t, lang: _lang, onArm }: { t: TFn; lang: Lang; onArm?: () =
       <div className="relative flex flex-col items-center gap-4 text-surface">
         <Loader2 className="size-10 animate-spin text-ice" aria-hidden />
         <p className="text-xs font-medium uppercase tracking-[0.22em] text-ice">{t("loading")}</p>
-        <p className="font-title-script text-3xl">{t("gameTitle")}</p>
-        <p className="font-motto-script text-xl text-[#fff3c4] sm:text-2xl">{t("slogan")}</p>
+        <p lang={htmlLang(lang)} className="font-title-script text-3xl">{t("gameTitle")}</p>
+        <p lang={htmlLang(lang)} className="font-motto-script text-xl text-[#fff3c4] sm:text-2xl">{t("slogan")}</p>
       </div>
     </div>
   );

@@ -33,6 +33,8 @@ function htmlLang(lang: Lang): string {
   return "en";
 }
 
+export { htmlLang };
+
 export function writeLang(lang: Lang) {
   try {
     localStorage.setItem(KEY, lang);

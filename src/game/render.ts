@@ -417,14 +417,14 @@ function drawCountdown(ctx: CanvasRenderingContext2D, kicker: string, n: string)
   const lang = readLang();
   const cjk = lang !== "en";
   const kickerFont = lang === "ja"
-    ? '600 22px "Yomogi","Hiragino Maru Gothic ProN","Yu Gothic",sans-serif'
+    ? '600 22px "Klee One","YuKyokasho","Yu Kyokasho",sans-serif'
     : lang === "ko"
       ? '700 22px "Gaegu","Apple SD Gothic Neo","Noto Sans KR",sans-serif'
       : cjk
         ? '600 22px "ChenYuluoyan","PingFang TC","Hiragino Sans","Noto Sans TC",sans-serif'
         : "600 22px Fraunces, Georgia, serif";
   const numFont = lang === "ja"
-    ? '400 96px "Yomogi","Hiragino Maru Gothic ProN","Yu Gothic",sans-serif'
+    ? '600 96px "Klee One","YuKyokasho","Yu Kyokasho",sans-serif'
     : lang === "ko"
       ? '700 96px "Gaegu","Apple SD Gothic Neo",sans-serif'
       : cjk
