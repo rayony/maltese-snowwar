@@ -241,6 +241,12 @@ export function applyPose(
     }
     kid.hp = w.h;
   }
+  if (msg.phase === "intro" || msg.phase === "fight") {
+    if (state.phase === "intro" || state.phase === "fight") {
+      state.phase = msg.phase;
+      if (typeof msg.intro === "number") state.introT = msg.intro;
+    }
+  }
   if (msg.balls) {
     const now = typeof performance !== "undefined" ? performance.now() : 0;
     const mine = opts.predictTeam ?? null;

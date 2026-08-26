@@ -86,7 +86,10 @@ export function stepAi(
 
     if (kid.ai.phase === "windup") {
       kid.ai.charge = Math.min(1, kid.ai.charge + dt / (stance === "defend" ? 1.15 : 0.85));
-      if (kid.cooldown > 0 || kid.packT > 0) continue;
+      if (kid.cooldown > 0 || kid.packT > 0) {
+        if (kid.ai.t <= 0) kid.ai.phase = "idle";
+        continue;
+      }
       if (kid.ai.t <= 0) {
         const { dx, dy } = aimFromKid(kid, state.kids, 0, 0, hard && stance === "enemy");
         const holdScale = stance === "defend" ? 0.42 + 0.35 * kid.ai.charge : 0.58 + 0.42 * kid.ai.charge;

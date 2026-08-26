@@ -540,10 +540,12 @@ function stepFidget(state: GameState, kid: Kid, dt: number) {
 }
 
 export function stepPresentation(state: GameState, dt: number) {
+  if (state.freeze > 0) state.freeze = Math.max(0, state.freeze - dt);
   for (const kid of state.kids) {
     kid.animT += dt;
     kid.flash = Math.max(0, kid.flash - dt);
     kid.stun = Math.max(0, kid.stun - dt);
+    kid.cooldown = Math.max(0, kid.cooldown - dt);
     kid.packT = Math.max(0, kid.packT - dt);
     if (kid.state === "throw" || kid.state === "hurt") {
       kid.stateT -= dt;
