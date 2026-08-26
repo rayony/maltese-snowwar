@@ -252,7 +252,7 @@ const ZH: Record<keyof typeof EN, string> = {
 /** Simplified Chinese — same meaning as 繁中, Mainland orthography. */
 const ZH_CN: Record<keyof typeof EN, string> = {
   greet: "季节的问候",
-  slogan: "拎起、闪开、扔出！",
+  slogan: "拿起、躲开、扔出！",
   gameTitle: "线条小狗 大雪战",
   blurb: "率领三只小白，跟小金毛打一场雪仗。按住狗狗移动，放手扔雪球。两次出手之间要搓雪。",
   unofficial: "非官方致敬",
@@ -344,7 +344,7 @@ const ZH_CN: Record<keyof typeof EN, string> = {
   allyLabel: "未选中的小白",
   langSwitch: "EN",
   langSwitchToEn: "繁中",
-  winSolo: "你过了 {n} 关。小金毛都被埋了 — 拎起、闪开、扔出！",
+  winSolo: "你过了 {n} 关。小金毛都被埋了 — 拿起、躲开、扔出！",
   winGuest: "小金毛埋掉了小白。留在房间再来一局，不用重新输入代码。",
   winHost: "你埋掉了小金毛。留在房间再来一局，不用重新输入代码。",
   loseGuest: "小白把你埋了。请朋友再来一局——双方都要同意。",
