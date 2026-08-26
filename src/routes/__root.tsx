@@ -32,6 +32,7 @@ export const Route = createRootRoute({
       { rel: "preload", href: "/fonts/Caveat-script.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" },
       { rel: "preload", href: "/fonts/ChenYuluoyan-title.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" },
       { rel: "preload", href: "/fonts/KleeOne-title.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" },
+      { rel: "preload", href: "/fonts/MaShanZheng-title.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" },
     ],
   }),
   component: () => (

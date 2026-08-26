@@ -415,20 +415,23 @@ function drawEdgeArrow(
 
 function drawCountdown(ctx: CanvasRenderingContext2D, kicker: string, n: string) {
   const lang = readLang();
-  const cjk = lang !== "en";
   const kickerFont = lang === "ja"
     ? '600 22px "Klee One","YuKyokasho","Yu Kyokasho",sans-serif'
     : lang === "ko"
       ? '700 22px "Gaegu","Apple SD Gothic Neo","Noto Sans KR",sans-serif'
-      : cjk
-        ? '600 22px "ChenYuluoyan","PingFang TC","Hiragino Sans","Noto Sans TC",sans-serif'
+      : lang === "zh-CN"
+        ? '400 22px "Ma Shan Zheng","Noto Sans SC",sans-serif'
+        : lang === "zh"
+          ? '600 22px "ChenYuluoyan","PingFang TC",sans-serif'
         : "600 22px Fraunces, Georgia, serif";
   const numFont = lang === "ja"
     ? '600 96px "Klee One","YuKyokasho","Yu Kyokasho",sans-serif'
     : lang === "ko"
       ? '700 96px "Gaegu","Apple SD Gothic Neo",sans-serif'
-      : cjk
-        ? '700 96px "ChenYuluoyan","PingFang TC","Hiragino Sans","Noto Sans TC",sans-serif'
+      : lang === "zh-CN"
+        ? '400 96px "Ma Shan Zheng","Noto Sans SC",sans-serif'
+        : lang === "zh"
+          ? '700 96px "ChenYuluoyan","PingFang TC",sans-serif'
         : "700 96px Fraunces, Georgia, serif";
   ctx.save();
   ctx.fillStyle = "rgba(21,32,43,0.4)";

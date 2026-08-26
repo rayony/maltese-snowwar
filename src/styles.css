@@ -21,6 +21,13 @@
   font-display: swap;
   src: url("/fonts/KleeOne-title.woff2") format("woff2");
 }
+@font-face {
+  font-family: "Ma Shan Zheng";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/MaShanZheng-title.woff2") format("woff2");
+}
 
 @theme {
   --color-bg: #d7e4ee;
@@ -53,12 +60,16 @@
 /* Unlayered so it beats Tailwind's .font-title-script utility.
    雪 (U+96EA) exists in both 落雁 and Klee One — mixed stacks always stole 雪. */
 :lang(zh-Hant),
-:lang(zh-Hans),
-html[lang="zh-Hant"],
-html[lang="zh-Hans"] {
-  --font-title-script: "ChenYuluoyan", "PingFang TC", "Hiragino Sans GB", cursive;
-  --font-motto-script: "ChenYuluoyan", "PingFang TC", "Hiragino Sans GB", cursive;
+html[lang="zh-Hant"] {
+  --font-title-script: "ChenYuluoyan", "PingFang TC", cursive;
+  --font-motto-script: "ChenYuluoyan", "PingFang TC", cursive;
   --font-script: "ChenYuluoyan", "PingFang TC", cursive;
+}
+:lang(zh-Hans),
+html[lang="zh-Hans"] {
+  --font-title-script: "Ma Shan Zheng", "Noto Sans SC", sans-serif;
+  --font-motto-script: "Ma Shan Zheng", "Noto Sans SC", sans-serif;
+  --font-script: "Ma Shan Zheng", "Noto Sans SC", sans-serif;
 }
 :lang(ja),
 html[lang="ja"] {
@@ -73,10 +84,10 @@ html[lang="ko"] {
   --font-script: "Gaegu", "Apple SD Gothic Neo", sans-serif;
 }
 
-.font-title-script:lang(ja),
-.font-motto-script:lang(ja) {
-  font-family: "Klee One", "YuKyokasho", "Yu Kyokasho", sans-serif;
-  font-weight: 600;
+.font-title-script:lang(zh-Hans),
+.font-motto-script:lang(zh-Hans) {
+  font-family: "Ma Shan Zheng", "Noto Sans SC", sans-serif;
+  font-weight: 400;
   -webkit-text-stroke: 0;
   font-synthesis: none;
 }
@@ -103,14 +114,24 @@ html[lang="ko"] {
   /* CJK wrap + stroke: variables already chose the face. */
   html[lang="zh-Hant"] .font-title-script,
   html[lang="zh-Hant"] .font-motto-script,
-  html[lang="zh-Hans"] .font-title-script,
-  html[lang="zh-Hans"] .font-motto-script,
   .font-title-script:lang(zh-Hant),
-  .font-motto-script:lang(zh-Hant),
-  .font-title-script:lang(zh-Hans),
-  .font-motto-script:lang(zh-Hans) {
+  .font-motto-script:lang(zh-Hant) {
     -webkit-text-stroke: 0.45px currentColor;
     letter-spacing: 0.02em;
+    word-break: keep-all;
+    line-break: strict;
+    overflow-wrap: anywhere;
+  }
+
+  html[lang="zh-Hans"] .font-title-script,
+  html[lang="zh-Hans"] .font-motto-script,
+  .font-title-script:lang(zh-Hans),
+  .font-motto-script:lang(zh-Hans) {
+    font-weight: 400;
+    font-synthesis: none;
+    -webkit-text-stroke: 0;
+    paint-order: normal;
+    letter-spacing: 0.04em;
     word-break: keep-all;
     line-break: strict;
     overflow-wrap: anywhere;
