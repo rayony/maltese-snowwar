@@ -1,6 +1,7 @@
 import { P2PRoom, type PeerInfo } from "@/lib/multiplayer";
 import { isNetMsg, type NetMsg } from "./net";
 import { RoomChannel, type RoomPeer } from "./room-channel";
+import { decodeWire, encodeWire } from "./wire";
 
 export type Envelope = { n: number; m: NetMsg };
 export type SendKind = "event" | "snap" | "pose";
@@ -82,9 +83,16 @@ export class VersusLink {
         ? this.snapSeq++
         : this.poseSeq++
       : this.seq++;
-    const wire: Envelope = { n, m: msg };
     const dc = this.rtc.dcReady();
     this.rtcOpen = dc && !this.iceGaveUp;
+    if (dc && (msg.t === "pose" || msg.t === "allypose")) {
+      const bin = encodeWire(n, msg);
+      if (bin) {
+        this.rtc.broadcastRaw(bin);
+        return;
+      }
+    }
+    const wire: Envelope = { n, m: msg };
     if (dc) {
       if (unreliable) {
         this.rtc.broadcast(wire);
@@ -102,6 +110,14 @@ export class VersusLink {
     this.http.send(wire);
   }
 
+  /** Mid-match Wi-Fi→cell: refresh ICE without tearing the room down. */
+  restartIce() {
+    this.iceGaveUp = false;
+    this.iceTried = false;
+    this.checkingSince = Date.now();
+    this.rtc.restartIce();
+  }
+
   close() {
     this.closed = true;
     this.rtcOpen = false;
@@ -116,6 +132,11 @@ export class VersusLink {
   }
 
   private ingest(data: unknown, onMessage: (msg: NetMsg) => void) {
+    if (data instanceof ArrayBuffer || ArrayBuffer.isView(data)) {
+      const decoded = decodeWire(data);
+      if (decoded) this.ingest(decoded, onMessage);
+      return;
+    }
     const env = asEnvelope(data);
     if (!env) return;
     if (env.m.t === "ping") {
@@ -170,6 +191,7 @@ export class VersusLink {
     if (open) {
       this.checkingSince = 0;
       this.iceTried = false;
+      this.iceGaveUp = false;
     } else if (trying) {
       if (!this.checkingSince) this.checkingSince = now;
       const waited = now - this.checkingSince;
@@ -179,7 +201,7 @@ export class VersusLink {
       }
       if (waited > 4500 && !this.iceGaveUp) {
         this.iceGaveUp = true;
-        this.rtc.close();
+        this.rtc.restartIce();
       }
     }
     if (open === this.rtcOpen && !this.iceGaveUp) {
