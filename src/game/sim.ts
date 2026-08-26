@@ -6,6 +6,7 @@ import {
   INTRO_TIME,
   MARGIN,
   PACK_TIME,
+  STAR_PACK_TIME,
   PLAYER_COUNT,
   PVP_RANGE,
   PVP_SPEED,
@@ -196,7 +197,7 @@ export function throwSnowball(
   local = false,
 ) {
   if (kid.packT > 0 || kid.state === "pack") return 0;
-  const power = state.pvp ? 1 : holdPower(charge);
+  const power = state.pvp ? 1 : holdPower(charge, state.godSpeed && kid.team === "red");
   let len = Math.hypot(dirX, dirY);
   if (len < 0.001) {
     dirX = kid.team === "red" ? -1 : 1;
@@ -229,7 +230,7 @@ export function throwSnowball(
   kid.state = "throw";
   kid.stateT = 0.38;
   kid.cooldown = THROW_COOLDOWN;
-  kid.packT = PACK_TIME;
+  kid.packT = state.godSpeed && kid.team === "red" ? STAR_PACK_TIME : PACK_TIME;
   kid.facing = nx < 0 ? -1 : 1;
   clearFidget(kid);
   burst(state, kid.x + nx * 22, kid.y, nx * 40, 8, "puff");

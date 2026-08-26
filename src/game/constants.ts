@@ -16,6 +16,9 @@ export const MIN_THROW_SPEED = 360;
 export const MAX_THROW_SPEED = 500;
 export const THROW_COOLDOWN = 0.12;
 export const PACK_TIME = 0.92;
+/** Star mode: pack + charge complete much faster. */
+export const STAR_PACK_TIME = 0.32;
+export const STAR_CHARGE = 0.4;
 /** Versus: one shot profile (auto-aim direction, no charge). */
 export const PVP_RANGE = 520;
 export const PVP_SPEED = 440;
@@ -27,8 +30,8 @@ export const FORT_HP = 10;
 /** Vs AI campaign: beating this heat is a full win. */
 export const AI_WIN_LEVEL = 5;
 
-export function holdPower(seconds: number) {
-  const t = Math.max(0, Math.min(1, seconds / MAX_CHARGE));
+export function holdPower(seconds: number, star = false) {
+  const t = Math.max(0, Math.min(1, seconds / (star ? STAR_CHARGE : MAX_CHARGE)));
   return t;
 }
 

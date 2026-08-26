@@ -53,6 +53,8 @@ export class SnowCraftGame {
   private best = 0;
   private clearEasyMs: number | null = null;
   private clearHardMs: number | null = null;
+  private clearEasyStar = false;
+  private clearHardStar = false;
   private runMs = 0;
   private shakeEnabled = true;
   private reducedMotion = false;
@@ -125,10 +127,14 @@ export class SnowCraftGame {
           best?: number;
           clearEasyMs?: number;
           clearHardMs?: number;
+          clearEasyStar?: boolean;
+          clearHardStar?: boolean;
         };
         if (parsed.best) this.best = parsed.best;
         if (parsed.clearEasyMs && parsed.clearEasyMs > 0) this.clearEasyMs = parsed.clearEasyMs;
         if (parsed.clearHardMs && parsed.clearHardMs > 0) this.clearHardMs = parsed.clearHardMs;
+        if (parsed.clearEasyStar) this.clearEasyStar = true;
+        if (parsed.clearHardStar) this.clearHardStar = true;
       }
     } catch {
       /* ignore */
@@ -501,6 +507,8 @@ export class SnowCraftGame {
           best: this.best,
           clearEasyMs: this.clearEasyMs,
           clearHardMs: this.clearHardMs,
+          clearEasyStar: this.clearEasyStar,
+          clearHardStar: this.clearHardStar,
         }),
       );
     } catch {
@@ -1777,9 +1785,13 @@ export class SnowCraftGame {
   private recordClear() {
     const ms = Math.max(1, Math.round(this.runMs));
     if (this.difficulty === "hard") {
-      if (this.clearHardMs == null || ms < this.clearHardMs) this.clearHardMs = ms;
+      if (this.clearHardMs == null || ms < this.clearHardMs) {
+        this.clearHardMs = ms;
+        this.clearHardStar = this.godSpeed;
+      }
     } else if (this.clearEasyMs == null || ms < this.clearEasyMs) {
       this.clearEasyMs = ms;
+      this.clearEasyStar = this.godSpeed;
     }
     this.best = Math.max(this.best, AI_WIN_LEVEL);
     this.persistSave();
@@ -1860,6 +1872,8 @@ export class SnowCraftGame {
       best: this.best,
       clearEasyMs: this.clearEasyMs,
       clearHardMs: this.clearHardMs,
+      clearEasyStar: this.clearEasyStar,
+      clearHardStar: this.clearHardStar,
       redAlive: living(this.state.kids, "red").length,
       greenAlive: living(this.state.kids, "green").length,
       greenTotal: this.state.kids.filter((k) => k.team === "green").length,

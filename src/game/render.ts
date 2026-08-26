@@ -1,4 +1,4 @@
-import { holdPower, isCompactPlay, MARGIN, PACK_TIME, PVP_RANGE, throwRange, WORLD_H, WORLD_W } from "./constants";
+import { holdPower, isCompactPlay, MARGIN, PACK_TIME, PVP_RANGE, STAR_PACK_TIME, throwRange, WORLD_H, WORLD_W } from "./constants";
 import { readLang, tr } from "./i18n";
 import type { Assets } from "./assets";
 import { aimFromKid, clamp, inFort, isOut } from "./sim";
@@ -84,7 +84,7 @@ function frameOf(frames: HTMLImageElement[], t: number, fps = 7) {
   return frames[i] ?? frames[0]!;
 }
 
-function kidFrame(kid: Kid, assets: Assets) {
+function kidFrame(kid: Kid, assets: Assets, star = false) {
   const set = kid.team === "red" ? assets.red : assets.green;
   const idle = set.idle[0] ?? null;
   if (kid.state === "buried") return set.buried ?? idle;
@@ -100,7 +100,8 @@ function kidFrame(kid: Kid, assets: Assets) {
     return frameOf(set.walk, kid.animT, 8) ?? idle;
   }
   if ((kid.state === "pack" || kid.packT > 0) && set.pack.length) {
-    const u = 1 - kid.packT / PACK_TIME;
+    const packMax = star && kid.team === "red" ? STAR_PACK_TIME : PACK_TIME;
+    const u = 1 - kid.packT / packMax;
     const i = Math.min(3, Math.max(0, Math.floor(u * 4)));
     return set.pack[i] ?? set.pack[0] ?? idle;
   }
@@ -455,7 +456,7 @@ function drawKid(
   ctx.ellipse(0, 16, buried ? size * 0.42 : lifted ? size * 0.18 : size * 0.24, buried ? 8 : 6, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  const img = assets ? kidFrame(kid, assets) : null;
+  const img = assets ? kidFrame(kid, assets, view.godSpeed) : null;
   if (img) {
     ctx.save();
     ctx.translate(0, -lifted);
@@ -467,14 +468,17 @@ function drawKid(
   }
 
   if (!isOut(kid)) drawPips(ctx, kid, cover);
-  if (kid.packT > 0 && !isOut(kid) && kid.state !== "throw") drawPackMeter(ctx, kid.packT);
+  if (kid.packT > 0 && !isOut(kid) && kid.state !== "throw") {
+    const packMax = view.godSpeed && kid.team === "red" ? STAR_PACK_TIME : PACK_TIME;
+    drawPackMeter(ctx, kid.packT, packMax);
+  }
 
   const hovered = view.hoverId === kid.id || view.grab?.id === kid.id;
   if (hovered && kid.team === "red" && !isOut(kid)) {
     const power = view.pvp
       ? 0.7
       : view.grab?.id === kid.id
-        ? holdPower((performance.now() - view.grab.startedAt) / 1000)
+        ? holdPower((performance.now() - view.grab.startedAt) / 1000, view.godSpeed)
         : 0;
     drawBullseye(ctx, power, view.pickRadius);
   }
@@ -564,8 +568,8 @@ function drawPips(ctx: CanvasRenderingContext2D, kid: Kid, cover: boolean) {
   }
 }
 
-function drawPackMeter(ctx: CanvasRenderingContext2D, packT: number) {
-  const u = 1 - packT / PACK_TIME;
+function drawPackMeter(ctx: CanvasRenderingContext2D, packT: number, packMax = PACK_TIME) {
+  const u = 1 - packT / Math.max(0.05, packMax);
   ctx.save();
   ctx.translate(0, -48);
   ctx.strokeStyle = "rgba(21,32,43,0.28)";
@@ -615,7 +619,7 @@ function drawThrowPreview(
 ) {
   const packing = kid.packT > 0;
   const seconds = packing ? 0 : Math.max(0, (performance.now() - grab.startedAt) / 1000 - grab.packLeft);
-  const power = pvp ? 1 : holdPower(seconds);
+  const power = pvp ? 1 : holdPower(seconds, godSpeed && kid.team === "red");
   const range = packing ? 0 : pvp ? PVP_RANGE : throwRange(power);
   const extraX = kid.x - grab.originX + grab.vx;
   const extraY = kid.y - grab.originY + grab.vy;

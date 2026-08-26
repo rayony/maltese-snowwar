@@ -33,9 +33,10 @@ const EN = {
   playVsAi: "Play vs AI",
   playVsFriend: "Play vs Friend",
   bestLevel: "Best level {n}",
-  topEasy: "Clear · Easy {t}",
-  topHard: "Clear · Hard {t}",
-  topBoth: "Clear · Easy {easy} · Hard {hard}",
+  topEasy: "Stage Clear (Easy): {t}",
+  topEasyStar: "Stage Clear (Easy, Star Mode Activated): {t}",
+  topHard: "Stage Clear (Hard): {t}",
+  topHardStar: "Stage Clear (Hard, Star Mode Activated): {t}",
   license: "Open Source License",
   architecture: "Architecture",
   github: "GitHub",
@@ -111,7 +112,7 @@ const EN = {
   pvpMode: "PVP mode",
   level: "Level {n}",
   levelHard: "Level {n} · Hard",
-  godSpeed: "Star mode activated",
+  godSpeed: "Star mode",
   mute: "Mute",
   unmute: "Unmute",
   pause: "Pause",
@@ -138,9 +139,10 @@ const ZH: Record<keyof typeof EN, string> = {
   playVsAi: "對戰電腦",
   playVsFriend: "對戰朋友",
   bestLevel: "最高關卡 {n}",
-  topEasy: "通關 · 簡單 {t}",
-  topHard: "通關 · 困難 {t}",
-  topBoth: "通關 · 簡單 {easy} · 困難 {hard}",
+  topEasy: "通關(簡易) : {t}",
+  topEasyStar: "通關(簡易,星星模式啟動) : {t}",
+  topHard: "通關(困難) : {t}",
+  topHardStar: "通關(困難,星星模式啟動) : {t}",
   license: "開源授權",
   architecture: "架構說明",
   github: "GitHub",
@@ -212,7 +214,7 @@ const ZH: Record<keyof typeof EN, string> = {
   pvpMode: "對戰模式",
   level: "第 {n} 關",
   levelHard: "第 {n} 關 · 困難",
-  godSpeed: "無敵星星已啟動",
+  godSpeed: "星星模式",
   mute: "靜音",
   unmute: "開聲",
   pause: "暫停",
@@ -245,6 +247,13 @@ export function formatClock(ms: number) {
   const m = Math.floor(s / 60);
   const r = s % 60;
   return `${m}:${r.toString().padStart(2, "0")}`;
+}
+
+export function formatClearTime(ms: number, lang: Lang) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return lang === "zh" ? `${m}分${r}秒` : `${m}m${r}s`;
 }
 
 export function useLang() {

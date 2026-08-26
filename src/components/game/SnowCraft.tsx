@@ -21,7 +21,7 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { SnowCraftGame } from "@/game/game";
 import { normalizeCode } from "@/game/net";
-import { useLang, formatClock, type I18nKey } from "@/game/i18n";
+import { useLang, formatClearTime, type I18nKey } from "@/game/i18n";
 import { APP_COMMIT_URL, APP_VERSION } from "@/game/version";
 import type { AllyMode, Team, UiSnapshot } from "@/game/types";
 import { cn } from "@/lib/utils";
@@ -32,6 +32,8 @@ const INITIAL: UiSnapshot = {
   best: 0,
   clearEasyMs: null,
   clearHardMs: null,
+  clearEasyStar: false,
+  clearHardStar: false,
   redAlive: 3,
   greenAlive: 3,
   greenTotal: 3,
@@ -440,16 +442,22 @@ export function SnowCraft() {
                   </button>
                   {ui.net.error && <p className="text-center text-xs text-primary">{ui.net.error}</p>}
                   {ui.clearEasyMs || ui.clearHardMs ? (
-                    <p className="text-center text-xs text-ice">
-                      {ui.clearEasyMs && ui.clearHardMs
-                        ? t("topBoth", {
-                            easy: formatClock(ui.clearEasyMs),
-                            hard: formatClock(ui.clearHardMs),
-                          })
-                        : ui.clearEasyMs
-                          ? t("topEasy", { t: formatClock(ui.clearEasyMs) })
-                          : t("topHard", { t: formatClock(ui.clearHardMs!) })}
-                    </p>
+                    <div className="space-y-0.5 text-center text-xs text-ice">
+                      {ui.clearEasyMs ? (
+                        <p>
+                          {t(ui.clearEasyStar ? "topEasyStar" : "topEasy", {
+                            t: formatClearTime(ui.clearEasyMs, lang),
+                          })}
+                        </p>
+                      ) : null}
+                      {ui.clearHardMs ? (
+                        <p>
+                          {t(ui.clearHardStar ? "topHardStar" : "topHard", {
+                            t: formatClearTime(ui.clearHardMs, lang),
+                          })}
+                        </p>
+                      ) : null}
+                    </div>
                   ) : (
                     ui.best > 0 && (
                       <p className="text-center text-xs text-ice">{t("bestLevel", { n: ui.best })}</p>

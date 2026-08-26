@@ -141,6 +141,8 @@ export interface UiSnapshot {
   best: number;
   clearEasyMs: number | null;
   clearHardMs: number | null;
+  clearEasyStar: boolean;
+  clearHardStar: boolean;
   redAlive: number;
   greenAlive: number;
   greenTotal: number;
