@@ -14,6 +14,13 @@
   font-display: swap;
   src: url("/fonts/ChenYuluoyan-title.woff2") format("woff2");
 }
+@font-face {
+  font-family: "Klee One";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/KleeOne-title.woff2") format("woff2");
+}
 
 @theme {
   --color-bg: #d7e4ee;
@@ -30,9 +37,10 @@
   --color-letterbox: #9bb4c6;
   --font-sans: "Outfit", "PingFang TC", "Hiragino Sans", "Hiragino Sans GB", "Apple SD Gothic Neo", "Noto Sans TC", "Noto Sans SC", "Noto Sans JP", "Noto Sans KR", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Fraunces", "PingFang TC", "Songti TC", "Hiragino Mincho ProN", "Apple SD Gothic Neo", "Noto Serif TC", "Microsoft JhengHei", ui-serif, Georgia, serif;
-  --font-script: "Caveat", "ChenYuluoyan", "Klee One", "Gaegu", cursive;
-  --font-title-script: "Caveat", "ChenYuluoyan", "Klee One", "Gaegu", cursive;
-  --font-motto-script: "Caveat", "ChenYuluoyan", "Klee One", "Gaegu", cursive;
+  /* Default = English hand only. CJK faces are swapped in per :lang() so 雪 cannot pick 落雁. */
+  --font-script: "Caveat", cursive;
+  --font-title-script: "Caveat", cursive;
+  --font-motto-script: "Caveat", cursive;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
@@ -40,6 +48,37 @@
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --motion-quick: 150ms;
   --motion-fast: 250ms;
+}
+
+/* Unlayered so it beats Tailwind's .font-title-script utility.
+   雪 (U+96EA) exists in both 落雁 and Klee One — mixed stacks always stole 雪. */
+:lang(zh-Hant),
+:lang(zh-Hans),
+html[lang="zh-Hant"],
+html[lang="zh-Hans"] {
+  --font-title-script: "ChenYuluoyan", "PingFang TC", "Hiragino Sans GB", cursive;
+  --font-motto-script: "ChenYuluoyan", "PingFang TC", "Hiragino Sans GB", cursive;
+  --font-script: "ChenYuluoyan", "PingFang TC", cursive;
+}
+:lang(ja),
+html[lang="ja"] {
+  --font-title-script: "Klee One", "YuKyokasho", "Yu Kyokasho", sans-serif;
+  --font-motto-script: "Klee One", "YuKyokasho", "Yu Kyokasho", sans-serif;
+  --font-script: "Klee One", "YuKyokasho", sans-serif;
+}
+:lang(ko),
+html[lang="ko"] {
+  --font-title-script: "Gaegu", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --font-motto-script: "Gaegu", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --font-script: "Gaegu", "Apple SD Gothic Neo", sans-serif;
+}
+
+.font-title-script:lang(ja),
+.font-motto-script:lang(ja) {
+  font-family: "Klee One", "YuKyokasho", "Yu Kyokasho", sans-serif;
+  font-weight: 600;
+  -webkit-text-stroke: 0;
+  font-synthesis: none;
 }
 
 @layer base {
@@ -61,12 +100,15 @@
     -webkit-text-stroke: 0.75px currentColor;
   }
 
-  /* CJK: never use Caveat (Latin-only) — it wraps mid-glyph and looks latin-script. */
+  /* CJK wrap + stroke: variables already chose the face. */
   html[lang="zh-Hant"] .font-title-script,
   html[lang="zh-Hant"] .font-motto-script,
   html[lang="zh-Hans"] .font-title-script,
-  html[lang="zh-Hans"] .font-motto-script {
-    font-family: "ChenYuluoyan", "PingFang TC", "Hiragino Sans GB", "Noto Sans TC", cursive;
+  html[lang="zh-Hans"] .font-motto-script,
+  .font-title-script:lang(zh-Hant),
+  .font-motto-script:lang(zh-Hant),
+  .font-title-script:lang(zh-Hans),
+  .font-motto-script:lang(zh-Hans) {
     -webkit-text-stroke: 0.45px currentColor;
     letter-spacing: 0.02em;
     word-break: keep-all;
@@ -74,12 +116,10 @@
     overflow-wrap: anywhere;
   }
 
-  /* One Japanese hand family for kana + kanji (Yomogi lacks 雪/戦 → mixed fallback). */
   html[lang="ja"] .font-title-script,
   html[lang="ja"] .font-motto-script,
   .font-title-script:lang(ja),
   .font-motto-script:lang(ja) {
-    font-family: "Klee One", "YuKyokasho", "Yu Kyokasho", "Klee", sans-serif;
     font-weight: 600;
     font-synthesis: none;
     -webkit-text-stroke: 0;
@@ -96,8 +136,9 @@
   }
 
   html[lang="ko"] .font-title-script,
-  html[lang="ko"] .font-motto-script {
-    font-family: "Gaegu", "Jua", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  html[lang="ko"] .font-motto-script,
+  .font-title-script:lang(ko),
+  .font-motto-script:lang(ko) {
     font-weight: 700;
     font-synthesis: none;
     -webkit-text-stroke: 0;
