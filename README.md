@@ -15,9 +15,9 @@ Fan tribute to classic **SnowCraft** (Nicholson NY, 1998): three Maltese vs gold
 |--------|--------|
 | UI | TanStack Start + React + Vite |
 | Sim | Canvas 2D, fixed-timestep (`src/game/sim.ts`) |
-| Net | Host-authoritative WebRTC P2P (`VersusLink`, dual-send pose + reliable events) |
+| Net | Host-authoritative WebRTC P2P (`VersusLink`, binary pose + reliable events) |
 | Audio | Web Audio holiday loops (no copyrighted carols) |
-| i18n | EN · 繁中 · 简体 |
+| i18n | EN · 繁中 · 简体 · 日 · 韓 |
 
 Architecture notes: [`public/Maltese-Snow-War-Architecture.pdf`](public/Maltese-Snow-War-Architecture.pdf)
 
@@ -27,7 +27,7 @@ Architecture notes: [`public/Maltese-Snow-War-Architecture.pdf`](public/Maltese-
 npm ci
 npm run dev          # http://0.0.0.0:8080
 npm run typecheck
-npm test             # includes src/game/sim.test.ts
+npm test             # includes src/game/sim.test.ts and src/game/wire.test.ts
 npm run build
 ```
 
@@ -41,7 +41,7 @@ npm run build
 
 ## Network model (short)
 
-Host runs the authoritative sim. Guests send inputs; host broadcasts pose (~14–20 Hz) and reliable events (throw / hit / over). See the architecture PDF § netcode for dual-channel and failed-attempt notes.
+Host runs the authoritative sim. Guests send inputs; host broadcasts **binary pose** (~14–20 Hz, dual-send on unreliable + reliable DataChannels) and reliable events (throw / hit / over). Throw delay uses a smoothed RTT clamp. If the guest DataChannel stays down for ~3s mid-match, the host hands their team to local AI (`ai.ts`) instead of ending the round. See the architecture PDF § netcode.
 
 ## License / credit
 
