@@ -366,7 +366,7 @@ const ZH_CN: Record<keyof typeof EN, string> = {
 const JA: Record<keyof typeof EN, string> = {
   greet: "季節のご挨拶",
   slogan: "つかんで、よけて、投げる！",
-  gameTitle: "マルチーズ雪合戦",
+  gameTitle: "マルチーズ 雪合戦",
   blurb:
     "3匹のマルチーズを率いて、ゴールデンレトリバーと雪合戦。犬を長押しして移動、離すと投げる。投げる前に雪を丸めよう。",
   unofficial: "非公式トリビュート",

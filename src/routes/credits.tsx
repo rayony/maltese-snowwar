@@ -43,6 +43,8 @@ const FONTS: Lib[] = [
   { name: "Fraunces", license: "OFL-1.1", href: "https://fonts.google.com/specimen/Fraunces", use: "Display" },
   { name: "Caveat", license: "OFL-1.1", href: "https://fonts.google.com/specimen/Caveat", use: "English title & motto" },
   { name: "ChenYuluoyan 辰宇落雁體", license: "OFL-1.1", href: "https://github.com/Chenyu-otf/chenyuluoyan_thin", use: "Chinese title & motto (Thin; stroke-bold)" },
+  { name: "Yomogi", license: "OFL-1.1", href: "https://fonts.google.com/specimen/Yomogi", use: "Japanese title & motto" },
+  { name: "Gaegu", license: "OFL-1.1", href: "https://fonts.google.com/specimen/Gaegu", use: "Korean title & motto" },
   { name: "Outfit", license: "OFL-1.1", href: "https://fonts.google.com/specimen/Outfit", use: "UI type" },
 ];
 

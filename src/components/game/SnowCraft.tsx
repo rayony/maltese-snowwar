@@ -309,22 +309,13 @@ export function SnowCraft() {
           onPointerDown={() => gameRef.current?.armTitleAudio()}
         >
           <div className="pointer-events-none absolute inset-0 bg-ink/45" />
-          <div className="relative z-10 flex h-full max-h-[min(92dvh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-surface/15 bg-ink/80 shadow-xl">
+          <div className="relative z-10 flex h-full max-h-[min(92dvh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-surface/15 bg-ink/80 shadow-xl pb-[env(safe-area-inset-bottom)]">
             <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-8">
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-ice sm:text-xs">
-                    {t("greet")}
-                  </p>
-                  <h1 className="mt-1 font-title-script text-4xl leading-tight tracking-tight text-surface sm:text-5xl">
-                    {t("gameTitle")}
-                  </h1>
-                  <p className="mt-1.5 font-motto-script text-xl leading-tight text-[#fff3c4] sm:text-2xl">
-                    {t("slogan")}
-                  </p>
-                </div>
-                <div className="flex shrink-0 flex-col items-end gap-2 pt-1">
-                  <div className="flex items-center gap-1.5">
+                <p className="min-w-0 text-[10px] font-medium uppercase tracking-[0.22em] text-ice sm:text-xs">
+                  {t("greet")}
+                </p>
+                <div className="flex shrink-0 items-center gap-1.5">
                     <button
                       type="button"
                       onClick={(e) => {
@@ -332,17 +323,26 @@ export function SnowCraft() {
                         gameRef.current?.armTitleAudio();
                         gameRef.current?.toggleMute();
                       }}
-                      className="pointer-events-auto rounded-full border border-surface/30 bg-ink/70 p-1.5 text-[#fff3c4] backdrop-blur-sm hover:bg-ink/90"
+                      className="pointer-events-auto inline-flex size-11 items-center justify-center rounded-full border border-surface/30 bg-ink/70 text-[#fff3c4] backdrop-blur-sm hover:bg-ink/90 sm:size-9"
                       aria-label={ui.muted ? t("unmute") : t("mute")}
                     >
-                      {ui.muted ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}
+                      {ui.muted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
                     </button>
                     <LangMenu lang={lang} onChange={setLang} label={t("language")} tone="title" />
-                  </div>
-                  <div className="flex -space-x-2" aria-hidden>
+                </div>
+              </div>
+              <div className="mt-2 flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <h1 className="font-title-script text-[clamp(1.7rem,7.2vw,3rem)] leading-snug tracking-tight text-surface sm:text-5xl">
+                    {t("gameTitle")}
+                  </h1>
+                  <p className="mt-1.5 font-motto-script text-[clamp(1.05rem,4.6vw,1.5rem)] leading-snug text-[#fff3c4] sm:text-2xl">
+                    {t("slogan")}
+                  </p>
+                </div>
+                <div className="flex shrink-0 -space-x-2 pt-1" aria-hidden>
                   <DogHead src="/sprites/red/idle-1.png" alt="" kind="maltese" className="z-10" />
                   <DogHead src="/sprites/green/idle-1.png" alt="" kind="retriever" />
-                  </div>
                 </div>
               </div>
               {!vsGate && !aiGate && (
@@ -897,14 +897,28 @@ function LangMenu({
 }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
 
   useEffect(() => {
     if (!open) return;
+    const place = () => {
+      const r = btn.current?.getBoundingClientRect();
+      if (!r) return;
+      setPos({ top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) });
+    };
+    place();
     const close = (e: PointerEvent) => {
       if (root.current && !root.current.contains(e.target as Node)) setOpen(false);
     };
     window.addEventListener("pointerdown", close, true);
-    return () => window.removeEventListener("pointerdown", close, true);
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("pointerdown", close, true);
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
   }, [open]);
 
   const dark = tone === "title";
@@ -916,6 +930,7 @@ function LangMenu({
       onPointerDown={(e) => e.stopPropagation()}
     >
       <button
+        ref={btn}
         type="button"
         onClick={(e) => {
           e.stopPropagation();
@@ -924,24 +939,31 @@ function LangMenu({
         className={cn(
           "inline-flex items-center justify-center gap-1.5 rounded-full border text-xs font-semibold backdrop-blur-sm",
           dark
-            ? "border-surface/30 bg-ink/70 p-1.5 text-[#fff3c4] hover:bg-ink/90"
-            : "h-10 w-full border-ink/15 bg-ink/5 px-3 text-ink hover:bg-ink/10",
+            ? "size-11 border-surface/30 bg-ink/70 text-[#fff3c4] hover:bg-ink/90 sm:size-9"
+            : "h-11 w-full border-ink/15 bg-ink/5 px-3 text-ink hover:bg-ink/10",
         )}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={label}
       >
-        <Globe className={dark ? "size-3.5" : "size-4"} />
+        <Globe className={dark ? "size-4" : "size-4"} />
         {!dark && <span>{LANGS.find((l) => l.id === lang)?.label ?? "English"}</span>}
       </button>
       {open && (
         <ul
           role="listbox"
+          style={
+            dark && pos
+              ? { position: "fixed", top: pos.top, right: pos.right }
+              : undefined
+          }
           className={cn(
-            "absolute z-50 mt-1 min-w-36 overflow-hidden rounded-xl border py-1 shadow-xl",
+            "z-50 min-w-40 overflow-y-auto rounded-xl border py-1 shadow-xl",
+            "max-h-[min(70dvh,20rem)]",
+            !dark && "absolute left-0 right-0 mt-1",
             dark
-              ? "right-0 border-surface/20 bg-ink/95 text-[#fff3c4]"
-              : "left-0 right-0 border-ink/10 bg-surface text-ink",
+              ? "border-surface/20 bg-ink/95 text-[#fff3c4]"
+              : "border-ink/10 bg-surface text-ink",
           )}
         >
           {LANGS.map((opt) => (
@@ -956,7 +978,7 @@ function LangMenu({
                   setOpen(false);
                 }}
                 className={cn(
-                  "flex w-full items-center px-3 py-2 text-left text-sm",
+                  "flex min-h-11 w-full items-center px-3 py-2.5 text-left text-sm",
                   opt.id === lang
                     ? dark
                       ? "bg-surface/15 font-semibold"
