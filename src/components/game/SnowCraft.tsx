@@ -781,7 +781,7 @@ export function SnowCraft() {
 
 type TFn = (key: I18nKey, vars?: Record<string, string | number>) => string;
 
-function TitleBoot({ t, lang, onArm }: { t: TFn; lang: Lang; onArm?: () => void }) {
+function TitleBoot({ t, lang: _lang, onArm }: { t: TFn; lang: Lang; onArm?: () => void }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-ink bg-cover bg-center"

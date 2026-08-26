@@ -684,7 +684,7 @@ export function aimFromKid(kid: Kid, kids: Kid[], extraX = 0, extraY = 0, scatte
     return { dx: kid.team === "red" ? -1 : 1, dy: 0 };
   }
   let dx = target.x - kid.x;
-  let dy = target.y - kid.y;
+  const dy = target.y - kid.y;
   // Always prefer the nearest foe in the forward hemisphere.
   if (kid.team === "red") dx = Math.min(dx, -28);
   else dx = Math.max(dx, 28);

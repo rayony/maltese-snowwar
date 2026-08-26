@@ -52,7 +52,7 @@ export function playLayout(
   const worldWcss = WORLD_W * scale;
   const worldHcss = WORLD_H * scale;
   let ox = (cssW - worldWcss) / 2;
-  let oy = topHud + (innerH - worldHcss) / 2;
+  const oy = topHud + (innerH - worldHcss) / 2;
   if (compact && !landscapePhone && worldWcss > cssW + 1) {
     const minOx = cssW - worldWcss;
     ox = minOx * 0.84;
