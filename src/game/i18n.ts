@@ -41,6 +41,7 @@ const EN = {
   github: "GitHub",
   fanTribute:
     "Fan tribute (二次創作). Gameplay after SnowCraft by Nicholson NY (1998). Dogs inspired by 線條小狗, illustrated by moonlab. Fight feel also referenced snowcraftjs by jeffreywilbur.",
+  producedBy: "Produced by Gary.TC",
   aiHow1: "1. Press and hold a white Maltese",
   aiHow2: "2. Drag to dodge and line up your lane",
   aiHow3: "3. Tap for a short toss, hold longer to throw farther",
@@ -145,6 +146,7 @@ const ZH: Record<keyof typeof EN, string> = {
   github: "GitHub",
   fanTribute:
     "同人致敬（二次創作）。玩法源自 Nicholson NY 的 SnowCraft（1998）。狗狗造型靈感來自線條小狗，插畫 moonlab。對戰手感亦參考 jeffreywilbur 的 snowcraftjs。",
+  producedBy: "製作：Gary.TC",
   aiHow1: "1. 按住一隻小白",
   aiHow2: "2. 拖動閃避、對準通道",
   aiHow3: "3. 輕點近丟，長按丟得更遠",

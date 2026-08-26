@@ -473,6 +473,7 @@ export function SnowCraft() {
                   <p className="mt-3 text-center text-[11px] leading-relaxed text-surface/50">
                     {t("fanTribute")}
                   </p>
+                  <p className="mt-1.5 text-center text-[11px] text-surface/55">{t("producedBy")}</p>
                   <a
                     href={APP_COMMIT_URL}
                     target="_blank"
