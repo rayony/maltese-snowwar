@@ -43,14 +43,40 @@ export class GameAudio {
       this.sfx = this.ctx.createGain();
       this.music = this.ctx.createGain();
       this.sfx.gain.value = 0.72;
-      this.music.gain.value = 0.2;
+      this.music.gain.value = 0.28;
       this.sfx.connect(this.master);
       this.music.connect(this.master);
       this.master.connect(this.ctx.destination);
       this.noise = this.makeNoise(1.2);
       this.applyMute();
     }
-    if (this.ctx.state === "suspended") void this.ctx.resume();
+    const kick = () => {
+      if (!this.ctx || !this.musicOn || this.track === "off") return;
+      this.musicNext = this.ctx.currentTime + 0.04;
+      if (this.music) {
+        this.music.gain.setTargetAtTime(this.track === "menu" ? 0.28 : 0.22, this.ctx.currentTime, 0.05);
+      }
+    };
+    if (this.ctx.state === "suspended") {
+      void this.ctx.resume().then(kick);
+    } else {
+      kick();
+    }
+    this.chirp();
+  }
+
+  /** iOS / in-app browsers need a real buffer start() inside the gesture. */
+  private chirp() {
+    if (!this.ctx || this.muted) return;
+    try {
+      const buf = this.ctx.createBuffer(1, 1, this.ctx.sampleRate);
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(this.ctx.destination);
+      src.start(0);
+    } catch {
+      /* ignore */
+    }
   }
 
   setMuted(v: boolean) {
@@ -77,18 +103,26 @@ export class GameAudio {
   }
 
   private beginTrack(track: "play" | "menu") {
+    // Same track already requested — do not reset the sequencer on double-tap.
+    // Requiring AudioContext "running" used to re-arm the loop while resume()
+    // was still pending, so a second click restarted BGM from bar 1.
     if (this.track === track && this.musicOn) return;
     this.track = track;
     this.musicOn = true;
     this.musicStep = 0;
     if (this.ctx) {
       this.musicNext = this.ctx.currentTime + 0.06;
-      if (this.music) this.music.gain.setTargetAtTime(track === "menu" ? 0.16 : 0.2, this.ctx.currentTime, 0.05);
+      if (this.music) this.music.gain.setTargetAtTime(track === "menu" ? 0.28 : 0.22, this.ctx.currentTime, 0.05);
     }
   }
 
   tick(_dt: number) {
-    if (!this.musicOn || this.track === "off" || !this.ctx || this.muted) return;
+    if (!this.musicOn || this.track === "off" || this.muted) return;
+    if (!this.ctx) return;
+    if (this.ctx.state !== "running") {
+      void this.ctx.resume();
+      return;
+    }
     const eighth = this.track === "menu" ? MENU_EIGHTH : PLAY_EIGHTH;
     const len = this.track === "menu" ? MENU_MELODY.length : PLAY_MELODY.length;
     const ahead = this.ctx.currentTime + 0.9;
@@ -193,6 +227,11 @@ export class GameAudio {
   count(n: number) {
     const f = n <= 1 ? 660 : n === 2 ? 494 : 392;
     this.tone(f, 0.18, "triangle", 0.12);
+  }
+
+  ding() {
+    this.tone(1047, 0.08, "sine", 0.2);
+    window.setTimeout(() => this.tone(1568, 0.18, "triangle", 0.18), 70);
   }
 
   go() {

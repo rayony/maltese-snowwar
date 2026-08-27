@@ -37,6 +37,12 @@ competitive ranking, cheat-sensitive, or anonymous-stranger matchmaking.
 Competitive or cheat-sensitive play is not supported in this template: push
 back in product terms rather than shipping it on P2P.
 
+**1v1 / small action (projectiles, hits, rematch):** after this file, open
+**`p2p-action-netcode`** (`.grok/skills/p2p-action-netcode/SKILL.md`). That
+playbook is listen-server: host owns score, guest owns feel, dual-send poses
+(LAN unordered SCTP drops), RTT-tiered juice. The “never stream game-rate on
+`send()`” line below is for cursors — action games **copy poses onto reliable**.
+
 Practical limits: a full mesh is O(N²) connections — cap rooms at ~8 peers.
 Roughly 10–20% of peer pairs sit behind strict NATs and cannot connect; the
 kit surfaces this per peer as `connectionState: "failed"` — show it in the

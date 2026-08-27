@@ -148,11 +148,39 @@ export class P2PRoom {
     }).catch(() => {});
   }
 
+  private sendOn(ch: RTCDataChannel | undefined | null, data: string | ArrayBuffer) {
+    if (!ch || ch.readyState !== "open") return;
+    try {
+      if (typeof data === "string") ch.send(data);
+      else ch.send(data);
+    } catch {
+      /* channel closing */
+    }
+  }
+
+  broadcastRaw(data: ArrayBuffer): void {
+    for (const slot of this.peers.values()) {
+      this.sendOn(slot.state, data);
+      this.sendOn(slot.reliable, data);
+    }
+  }
+
   /** Send on the unreliable game-state channel (drops stale packets). */
   broadcast(data: unknown): void {
     const wire = JSON.stringify({ t: "d", d: data });
     for (const slot of this.peers.values()) {
-      if (slot.state?.readyState === "open") slot.state.send(wire);
+      const ch =
+        slot.state?.readyState === "open"
+          ? slot.state
+          : slot.reliable?.readyState === "open"
+            ? slot.reliable
+            : null;
+      if (!ch) continue;
+      try {
+        ch.send(wire);
+      } catch {
+        /* channel closing */
+      }
     }
   }
 
@@ -161,8 +189,37 @@ export class P2PRoom {
     const wire = JSON.stringify({ t: "d", d: data });
     const targets = peerId ? [this.peers.get(peerId)] : [...this.peers.values()];
     for (const slot of targets) {
-      if (slot?.reliable?.readyState === "open") slot.reliable.send(wire);
+      const ch =
+        slot?.reliable?.readyState === "open"
+          ? slot.reliable
+          : slot?.state?.readyState === "open"
+            ? slot.state
+            : null;
+      if (!ch) continue;
+      try {
+        ch.send(wire);
+      } catch {
+        /* channel closing */
+      }
     }
+  }
+
+  stateOpen(): boolean {
+    for (const s of this.peers.values()) {
+      if (s.state?.readyState === "open") return true;
+    }
+    return false;
+  }
+
+  reliableOpen(): boolean {
+    for (const s of this.peers.values()) {
+      if (s.reliable?.readyState === "open") return true;
+    }
+    return false;
+  }
+
+  dcReady(): boolean {
+    return this.stateOpen() || this.reliableOpen();
   }
 
   restartIce(): void {
@@ -321,7 +378,7 @@ export class P2PRoom {
       // Creating the channels triggers negotiationneeded → the offer.
       this.attachChannel(
         slot,
-        pc.createDataChannel("state", { ordered: false, maxRetransmits: 0 }),
+        pc.createDataChannel("state", { ordered: false, maxPacketLifeTime: 180 }),
       );
       this.attachChannel(slot, pc.createDataChannel("reliable", { ordered: true }));
     }
@@ -333,11 +390,22 @@ export class P2PRoom {
     else slot.reliable = channel;
     channel.onopen = () => {
       slot.lastProgressAt = Date.now();
+      this.emitPeers();
     };
+    channel.onclose = () => this.emitPeers();
+    channel.onerror = () => this.emitPeers();
     channel.onmessage = (e) => {
+      if (typeof e.data !== "string") {
+        this.opts.onMessage?.(
+          slot.info.id,
+          e.data,
+          channel.label === "state" ? "state" : "reliable",
+        );
+        return;
+      }
       let msg: { t: string; d?: unknown };
       try {
-        msg = JSON.parse(e.data as string) as { t: string; d?: unknown };
+        msg = JSON.parse(e.data) as { t: string; d?: unknown };
       } catch {
         return;
       }

@@ -3,19 +3,24 @@ import { VersusLink } from "./versus-link";
 import { stepAi, type GreenControl } from "./ai";
 import { ASSET_TOTAL, loadCoreAssets, loadRestAssets, type Assets } from "./assets";
 import { GameAudio } from "./audio";
-import { FORT_HP, FIXED_DT, MARGIN, BALL_RADIUS, playFeel, SAVE_KEY, WORLD_H, WORLD_W } from "./constants";
+import { FORT_HP, FIXED_DT, MARGIN, BALL_RADIUS, BIG_BALL_RADIUS, BIG_HELD_TIME, BIG_SHOTS, playFeel, PVP_RANGE, SAVE_KEY, STAR_HP, WORLD_H, WORLD_W, AI_WIN_LEVEL } from "./constants";
 import {
   applyState,
   applyPose,
+  INTERP_MS,
+  HIST_MS,
   makeRoomCode,
   normalizeCode,
   packPose,
   packState,
+  posAt,
+  pushPoseSample,
   roomIdFromCode,
   type NetMsg,
+  type PoseSample,
 } from "./net";
-import { render, worldFromClient } from "./render";
-import { aimFromKid, burst, clamp, createState, isOut, living, puffMissingBalls, snapCombatFx, stepPresentation, stepSim, throwSnowball } from "./sim";
+import { render, worldFromClient, clampWorldToView } from "./render";
+import { aimFromKid, burst, clamp, createState, isOut, living, placePickup, puffMissingBalls, snapCombatFx, stepOneBall, stepPickups, stepPresentation, stepSim, throwSnowball } from "./sim";
 import type {
   AllyMode,
   Difficulty,
@@ -46,6 +51,11 @@ export class SnowCraftGame {
   private acc = 0;
   private last = 0;
   private best = 0;
+  private clearEasyMs: number | null = null;
+  private clearHardMs: number | null = null;
+  private clearEasyStar = false;
+  private clearHardStar = false;
+  private runMs = 0;
   private shakeEnabled = true;
   private reducedMotion = false;
   private destroyed = false;
@@ -74,6 +84,7 @@ export class SnowCraftGame {
   private lobbyAt = 0;
   private hbAcc = 0;
   private lastMoveSend = 0;
+  private lastHostDragSend = 0;
   private keepBallsUntil = 0;
   private lastAiSend = 0;
   private round = 0;
@@ -87,6 +98,7 @@ export class SnowCraftGame {
   private fps = 0;
   private fpsFrames = 0;
   private fpsAcc = 0;
+  private buffHudAcc = 0;
   private pendingDifficulty: Difficulty = "easy";
   private selfPacked = false;
   private peerPacked = false;
@@ -95,7 +107,16 @@ export class SnowCraftGame {
   private posePrev = new Map<number, { x: number; y: number; t: number }>();
   private keyframeAcc = 0;
   private guestInQ: { at: number; msg: Extract<NetMsg, { t: "input" }> }[] = [];
-  private predHits: { id: number; at: number; hp: number; state: Kid["state"] }[] = [];
+  private predHits: { id: number; at: number; hp: number; state: Kid["state"]; kind: "spark" | "pose" | "sfx" }[] = [];
+  private poseHist: PoseSample[] = [];
+  private rttSmooth = 0;
+  private hitTier: "tight" | "mid" | "loose" = "tight";
+  private hitTierHoldUntil = 0;
+  private godSpeed = false;
+  private levelTaps: number[] = [];
+  private scoreTaps: number[] = [];
+
+  private titleArm: (() => void) | null = null;
 
   constructor(canvas: HTMLCanvasElement, onUi: (s: UiSnapshot) => void) {
     this.canvas = canvas;
@@ -104,8 +125,18 @@ export class SnowCraftGame {
     try {
       const raw = localStorage.getItem(SAVE_KEY);
       if (raw) {
-        const parsed = JSON.parse(raw) as { best?: number };
+        const parsed = JSON.parse(raw) as {
+          best?: number;
+          clearEasyMs?: number;
+          clearHardMs?: number;
+          clearEasyStar?: boolean;
+          clearHardStar?: boolean;
+        };
         if (parsed.best) this.best = parsed.best;
+        if (parsed.clearEasyMs && parsed.clearEasyMs > 0) this.clearEasyMs = parsed.clearEasyMs;
+        if (parsed.clearHardMs && parsed.clearHardMs > 0) this.clearHardMs = parsed.clearHardMs;
+        if (parsed.clearEasyStar) this.clearEasyStar = true;
+        if (parsed.clearHardStar) this.clearHardStar = true;
       }
     } catch {
       /* ignore */
@@ -113,6 +144,10 @@ export class SnowCraftGame {
     this.reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     this.bind();
     this.emit();
+    this.titleArm = () => this.armTitleAudio();
+    window.addEventListener("pointerdown", this.titleArm, { capture: true });
+    window.addEventListener("touchstart", this.titleArm, { capture: true });
+    window.addEventListener("keydown", this.titleArm, { capture: true });
   }
 
   async start() {
@@ -120,6 +155,23 @@ export class SnowCraftGame {
     this.emit();
     this.last = performance.now() / 1000;
     this.raf = requestAnimationFrame(this.loop);
+  }
+
+  /** Browsers block BGM until a tap. First gesture on title starts the menu loop. */
+  armTitleAudio = () => {
+    this.audio.unlock();
+    if (this.screen === "title" || this.screen === "lobby" || this.screen === "loading") {
+      this.audio.startMenuMusic();
+    }
+    this.disarmTitleAudio();
+  };
+
+  private disarmTitleAudio() {
+    if (!this.titleArm) return;
+    window.removeEventListener("pointerdown", this.titleArm, { capture: true });
+    window.removeEventListener("touchstart", this.titleArm, { capture: true });
+    window.removeEventListener("keydown", this.titleArm, { capture: true });
+    this.titleArm = null;
   }
 
   private onLoadProgress = (done: number, total: number) => {
@@ -165,6 +217,7 @@ export class SnowCraftGame {
     this.destroyed = true;
     cancelAnimationFrame(this.raf);
     this.unbind();
+    this.disarmTitleAudio();
     this.audio.stopMusic();
     this.closeNet();
   }
@@ -173,6 +226,9 @@ export class SnowCraftGame {
     if (this.screen === "playing" || this.screen === "loading") return;
     this.closeNet();
     this.versus = false;
+    this.godSpeed = false;
+    this.levelTaps = [];
+    this.scoreTaps = [];
     this.difficulty = difficulty;
     this.pendingDifficulty = difficulty;
     this.audio.unlock();
@@ -183,11 +239,14 @@ export class SnowCraftGame {
     }
     this.screen = "loading";
     this.emit();
+    let started = false;
     const go = () => {
-      if (this.destroyed || this.screen !== "loading") return;
+      if (started || this.destroyed || this.screen !== "loading") return;
+      started = true;
       this.beginSolo();
     };
     void this.hydrateRest().then(go, go);
+    window.setTimeout(go, 10000);
   }
 
   private beginSolo() {
@@ -300,6 +359,9 @@ export class SnowCraftGame {
     if (this.versus && this.p2p && !this.botTakeover) this.sendNet({ t: "bye" });
     this.closeNet();
     this.versus = false;
+    this.godSpeed = false;
+    this.levelTaps = [];
+    this.scoreTaps = [];
     this.screen = "title";
     this.audio.startMenuMusic();
     this.emit();
@@ -378,6 +440,46 @@ export class SnowCraftGame {
     this.emit();
   }
 
+  private applyStarHp() {
+    for (const kid of this.state.kids) {
+      if (kid.team !== "red" || isOut(kid)) continue;
+      kid.maxHp = STAR_HP;
+      kid.hp = STAR_HP;
+    }
+  }
+
+  tapLevelHud() {
+    if (this.screen !== "playing" || this.netRole === "guest") return;
+    const now = performance.now();
+    this.levelTaps = this.levelTaps.filter((t) => now - t < 1600);
+    this.levelTaps.push(now);
+    if (this.levelTaps.length < 5) return;
+    this.levelTaps = [];
+    if (this.godSpeed || this.versus) return;
+    this.audio.unlock();
+    this.audio.ding();
+    this.godSpeed = true;
+    this.state.godSpeed = true;
+    this.applyStarHp();
+    this.emit();
+  }
+
+  tapScoreHud() {
+    if (this.screen !== "playing" || this.netRole === "guest") return;
+    const now = performance.now();
+    this.scoreTaps = this.scoreTaps.filter((t) => now - t < 900);
+    this.scoreTaps.push(now);
+    if (this.scoreTaps.length < 2) return;
+    this.scoreTaps = [];
+    this.audio.unlock();
+    this.audio.ding();
+    const orb = placePickup(this.state);
+    if (this.netRole === "host" && this.versus) {
+      this.sendNet({ t: "loot", x: orb.x, y: orb.y, life: orb.life });
+    }
+    this.emit();
+  }
+
   cycleAllyMode() {
     this.allyMode = this.allyMode === "off" ? "defend" : this.allyMode === "defend" ? "attack" : "off";
     this.setAllyMode(this.allyMode);
@@ -396,11 +498,17 @@ export class SnowCraftGame {
     this.posePrev.clear();
     this.guestInQ = [];
     this.predHits = [];
+    this.poseHist = [];
+    this.rttSmooth = 0;
+    this.hitTier = "tight";
+    this.hitTierHoldUntil = 0;
     this.state = createState(level, versus, {
       fortHp: !versus && this.difficulty === "hard" ? FORT_HP : 0,
       buriedRed: !versus && this.difficulty === "hard" ? buriedRed : undefined,
       hard: !versus && this.difficulty === "hard",
     });
+    this.state.godSpeed = this.godSpeed;
+    if (this.godSpeed) this.applyStarHp();
     this.grab = null;
     this.grabGuest = null;
     this.outcomeHandled = false;
@@ -409,15 +517,29 @@ export class SnowCraftGame {
     this.rematchTheirs = false;
     this.lastOver = null;
     this.audio.level();
+    if (!versus && level === 1) this.runMs = 0;
     if (!versus && level > this.best) {
       this.best = level;
-      try {
-        localStorage.setItem(SAVE_KEY, JSON.stringify({ best: this.best }));
-      } catch {
-        /* ignore */
-      }
+      this.persistSave();
     }
     this.emit();
+  }
+
+  private persistSave() {
+    try {
+      localStorage.setItem(
+        SAVE_KEY,
+        JSON.stringify({
+          best: this.best,
+          clearEasyMs: this.clearEasyMs,
+          clearHardMs: this.clearHardMs,
+          clearEasyStar: this.clearEasyStar,
+          clearHardStar: this.clearHardStar,
+        }),
+      );
+    } catch {
+      /* ignore */
+    }
   }
 
   private beginVersus() {
@@ -445,6 +567,14 @@ export class SnowCraftGame {
     }
   }
 
+  private inFreshRound() {
+    return (
+      this.screen === "playing" &&
+      !this.outcomeHandled &&
+      (this.state.phase === "intro" || this.state.phase === "fight")
+    );
+  }
+
   private closeNet(reset = true) {
     this.p2p?.close();
     this.p2p = null;
@@ -462,6 +592,10 @@ export class SnowCraftGame {
     this.posePrev.clear();
     this.guestInQ = [];
     this.predHits = [];
+    this.poseHist = [];
+    this.rttSmooth = 0;
+    this.hitTier = "tight";
+    this.hitTierHoldUntil = 0;
     this.rematchMine = false;
     this.rematchTheirs = false;
     this.guestAlly = "off";
@@ -486,10 +620,10 @@ export class SnowCraftGame {
     return Math.max(30, Math.min(80, rtt / 2));
   }
 
-  private sendPose() {
+  private sendPose(immediate = false) {
     if (this.netRole !== "host" || !this.p2p) return;
     const msg = packPose(this.state, this.posePrev);
-    const delay = this.hostDelayMs();
+    const delay = immediate ? 0 : this.hostDelayMs();
     const now = performance.now();
     if (delay <= 0) {
       this.sendNet(msg);
@@ -520,11 +654,13 @@ export class SnowCraftGame {
       vx: Math.round(ball.vx),
       vy: Math.round(ball.vy),
       team: kid.team,
+      t0: performance.now(),
+      big: !!ball.big,
     });
   }
 
   private commitThrow(kid: Kid, hold: number, dx: number, dy: number, local = false, ghost = false) {
-    const power = throwSnowball(this.state, kid, hold, dx, dy, local || ghost);
+    const power = throwSnowball(this.state, kid, hold, dx, dy, local || ghost, true, !ghost);
     if (power <= 0) return 0;
     const ball = this.lastBallFrom(kid.id);
     if (ball && ghost) {
@@ -534,6 +670,7 @@ export class SnowCraftGame {
     if (!ghost) {
       this.audio.throw(power);
       this.broadcastThrow(kid);
+      this.emit();
     } else {
       this.audio.throw(power * 0.85);
     }
@@ -573,6 +710,82 @@ export class SnowCraftGame {
     const now = performance.now();
     while (this.guestInQ.length && this.guestInQ[0]!.at <= now) {
       this.applyGuestInputNow(this.guestInQ.shift()!.msg);
+    }
+  }
+
+  private sampleKids() {
+    const kids = new Map<number, { x: number; y: number }>();
+    for (const k of this.state.kids) kids.set(k.id, { x: k.x, y: k.y });
+    pushPoseSample(this.poseHist, { t: performance.now(), kids });
+  }
+
+  private interpolateViews() {
+    const delay = this.p2p?.rtcOpen && (this.p2p.rttMs ?? 90) < 55 ? 55 : INTERP_MS;
+    const at = performance.now() - delay;
+    const localGrab = this.grab?.id ?? null;
+    for (const kid of this.state.kids) {
+      const remote = this.netRole === "guest" && kid.team !== this.seat;
+      if (!this.versus || !remote || kid.id === localGrab) {
+        kid.viewX = kid.x;
+        kid.viewY = kid.y;
+        continue;
+      }
+      const p = posAt(this.poseHist, kid.id, at);
+      kid.viewX = p?.x ?? kid.x;
+      kid.viewY = p?.y ?? kid.y;
+    }
+  }
+
+  private commitOrCatchUp(kid: Kid, hold: number, dx: number, dy: number, fireAt: number) {
+    const now = performance.now();
+    const late = now - fireAt;
+    if (this.netRole === "host" && late > 16 && late < HIST_MS) {
+      this.catchUpThrow(kid, hold, dx, dy, fireAt);
+      return;
+    }
+    this.commitThrow(kid, hold, dx, dy);
+  }
+
+  private catchUpThrow(kid: Kid, hold: number, dx: number, dy: number, fireAt: number) {
+    const origin = posAt(this.poseHist, kid.id, fireAt);
+    const saved = { x: kid.x, y: kid.y };
+    if (origin) {
+      kid.x = origin.x;
+      kid.y = origin.y;
+    }
+    const power = this.commitThrow(kid, hold, dx, dy);
+    kid.x = saved.x;
+    kid.y = saved.y;
+    if (power <= 0) return;
+    const ball = this.lastBallFrom(kid.id);
+    if (!ball) return;
+    const now = performance.now();
+    let t = fireAt;
+    const hpBefore = new Map(this.state.kids.map((k) => [k.id, k.hp]));
+    while (t < now && ball.alive) {
+      const dt = Math.min(FIXED_DT, (now - t) / 1000);
+      if (dt <= 0) break;
+      stepOneBall(
+        this.state,
+        ball,
+        dt,
+        (id) => posAt(this.poseHist, id, t),
+        (heavy) => {
+          if (heavy) this.audio.bury();
+          else {
+            this.audio.hit();
+            this.audio.splat();
+          }
+          for (const k of this.state.kids) {
+            const prev = hpBefore.get(k.id);
+            if (prev != null && k.hp !== prev) {
+              this.sendNet({ t: "hit", id: k.id, hp: k.hp, heavy: heavy || k.hp <= 0 });
+              hpBefore.set(k.id, k.hp);
+            }
+          }
+        },
+      );
+      t += dt * 1000;
     }
   }
 
@@ -647,8 +860,15 @@ export class SnowCraftGame {
           this.netStatus = "live";
           this.versus = true;
           this.lastOver = null;
+          this.rematchMine = false;
+          this.rematchTheirs = false;
           this.audio.startMusic();
-          if (this.screen !== "playing") this.startLevel(1, true);
+          const fresh =
+            this.screen !== "playing" ||
+            this.outcomeHandled ||
+            this.state.phase === "won" ||
+            this.state.phase === "lost";
+          if (fresh) this.startLevel(1, true);
           this.screen = "playing";
         }
         break;
@@ -724,6 +944,7 @@ export class SnowCraftGame {
             rttMs: this.p2p?.rttMs,
             hostNow: this.hostNowGuess(),
           });
+          this.sampleKids();
           if (data.phase === "won" || data.phase === "lost") this.maybeOutcomeFromSnap();
           if (
             this.screen === "gameover" &&
@@ -759,17 +980,38 @@ export class SnowCraftGame {
         break;
       case "rematch":
         this.lastPeerAt = performance.now();
-        this.rematchTheirs = data.yes;
         if (!data.yes) {
           this.netError = "Friend left the rematch.";
           this.leaveRoom();
           break;
         }
+        if (this.inFreshRound()) {
+          this.rematchTheirs = true;
+          this.netStatus = "live";
+          break;
+        }
+        this.rematchTheirs = true;
         this.netStatus = "rematch";
         if (this.screen === "playing" || this.screen === "paused") {
           this.screen = "gameover";
         }
         this.tryRematch();
+        break;
+      case "loot":
+        if (typeof data.x === "number" && typeof data.y === "number") {
+          this.state.pickup = { x: data.x, y: data.y, kind: "big", life: data.life ?? 10, maxLife: 10 };
+        } else {
+          this.state.pickup = null;
+        }
+        break;
+      case "got":
+        if (data.team === "red" || data.team === "green") {
+          if (!data.shots) this.state.buffs[data.team] = null;
+          else {
+            this.state.buffs[data.team] = { kind: "big", shots: data.shots, t: data.ttl ?? 10 };
+            this.state.pickup = null;
+          }
+        }
         break;
       case "bye":
       case "bot":
@@ -813,10 +1055,45 @@ export class SnowCraftGame {
         vx: 0,
         vy: 0,
         packLeft: kid.packT,
+        originX: msg.x,
+        originY: msg.y,
       };
       kid.state = "grabbed";
       this.audio.grab();
       return;
+    }
+    if (msg.kind === "move" && !this.grabGuest) {
+      const kid = this.pickTeam("green", msg.x, msg.y);
+      if (!kid || isOut(kid)) return;
+      this.grabGuest = {
+        id: kid.id,
+        pointerId: -1,
+        startedAt: performance.now(),
+        lastX: msg.x,
+        lastY: msg.y,
+        vx: 0,
+        vy: 0,
+        packLeft: kid.packT,
+        originX: msg.x,
+        originY: msg.y,
+      };
+      kid.state = "grabbed";
+    }
+    if (msg.kind === "up" && !this.grabGuest) {
+      const kid = this.pickTeam("green", msg.x, msg.y);
+      if (!kid || isOut(kid)) return;
+      this.grabGuest = {
+        id: kid.id,
+        pointerId: -1,
+        startedAt: performance.now() - Math.max(0, (msg.hold ?? 0) * 1000),
+        lastX: msg.x,
+        lastY: msg.y,
+        vx: msg.vx ?? 0,
+        vy: msg.vy ?? 0,
+        packLeft: 0,
+        originX: msg.x,
+        originY: msg.y,
+      };
     }
     if (!this.grabGuest) return;
     const kid = this.state.kids.find((k) => k.id === this.grabGuest!.id);
@@ -849,8 +1126,10 @@ export class SnowCraftGame {
         : Math.max(0, (performance.now() - grab.startedAt) / 1000 - grab.packLeft);
     const aimVx = msg.vx ?? grab.vx;
     const aimVy = msg.vy ?? grab.vy;
-    const { dx, dy } = aimFromKid(kid, this.state.kids, aimVx, aimVy);
-    this.commitThrow(kid, seconds, dx, dy);
+    const { dx, dy } = aimFromKid(kid, this.state.kids, aimVx, aimVy, false, this.state.godSpeed && kid.team === "red");
+    const fireAt =
+      typeof msg.at === "number" ? this.peerToHostTime(msg.at) : performance.now();
+    this.commitOrCatchUp(kid, seconds, dx, dy, fireAt);
   }
 
   private applyAllyPose(msg: Extract<NetMsg, { t: "allypose" }>) {
@@ -872,11 +1151,9 @@ export class SnowCraftGame {
     if (kid.packT > 0 || kid.state === "pack" || kid.state === "hurt" || kid.state === "buried") return;
     kid.x = clamp(msg.x, MARGIN, WORLD_W - MARGIN);
     kid.y = clamp(msg.y, MARGIN, WORLD_H - MARGIN);
-    const power = throwSnowball(this.state, kid, Math.max(0, msg.hold), msg.dx, msg.dy);
-    if (power > 0) {
-      this.audio.throw(power);
-      this.broadcastThrow(kid);
-    }
+    const fireAt =
+      typeof msg.t0 === "number" ? this.peerToHostTime(msg.t0) : performance.now();
+    this.commitOrCatchUp(kid, Math.max(0, msg.hold), msg.dx, msg.dy, fireAt);
   }
 
   private applyHostThrow(msg: Extract<NetMsg, { t: "throw" }>) {
@@ -891,14 +1168,16 @@ export class SnowCraftGame {
       vx: msg.vx,
       vy: msg.vy,
       team: msg.team,
-      r: BALL_RADIUS,
+      r: msg.big ? BIG_BALL_RADIUS : BALL_RADIUS,
       fromId: msg.id,
       grace: 0.08,
       spin: 0,
       alive: true,
-      range: 2400,
+      range: this.versus ? PVP_RANGE : 2400,
       traveled: 0,
-      local: true,
+      local: false,
+      born: performance.now(),
+      big: !!msg.big,
     });
     const kid = this.state.kids.find((k) => k.id === msg.id);
     if (kid && kid.state !== "hurt" && kid.state !== "buried") {
@@ -920,27 +1199,31 @@ export class SnowCraftGame {
     if (msg.heavy || kid.hp <= 0) {
       kid.state = "buried";
       kid.stateT = 0;
-      if (!predicted) this.audio.bury();
+      if (predicted?.kind !== "sfx") this.audio.bury();
     } else {
       kid.state = "hurt";
       kid.stateT = 0.45;
       kid.stun = 0.35;
-      if (!predicted) {
+      if (predicted?.kind !== "sfx") {
         this.audio.hit();
         this.audio.splat();
       }
     }
     burst(this.state, kid.x, kid.y, 0, 14, "spark");
+    for (const b of this.state.balls) {
+      if (!b.alive || b.team === kid.team) continue;
+      if (Math.hypot(b.x - kid.x, b.y - kid.y) < 96) b.alive = false;
+    }
   }
 
   private sendAllyPose() {
-    if (this.allyMode === "off" || this.netRole !== "guest") return;
+    if (this.netRole !== "guest" || this.botTakeover) return;
     const t = performance.now();
-    if (t - this.lastAiSend < (this.p2p?.rtcOpen ? 32 : 50)) return;
+    if (t - this.lastAiSend < (this.p2p?.rtcOpen ? 40 : 70)) return;
     this.lastAiSend = t;
     const kids = this.state.kids
       .filter((k) => k.team === "green" && !isOut(k) && k.id !== this.grab?.id)
-      .map((k) => ({ id: k.id, x: k.x, y: k.y }));
+      .map((k) => ({ id: k.id, x: Math.round(k.x), y: Math.round(k.y) }));
     if (kids.length) this.sendNet({ t: "allypose", kids });
   }
 
@@ -979,10 +1262,13 @@ export class SnowCraftGame {
     c.addEventListener("pointerdown", this.onDown);
     c.addEventListener("pointermove", this.onMove);
     c.addEventListener("pointerup", this.onUp);
-    c.addEventListener("pointercancel", this.onUp);
+    c.addEventListener("pointercancel", this.onCancel);
+    c.addEventListener("lostpointercapture", this.onCancel);
     c.addEventListener("contextmenu", this.onMenu);
     window.addEventListener("keydown", this.onKey);
+    window.addEventListener("pointerdown", this.onGlobalPointer, true);
     document.addEventListener("visibilitychange", this.onVis);
+    document.addEventListener("selectstart", this.onSelectStart);
   }
 
   private unbind() {
@@ -990,19 +1276,57 @@ export class SnowCraftGame {
     c.removeEventListener("pointerdown", this.onDown);
     c.removeEventListener("pointermove", this.onMove);
     c.removeEventListener("pointerup", this.onUp);
-    c.removeEventListener("pointercancel", this.onUp);
+    c.removeEventListener("pointercancel", this.onCancel);
+    c.removeEventListener("lostpointercapture", this.onCancel);
     c.removeEventListener("contextmenu", this.onMenu);
     window.removeEventListener("keydown", this.onKey);
+    window.removeEventListener("pointerdown", this.onGlobalPointer, true);
     document.removeEventListener("visibilitychange", this.onVis);
+    document.removeEventListener("selectstart", this.onSelectStart);
   }
 
   private onMenu = (e: Event) => e.preventDefault();
+
+  private onSelectStart = (e: Event) => {
+    const el = e.target as HTMLElement | null;
+    if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) return;
+    e.preventDefault();
+  };
+
+  private onGlobalPointer = () => {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount) sel.removeAllRanges();
+  };
+
+  private dropGrab() {
+    const grab = this.grab;
+    if (!grab) return;
+    const kid = this.state.kids.find((k) => k.id === grab.id);
+    if (kid && kid.state === "grabbed") kid.state = kid.packT > 0 ? "pack" : "idle";
+    try {
+      this.canvas.releasePointerCapture(grab.pointerId);
+    } catch {
+      /* not capturing */
+    }
+    this.grab = null;
+  }
+
+  private onCancel = () => {
+    this.dropGrab();
+  };
 
   private onVis = () => {
     if (document.visibilityState === "visible") this.audio.unlock();
   };
 
   private onKey = (e: KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && e.code === "KeyA") {
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) return;
+      e.preventDefault();
+      window.getSelection()?.removeAllRanges();
+      return;
+    }
     if (e.code === "Escape" || e.code === "KeyP") {
       if (this.screen === "playing") this.pause();
       else if (this.screen === "paused") this.resume();
@@ -1018,11 +1342,26 @@ export class SnowCraftGame {
     return this.versus && this.seat === "green" && !this.botTakeover;
   }
 
+  private keepOnScreen(x: number, y: number) {
+    return clampWorldToView(x, y, this.canvas.clientWidth, this.canvas.clientHeight, this.mirrored());
+  }
+
+  private clampOwnTeam() {
+    if (this.screen !== "playing") return;
+    for (const kid of this.state.kids) {
+      if (kid.team !== this.seat || isOut(kid)) continue;
+      const p = this.keepOnScreen(kid.x, kid.y);
+      kid.x = p.x;
+      kid.y = p.y;
+    }
+  }
+
   private onDown = (e: PointerEvent) => {
     this.audio.unlock();
+    window.getSelection()?.removeAllRanges();
     if (this.screen !== "playing" || (this.state.phase !== "fight" && this.state.phase !== "intro")) return;
     if (this.netStatus === "disconnect") return;
-    if (this.grab) return;
+    if (this.grab) this.dropGrab();
     const w = this.toWorld(e);
     const kid = this.pickTeam(this.myTeam(), w.x, w.y);
     if (!kid) return;
@@ -1037,6 +1376,8 @@ export class SnowCraftGame {
       vx: 0,
       vy: 0,
       packLeft: kid.packT,
+      originX: w.x,
+      originY: w.y,
     };
     kid.state = "grabbed";
     this.audio.grab();
@@ -1052,16 +1393,29 @@ export class SnowCraftGame {
     if (!kid || isOut(kid)) return;
     this.grab.vx = w.x - kid.x;
     this.grab.vy = w.y - kid.y;
-    kid.x = clamp(w.x, MARGIN, WORLD_W - MARGIN);
-    kid.y = clamp(w.y, MARGIN, WORLD_H - MARGIN);
-    this.grab.lastX = w.x;
-    this.grab.lastY = w.y;
+    const p = this.keepOnScreen(w.x, w.y);
+    kid.x = p.x;
+    kid.y = p.y;
+    this.grab.lastX = p.x;
+    this.grab.lastY = p.y;
+    if (this.state.godSpeed && kid.team === "red") {
+      const extraX = kid.x - this.grab.originX + this.grab.vx;
+      const extraY = kid.y - this.grab.originY + this.grab.vy;
+      const { dx, dy } = aimFromKid(kid, this.state.kids, extraX, extraY, false, true);
+      kid.facing = Math.abs(dx) < Math.max(8, Math.abs(dy) * 0.35) ? kid.facing : dx < 0 ? -1 : 1;
+    }
     if (this.netRole === "guest") {
       const t = performance.now();
       const gap = this.p2p?.rtcOpen ? 20 : 40;
       if (t - this.lastMoveSend > gap) {
         this.lastMoveSend = t;
-        this.sendNet({ t: "input", kind: "move", x: w.x, y: w.y, at: performance.now() });
+        this.sendNet({ t: "input", kind: "move", x: p.x, y: p.y, at: performance.now() });
+      }
+    } else if (this.netRole === "host" && this.versus) {
+      const t = performance.now();
+      if (t - this.lastHostDragSend > 24) {
+        this.lastHostDragSend = t;
+        this.sendPose(true);
       }
     }
   };
@@ -1115,7 +1469,14 @@ export class SnowCraftGame {
       return;
     }
     const seconds = Math.max(0, (performance.now() - grab.startedAt) / 1000 - grab.packLeft);
-    const { dx, dy } = aimFromKid(kid, this.state.kids, grab.vx, grab.vy);
+    const { dx, dy } = aimFromKid(
+      kid,
+      this.state.kids,
+      kid.x - grab.originX + grab.vx,
+      kid.y - grab.originY + grab.vy,
+      false,
+      this.state.godSpeed && kid.team === "red",
+    );
     const delay = this.netRole === "host" ? this.hostDelayMs() : 0;
     if (delay > 0) {
       this.commitThrow(kid, seconds, dx, dy, true, true);
@@ -1164,6 +1525,9 @@ export class SnowCraftGame {
       netHold;
 
     if (!paused && this.screen !== "gameover") {
+      if (!this.versus && (this.state.phase === "intro" || this.state.phase === "fight")) {
+        this.runMs += dt * 1000;
+      }
       this.acc += dt;
       let steps = 0;
       while (this.acc >= FIXED_DT && steps < 5) {
@@ -1171,6 +1535,7 @@ export class SnowCraftGame {
         this.acc -= FIXED_DT;
         steps++;
       }
+      this.clampOwnTeam();
     } else if (this.screen === "title" || this.screen === "lobby") {
       this.state.time += dt;
       for (const flake of this.state.flakes) {
@@ -1215,9 +1580,27 @@ export class SnowCraftGame {
       this.fpsFrames = 0;
       this.fpsAcc = 0;
     }
+    if (this.state.buffs.red || this.state.buffs.green || this.state.pickup) {
+      this.buffHudAcc += dt;
+      if (this.buffHudAcc >= 0.08) {
+        this.buffHudAcc = 0;
+        this.emit();
+      }
+    } else {
+      this.buffHudAcc = 0;
+    }
 
     this.audio.tick(dt);
     this.tickCount();
+    if (this.versus && !this.botTakeover) {
+      if (this.netRole === "host") this.sampleKids();
+      this.interpolateViews();
+    } else {
+      for (const kid of this.state.kids) {
+        kid.viewX = kid.x;
+        kid.viewY = kid.y;
+      }
+    }
     this.draw();
   };
 
@@ -1237,22 +1620,89 @@ export class SnowCraftGame {
     }
   }
 
+  private updateHitTier() {
+    const rtt = this.p2p?.rttMs;
+    if (rtt == null || rtt < 0) return;
+    this.rttSmooth = this.rttSmooth <= 0 ? rtt : this.rttSmooth * 0.8 + rtt * 0.2;
+    const now = performance.now();
+    const want: "tight" | "mid" | "loose" =
+      this.rttSmooth >= 120 ? "loose" : this.rttSmooth >= 55 ? "mid" : "tight";
+    const rank = { tight: 0, mid: 1, loose: 2 } as const;
+    if (rank[want] > rank[this.hitTier]) {
+      this.hitTier = want;
+      this.hitTierHoldUntil = now + 2000;
+    } else if (rank[want] < rank[this.hitTier]) {
+      if (now >= this.hitTierHoldUntil) this.hitTier = want;
+    } else {
+      this.hitTierHoldUntil = now + 2000;
+    }
+  }
+
+  private aimPoint(kid: Kid) {
+    const ahead = Math.min(0.12, (this.rttSmooth || this.p2p?.rttMs || 80) / 2000);
+    const hist = this.poseHist;
+    let vx = 0;
+    let vy = 0;
+    if (hist.length >= 2) {
+      const a = hist[hist.length - 2]!;
+      const b = hist[hist.length - 1]!;
+      const ka = a.kids.get(kid.id);
+      const kb = b.kids.get(kid.id);
+      const dt = (b.t - a.t) / 1000;
+      if (ka && kb && dt > 0.012) {
+        vx = (kb.x - ka.x) / dt;
+        vy = (kb.y - ka.y) / dt;
+      }
+    }
+    return { x: kid.x + vx * ahead, y: kid.y + vy * ahead };
+  }
+
   private flyPredictedBalls(dt: number) {
     for (const b of this.state.balls) {
-      if (!b.alive || !b.local) continue;
+      if (!b.alive) continue;
       b.x += b.vx * dt;
       b.y += b.vy * dt;
       b.traveled += Math.hypot(b.vx, b.vy) * dt;
       b.spin += dt * 10;
       if (b.traveled >= b.range || b.x < -40 || b.x > WORLD_W + 40 || b.y < -20 || b.y > WORLD_H + 20) {
         b.alive = false;
-        burst(this.state, b.x, b.y, 0, 12, "spark");
-        this.audio.splat();
+        burst(this.state, b.x, b.y, 0, 10, "spark");
       }
     }
   }
 
   private predictLocalHits() {
+    if (this.versus) {
+      this.updateHitTier();
+      if (this.hitTier === "tight") return;
+      const hitR = playFeel(this.canvas.clientWidth).hit * (this.hitTier === "mid" ? 0.68 : 0.82);
+      for (const ball of this.state.balls) {
+        if (!ball.alive || ball.ghost || ball.team !== this.seat) continue;
+        for (const kid of this.state.kids) {
+          if (isOut(kid) || kid.team === ball.team) continue;
+          if (this.predHits.some((p) => p.id === kid.id)) continue;
+          const aim = this.aimPoint(kid);
+          const dx = aim.x - ball.x;
+          const dy = aim.y - 10 - ball.y;
+          const r = hitR + ball.r;
+          if (dx * dx + dy * dy > r * r) continue;
+          const closing = (ball.vx * dx + ball.vy * dy) / (Math.hypot(dx, dy) || 1);
+          if (closing < 40) continue;
+          burst(this.state, kid.x, kid.y, 0, this.hitTier === "loose" ? 10 : 7, "spark");
+          kid.flash = 0.12;
+          if (this.hitTier === "loose" && kid.state !== "buried") {
+            this.predHits.push({ id: kid.id, at: performance.now(), hp: kid.hp, state: kid.state, kind: "pose" });
+            kid.state = "hurt";
+            kid.stateT = 0.28;
+            kid.stun = 0.12;
+          } else {
+            this.predHits.push({ id: kid.id, at: performance.now(), hp: kid.hp, state: kid.state, kind: "spark" });
+          }
+          break;
+        }
+      }
+      return;
+    }
     const hitR = playFeel(this.canvas.clientWidth).hit;
     for (const ball of this.state.balls) {
       if (!ball.alive || !ball.local || ball.ghost) continue;
@@ -1264,7 +1714,7 @@ export class SnowCraftGame {
         const r = hitR + ball.r;
         if (dx * dx + dy * dy > r * r) continue;
         ball.alive = false;
-        this.predHits.push({ id: kid.id, at: performance.now(), hp: kid.hp, state: kid.state });
+        this.predHits.push({ id: kid.id, at: performance.now(), hp: kid.hp, state: kid.state, kind: "sfx" });
         kid.flash = 0.16;
         kid.state = "hurt";
         kid.stateT = 0.35;
@@ -1279,13 +1729,16 @@ export class SnowCraftGame {
 
   private expirePredHits() {
     const now = performance.now();
+    const wait = this.versus ? Math.max(280, (this.rttSmooth || 90) + 80) : 140;
     this.predHits = this.predHits.filter((p) => {
-      if (now - p.at < 140) return true;
-      const kid = this.state.kids.find((k) => k.id === p.id);
-      if (kid && kid.hp === p.hp && kid.state === "hurt") {
-        kid.state = p.state === "hurt" ? "idle" : p.state;
-        kid.flash = 0;
-        kid.stun = 0;
+      if (now - p.at < wait) return true;
+      if (p.kind === "pose") {
+        const kid = this.state.kids.find((k) => k.id === p.id);
+        if (kid && kid.hp === p.hp && kid.state === "hurt") {
+          kid.state = p.state === "hurt" ? "idle" : p.state;
+          kid.flash = 0;
+          kid.stun = 0;
+        }
       }
       return false;
     });
@@ -1318,6 +1771,7 @@ export class SnowCraftGame {
             hold,
             dx,
             dy,
+            t0: performance.now(),
           });
         },
         "off",
@@ -1335,6 +1789,8 @@ export class SnowCraftGame {
       this.predictLocalHits();
       this.expirePredHits();
       stepPresentation(this.state, dt);
+      stepPickups(this.state, dt, false);
+      this.clampOwnTeam();
       this.sendAllyPose();
       return;
     }
@@ -1353,6 +1809,11 @@ export class SnowCraftGame {
       this.difficulty === "hard" && !this.versus,
     );
     const hpBefore = new Map(this.state.kids.map((k) => [k.id, k.hp]));
+    const hadPickup = !!this.state.pickup;
+    const hadBuff = {
+      red: this.state.buffs.red ? { ...this.state.buffs.red } : null,
+      green: this.state.buffs.green ? { ...this.state.buffs.green } : null,
+    };
     stepSim(
       this.state,
       dt,
@@ -1378,7 +1839,42 @@ export class SnowCraftGame {
         onFort: () => this.audio.fort(),
       },
     );
+    this.syncLoot(hadPickup, hadBuff);
     this.handleOutcome();
+  }
+
+  private syncLoot(
+    hadPickup: boolean,
+    hadBuff: { red: { shots: number; t: number } | null; green: { shots: number; t: number } | null },
+  ) {
+    if (this.netRole !== "host" || !this.versus || this.botTakeover) return;
+    const orb = this.state.pickup;
+    if (orb && !hadPickup) this.sendNet({ t: "loot", x: orb.x, y: orb.y, life: orb.life });
+    if (!orb && hadPickup) this.sendNet({ t: "loot" });
+    for (const team of ["red", "green"] as const) {
+      const now = this.state.buffs[team];
+      const prev = hadBuff[team];
+      if (now && (!prev || prev.shots !== now.shots)) {
+        this.sendNet({ t: "got", team, shots: now.shots, ttl: now.t });
+      } else if (!now && prev) {
+        this.sendNet({ t: "got", team, shots: 0, ttl: 0 });
+      }
+    }
+  }
+
+  private recordClear() {
+    const ms = Math.max(1, Math.round(this.runMs));
+    if (this.difficulty === "hard") {
+      if (this.clearHardMs == null || ms < this.clearHardMs) {
+        this.clearHardMs = ms;
+        this.clearHardStar = this.godSpeed;
+      }
+    } else if (this.clearEasyMs == null || ms < this.clearEasyMs) {
+      this.clearEasyMs = ms;
+      this.clearEasyStar = this.godSpeed;
+    }
+    this.best = Math.max(this.best, AI_WIN_LEVEL);
+    this.persistSave();
   }
 
   private handleOutcome() {
@@ -1386,12 +1882,23 @@ export class SnowCraftGame {
     if (this.versus && this.netRole === "guest" && !this.botTakeover) return;
     if (this.state.phase === "won") {
       if (this.versus) {
+        this.godSpeed = false;
+        this.state.godSpeed = false;
         this.applyHostWinner("red");
         if (this.netRole === "host") this.sendOver();
         return;
       }
       this.outcomeHandled = true;
       this.audio.win();
+      if (this.state.level >= AI_WIN_LEVEL) {
+        this.godSpeed = false;
+        this.state.godSpeed = false;
+        this.recordClear();
+        this.versusResult = "win";
+        this.screen = "gameover";
+        this.emit();
+        return;
+      }
       window.setTimeout(() => {
         if (this.destroyed || this.screen !== "playing") return;
         const carry =
@@ -1403,12 +1910,16 @@ export class SnowCraftGame {
     }
     if (this.state.phase === "lost") {
       if (this.versus) {
+        this.godSpeed = false;
+        this.state.godSpeed = false;
         this.applyHostWinner("green");
         if (this.netRole === "host") this.sendOver();
         return;
       }
       this.outcomeHandled = true;
       this.audio.lose();
+      this.godSpeed = false;
+      this.state.godSpeed = false;
       this.versusResult = "lose";
       this.screen = "gameover";
       this.emit();
@@ -1429,6 +1940,7 @@ export class SnowCraftGame {
       ballSize: feel.ball,
       mirror: this.mirrored(),
       pvp: this.versus,
+      godSpeed: this.state.godSpeed,
     };
     render(this.ctx, this.canvas, this.state, this.assets, view);
   }
@@ -1438,6 +1950,10 @@ export class SnowCraftGame {
       screen: this.screen,
       level: this.state.level,
       best: this.best,
+      clearEasyMs: this.clearEasyMs,
+      clearHardMs: this.clearHardMs,
+      clearEasyStar: this.clearEasyStar,
+      clearHardStar: this.clearHardStar,
       redAlive: living(this.state.kids, "red").length,
       greenAlive: living(this.state.kids, "green").length,
       greenTotal: this.state.kids.filter((k) => k.team === "green").length,
@@ -1447,6 +1963,7 @@ export class SnowCraftGame {
       loadTotal: this.loadTotal,
       allyMode: this.allyMode,
       difficulty: this.versus ? "easy" : this.difficulty,
+      godSpeed: this.godSpeed,
       net: {
         role: this.netRole,
         status: this.netStatus,
@@ -1460,6 +1977,22 @@ export class SnowCraftGame {
         link: this.p2p?.rtcOpen ? "direct" : "relay",
       },
       fps: this.fps,
+      pickup: this.pickupUi(),
     });
+  }
+
+  private pickupUi() {
+    const mine = this.state.buffs[this.myTeam()];
+    const held = !!(mine && mine.shots > 0 && mine.t > 0);
+    const field = !!this.state.pickup;
+    if (!held && !field) return null;
+    return {
+      field,
+      held,
+      life: held ? mine!.t : this.state.pickup!.life,
+      maxLife: held ? BIG_HELD_TIME : this.state.pickup!.maxLife,
+      shots: held ? mine!.shots : 0,
+      maxShots: BIG_SHOTS,
+    };
   }
 }
