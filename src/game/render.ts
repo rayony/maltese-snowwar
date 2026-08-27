@@ -1,4 +1,4 @@
-import { BALL_RADIUS, holdPower, isCompactPlay, MARGIN, PACK_TIME, PVP_RANGE, STAR_PACK_TIME, throwRange, WORLD_H, WORLD_W } from "./constants";
+import { BALL_RADIUS, BIG_BALL_RADIUS, holdPower, isCompactPlay, MARGIN, PACK_TIME, PVP_RANGE, STAR_PACK_TIME, throwRange, WORLD_H, WORLD_W } from "./constants";
 import { readLang, tr } from "./i18n";
 import type { Assets } from "./assets";
 import { aimFromKid, clamp, inFort, isOut } from "./sim";
@@ -249,7 +249,7 @@ export function render(
   for (const layer of layers) layer.draw();
 
   if (state.pickup) {
-    drawGoldOrb(ctx, state.pickup.x, state.pickup.y, 23.4, state.time, state.time * 1.2);
+    drawGoldOrb(ctx, state.pickup.x, state.pickup.y, goldOrbRadius(view.ballSize), state.time, state.time * 1.2);
   }
   for (const kid of state.kids) {
     const buff = state.buffs[kid.team];
@@ -267,7 +267,7 @@ export function render(
     for (const ball of state.balls) {
       const hop = ballHop(ball);
       if (ball.big) {
-        const rad = view.ballSize * (ball.r / BALL_RADIUS) * 0.48;
+        const rad = goldOrbRadius(view.ballSize, ball.r);
         drawGoldOrb(ctx, ball.x, ball.y - hop, rad, state.time, ball.spin);
         continue;
       }
@@ -289,7 +289,7 @@ export function render(
     ctx.fillStyle = "#fff";
     for (const ball of state.balls) {
       if (ball.big) {
-        const rad = view.ballSize * (ball.r / BALL_RADIUS) * 0.48;
+        const rad = goldOrbRadius(view.ballSize, ball.r);
         drawGoldOrb(ctx, ball.x, ball.y - ballHop(ball), rad, state.time, ball.spin);
         continue;
       }
@@ -686,6 +686,10 @@ function drawThrowPreview(
 function ballHop(ball: Snowball) {
   const u = Math.max(0, Math.min(1, ball.traveled / Math.max(1, ball.range)));
   return Math.sin(u * Math.PI) * (10 + ball.range * 0.03);
+}
+
+function goldOrbRadius(ballSize: number, r = BIG_BALL_RADIUS) {
+  return ballSize * (r / BALL_RADIUS) * 0.48;
 }
 
 /** White snowball with a pulsing gold rim — field pickup and thrown big balls. */
