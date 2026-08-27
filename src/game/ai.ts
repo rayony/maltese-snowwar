@@ -1,6 +1,6 @@
 import { aiInterval, aiMoveSpeed, MARGIN, MAX_CHARGE, PACK_TIME, WORLD_H, WORLD_W } from "./constants";
 import { aimFromKid, closestEnemy, ensureAi, inFort, isOut, living, rand, throwSnowball } from "./sim";
-import type { AllyMode, GameState, Kid } from "./types";
+import type { AllyMode, Fort, GameState, Kid } from "./types";
 
 export type GreenControl = "enemy" | AllyMode;
 
@@ -55,11 +55,11 @@ export function stepAi(
       const dist = hard && stance === "enemy" ? 118 : stance === "defend" ? 88 : 64;
       kid.ai.destX = clampSide(kid.x + (px / len) * dist, kid.team, hard && stance === "enemy");
       kid.ai.destY = clamp(kid.y + (py / len) * dist, MARGIN, WORLD_H - MARGIN);
-      if (stance === "defend" && !forbidFort) {
-        const fort = nearestFort(state, kid);
+      if (stance === "defend") {
+        const fort = fortForKid(state, kid);
         if (fort) {
-          kid.ai.destX = clampSide(fort.x + rand(-18, 18), kid.team);
-          kid.ai.destY = clamp(fort.y + rand(-10, 10), MARGIN, WORLD_H - MARGIN);
+          kid.ai.destX = coverDestX(kid, fort);
+          kid.ai.destY = clamp(fort.y + rand(-14, 14), MARGIN, WORLD_H - MARGIN);
         }
       }
     }
@@ -72,10 +72,18 @@ export function stepAi(
         (kid.ai.phase === "dodge" ? (hard ? 1.75 : 1.5) : stance === "attack" ? 1.12 : 0.9);
       moveToward(kid, kid.ai.destX, kid.ai.destY, spd, dt);
       if (kid.ai.t <= 0 || Math.hypot(kid.x - kid.ai.destX, kid.y - kid.ai.destY) < 10) {
-        kid.ai.phase = kid.ai.phase === "dodge" ? "idle" : "windup";
+        if (kid.ai.phase === "dodge") {
+          kid.ai.phase = "idle";
+        } else if (stance === "defend" && inFort(kid.x, kid.y, state.forts)) {
+          kid.ai.phase = "idle";
+        } else if (stance === "defend") {
+          kid.ai.phase = "idle";
+        } else {
+          kid.ai.phase = "windup";
+        }
         kid.ai.t =
           kid.ai.phase === "windup"
-            ? rand(stance === "attack" ? 0.18 : 0.32, stance === "attack" ? 0.45 : 0.8)
+            ? rand(stance === "attack" ? 0.16 : 0.32, stance === "attack" ? 0.4 : 0.8)
             : rand(0.12, aiInterval(level) * 0.5);
         kid.ai.charge = 0;
       }
@@ -91,7 +99,7 @@ export function stepAi(
         continue;
       }
       if (kid.ai.t <= 0) {
-        const aim = aiThrowAim(kid, state.kids, hard && stance === "enemy", hard && stance === "enemy");
+        const aim = throwAimForStance(kid, state, stance, hard);
         if (!aim) {
           kid.ai.phase = "idle";
           kid.ai.t = rand(0.12, 0.3);
@@ -112,7 +120,15 @@ export function stepAi(
     if (kid.ai.t <= 0) {
       const cover = !!inFort(kid.x, kid.y, state.forts);
       const throwChance =
-        stance === "defend" ? (cover ? 0.64 : 0.28) : stance === "attack" ? 0.72 : 0.55;
+        stance === "defend"
+          ? cover
+            ? 0.7
+            : 0.08
+          : stance === "attack"
+            ? kid.packT > 0
+              ? 0.2
+              : 0.82
+            : 0.55;
       if (Math.random() < throwChance && !(forbidFort && cover)) {
         kid.ai.phase = "windup";
         kid.ai.t = rand(0.2, stance === "attack" ? 0.48 : 0.7);
@@ -177,9 +193,9 @@ function pickDest(state: GameState, kid: Kid, stance: "defend" | "attack" | "ene
     pickAwayFromFort(state, kid);
     return;
   }
-  if (state.pickup && kid.ai) {
+  if (state.pickup && kid.ai && (stance !== "defend" || Math.random() < 0.32)) {
     const d = Math.hypot(kid.x - state.pickup.x, kid.y - state.pickup.y);
-    if (d < 240 && Math.random() < 0.7) {
+    if (d < (stance === "attack" ? 280 : 240) && Math.random() < (stance === "attack" ? 0.85 : 0.7)) {
       kid.ai.destX = clampSide(state.pickup.x + rand(-6, 6), kid.team, cross);
       kid.ai.destY = state.pickup.y + rand(-6, 6);
       return;
@@ -194,29 +210,26 @@ function pickDest(state: GameState, kid: Kid, stance: "defend" | "attack" | "ene
   const cover = inFort(kid.x, kid.y, state.forts);
 
   if (stance === "defend") {
-    if (!cover && fort && Math.random() < 0.72) {
-      kid.ai!.destX = clampSide(fort.x + rand(-22, 22), kid.team);
-      kid.ai!.destY = clamp(fort.y + rand(-12, 12), MARGIN, WORLD_H - MARGIN);
+    const fort = fortForKid(state, kid);
+    const cover = !!inFort(kid.x, kid.y, state.forts);
+    if (fort && (!cover || Math.random() < 0.55)) {
+      kid.ai!.destX = coverDestX(kid, fort);
+      kid.ai!.destY = clamp(fort.y + laneOffset(state, kid, 22), MARGIN, WORLD_H - MARGIN);
       return;
     }
-    if (kid.team === "red") {
-      kid.ai!.destX = clampSide(rand(WORLD_W * 0.62, WORLD_W - MARGIN - 8), kid.team);
-    } else {
-      kid.ai!.destX = clampSide(rand(MARGIN + 8, WORLD_W * 0.38), kid.team);
-    }
-    kid.ai!.destY = clamp((target?.y ?? kid.y) + rand(-50, 50), MARGIN, WORLD_H - MARGIN);
+    kid.ai!.destX = kid.team === "red" ? clampSide(rand(WORLD_W * 0.7, WORLD_W - MARGIN - 8), kid.team) : clampSide(rand(MARGIN + 8, WORLD_W * 0.3), kid.team);
+    kid.ai!.destY = clamp(laneY(state, kid) + rand(-24, 24), MARGIN, WORLD_H - MARGIN);
     return;
   }
 
   if (stance === "attack") {
-    if (fort && !cover && Math.random() < 0.12) {
-      kid.ai!.destX = clampSide(fort.x + rand(-16, 16), kid.team);
-      kid.ai!.destY = clamp(fort.y + rand(-10, 10), MARGIN, WORLD_H - MARGIN);
-      return;
-    }
+    const target = assignedFoe(state, kid) ?? closestEnemy(kid, state.kids);
     if (target) {
-      kid.ai!.destX = clampSide(target.x * 0.25 + WORLD_W * 0.58, kid.team);
-      kid.ai!.destY = clamp(target.y + rand(-28, 28), MARGIN, WORLD_H - MARGIN);
+      kid.ai!.destX =
+        kid.team === "red"
+          ? clampSide(rand(WORLD_W * 0.58, WORLD_W * 0.7), kid.team)
+          : clampSide(rand(WORLD_W * 0.3, WORLD_W * 0.44), kid.team, cross);
+      kid.ai!.destY = clamp(target.y + laneOffset(state, kid, 18), MARGIN, WORLD_H - MARGIN);
       return;
     }
   }
@@ -242,6 +255,7 @@ function nearestFort(state: GameState, kid: Kid) {
   let best = state.forts[0] ?? null;
   let bestD = Infinity;
   for (const f of state.forts) {
+    if (f.maxHp > 0 && f.hp <= 0) continue;
     const d = (f.x - kid.x) ** 2 + (f.y - kid.y) ** 2;
     if (d < bestD) {
       bestD = d;
@@ -249,6 +263,76 @@ function nearestFort(state: GameState, kid: Kid) {
     }
   }
   return best;
+}
+
+function livingMates(state: GameState, team: Kid["team"]) {
+  return living(state.kids).filter((k) => k.team === team).sort((a, b) => a.y - b.y || a.id - b.id);
+}
+
+function assignedFoe(state: GameState, kid: Kid): Kid | null {
+  const mates = livingMates(state, kid.team);
+  const foes = living(state.kids)
+    .filter((k) => k.team !== kid.team)
+    .sort((a, b) => a.hp - b.hp || a.y - b.y);
+  if (!foes.length) return null;
+  const slot = mates.findIndex((k) => k.id === kid.id);
+  if (slot < 0) return closestEnemy(kid, state.kids);
+  if (foes.length === 1) return foes[0]!;
+  const t = mates.length <= 1 ? 0 : slot / (mates.length - 1);
+  const idx = Math.round(t * (foes.length - 1));
+  return foes[idx] ?? foes[0]!;
+}
+
+function laneY(state: GameState, kid: Kid) {
+  const mates = livingMates(state, kid.team);
+  const slot = Math.max(0, mates.findIndex((k) => k.id === kid.id));
+  const n = Math.max(1, mates.length);
+  const band = (WORLD_H - 2 * MARGIN) / n;
+  return MARGIN + band * (slot + 0.5);
+}
+
+function laneOffset(state: GameState, kid: Kid, jitter: number) {
+  const mates = livingMates(state, kid.team);
+  const slot = Math.max(0, mates.findIndex((k) => k.id === kid.id));
+  const n = Math.max(1, mates.length);
+  const spread = n === 1 ? 0 : (slot - (n - 1) / 2) * 26;
+  return spread + rand(-jitter, jitter);
+}
+
+function fortForKid(state: GameState, kid: Kid) {
+  const y = laneY(state, kid);
+  let best: Fort | null = null;
+  let bestD = Infinity;
+  for (const f of state.forts) {
+    if (f.maxHp > 0 && f.hp <= 0) continue;
+    const d = Math.abs(f.y - y) * 1.6 + Math.abs(f.x - kid.x) * 0.55;
+    if (d < bestD) {
+      bestD = d;
+      best = f;
+    }
+  }
+  return best ?? nearestFort(state, kid);
+}
+
+function coverDestX(kid: Kid, fort: { x: number }) {
+  const behind = kid.team === "red" ? 42 : -42;
+  return clampSide(fort.x + behind + rand(-10, 10), kid.team);
+}
+
+function throwAimForStance(kid: Kid, state: GameState, stance: "defend" | "attack" | "enemy", hard: boolean) {
+  if (stance === "attack" || stance === "defend") {
+    const foe = assignedFoe(state, kid) ?? closestEnemy(kid, state.kids);
+    if (!foe) return aiThrowAim(kid, state.kids, hard, false);
+    const dx = foe.x - kid.x;
+    const dy = foe.y - kid.y;
+    if (kid.team === "green" && !hard && dx < 1) return aiThrowAim(kid, state.kids, false, false);
+    if (kid.team === "red" && dx > 12 && stance === "defend") {
+      const front = closestEnemy(kid, state.kids);
+      if (front) return { dx: front.x - kid.x, dy: front.y - kid.y };
+    }
+    return { dx, dy };
+  }
+  return aiThrowAim(kid, state.kids, hard && stance === "enemy", hard && stance === "enemy");
 }
 
 function clamp(v: number, a: number, b: number) {
