@@ -106,7 +106,7 @@ const dict: Record<I18nKey, string> = {
   loseGuest: "말티즈에게 묻혔습니다. 재경기는 양쪽이 모두 동의해야 합니다.",
   loseHost: "리트리버에게 묻혔습니다. 재경기는 양쪽이 모두 동의해야 합니다.",
   loseSolo: "레벨 {n}에서 묻혔습니다. 최고 {best}.",
-  pickupBig: "큰 눈덩이가 떨어져 있어요!",
+  pickupBig: "큰 눈덩이가 나타났어요! 어서 쟁탈하세요!",
   pickupHold: "큰 눈덩이 · {n}개 남음 · {s}초",
   pickupFoe: "상대가 큰 눈덩이를 들고 있어요!",
 };

@@ -156,7 +156,7 @@ const EN = {
   loseGuest: "The Maltese buried you. Ask your friend for a rematch — you both have to accept.",
   loseHost: "The retrievers buried you. Ask your friend for a rematch — you both have to accept.",
   loseSolo: "The retrievers buried you at level {n}. Best {best}.",
-  pickupBig: "Big snowball on the field!",
+  pickupBig: "A big snowball appeared! Grab it!",
   pickupHold: "Big snowball · {n} throws · {s}s",
   pickupFoe: "Opponent has the big snowball!",
 } as const;
@@ -262,7 +262,7 @@ const ZH: Record<keyof typeof EN, string> = {
   loseGuest: "小白把你埋了。請朋友再來一局——雙方都要同意。",
   loseHost: "小金毛把你埋了。請朋友再來一局——雙方都要同意。",
   loseSolo: "小金毛在第 {n} 關把你埋了。最高 {best}。",
-  pickupBig: "場上有大雪球！",
+  pickupBig: "大雪球出現了！快去搶！",
   pickupHold: "大雪球 · 剩 {n} 球 · {s}秒",
   pickupFoe: "對方持有大雪球！",
 };

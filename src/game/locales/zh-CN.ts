@@ -102,7 +102,7 @@ const dict: Record<I18nKey, string> = {
   loseGuest: "小白把你埋了。请朋友再来一局——双方都要同意。",
   loseHost: "小金毛把你埋了。请朋友再来一局——双方都要同意。",
   loseSolo: "小金毛在第 {n} 关把你埋了。最高 {best}。",
-  pickupBig: "场上有大雪球！",
+  pickupBig: "大雪球出现了！快去抢！",
   pickupHold: "大雪球 · 剩 {n} 球 · {s}秒",
   pickupFoe: "对方持有大雪球！",
 };
