@@ -333,7 +333,7 @@ export function render(
   if (view.grab && state.phase === "fight") {
     const kid = state.kids.find((k) => k.id === view.grab!.id);
     if (kid && !isOut(kid)) {
-      drawThrowPreview(ctx, kid, view.grab, state.kids, view.pvp, view.godSpeed);
+      drawThrowPreview(ctx, kid, view.grab, state.kids, view.pvp, view.godSpeed, view.bigCharge);
     }
   }
 
@@ -520,7 +520,7 @@ function drawKid(
     const power = view.pvp
       ? 0.7
       : view.grab?.id === kid.id
-        ? holdPower((performance.now() - view.grab.startedAt) / 1000, view.godSpeed)
+        ? holdPower((performance.now() - view.grab.startedAt) / 1000, view.godSpeed, view.bigCharge)
         : 0;
     drawBullseye(ctx, power, view.pickRadius);
   }
@@ -658,10 +658,11 @@ function drawThrowPreview(
   kids: Kid[],
   pvp: boolean,
   godSpeed = false,
+  big = false,
 ) {
   const packing = kid.packT > 0;
   const seconds = packing ? 0 : Math.max(0, (performance.now() - grab.startedAt) / 1000 - grab.packLeft);
-  const power = pvp ? 1 : holdPower(seconds, godSpeed && kid.team === "red");
+  const power = pvp ? 1 : holdPower(seconds, godSpeed && kid.team === "red", big);
   const range = packing ? 0 : pvp ? PVP_RANGE : throwRange(power);
   const extraX = kid.x - grab.originX + grab.vx;
   const extraY = kid.y - grab.originY + grab.vy;

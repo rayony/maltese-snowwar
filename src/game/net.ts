@@ -41,7 +41,8 @@ export type NetMsg =
   | { t: "ping"; t0: number }
   | { t: "pong"; t0: number; t1?: number }
   | { t: "loot"; x?: number; y?: number; life?: number }
-  | { t: "got"; team: Team; shots: number; ttl: number };
+  | { t: "got"; team: Team; shots: number; ttl: number }
+  | { t: "claim" };
 
 export interface WireKid {
   id: number;

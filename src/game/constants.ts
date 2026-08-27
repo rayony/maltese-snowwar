@@ -20,6 +20,8 @@ export const PVP_SPEED = 440;
 export const BIG_BALL_RADIUS = 40;
 export const BIG_HELD_TIME = 10;
 export const BIG_SHOTS = 3;
+export const BIG_SPEED = 0.8;
+export const BIG_CHARGE = 1.2;
 export const PICKUP_LIFE = 10;
 export const PICKUP_CD_MIN = 8;
 export const PICKUP_CD_MAX = 12;
@@ -30,8 +32,9 @@ export const MAX_ENEMIES = 15;
 export const FORT_HP = 10;
 export const AI_WIN_LEVEL = 5;
 
-export function holdPower(seconds: number, star = false) {
-  const t = Math.max(0, Math.min(1, seconds / (star ? STAR_CHARGE : MAX_CHARGE)));
+export function holdPower(seconds: number, star = false, big = false) {
+  const cap = (star ? STAR_CHARGE : MAX_CHARGE) * (big ? BIG_CHARGE : 1);
+  const t = Math.max(0, Math.min(1, seconds / cap));
   return t;
 }
 

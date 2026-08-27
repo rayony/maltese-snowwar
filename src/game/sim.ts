@@ -3,6 +3,7 @@ import {
   BIG_BALL_RADIUS,
   BIG_HELD_TIME,
   BIG_SHOTS,
+  BIG_SPEED,
   enemyCountForLevel,
   holdPower,
   HP,
@@ -208,7 +209,9 @@ export function throwSnowball(
   consume = true,
 ) {
   if (kid.packT > 0 || kid.state === "pack") return 0;
-  const power = state.pvp ? 1 : holdPower(charge, state.godSpeed && kid.team === "red");
+  const star = state.godSpeed && kid.team === "red";
+  const wantBig = user && !!state.buffs[kid.team] && state.buffs[kid.team]!.shots > 0 && state.buffs[kid.team]!.t > 0;
+  const power = state.pvp ? 1 : holdPower(charge, star, wantBig);
   let len = Math.hypot(dirX, dirY);
   if (len < 0.001) {
     dirX = kid.team === "red" ? -1 : 1;
@@ -218,15 +221,15 @@ export function throwSnowball(
   const nx = dirX / len;
   const ny = dirY / len;
   let speed = state.pvp ? PVP_SPEED : throwSpeed(power) * (state.hard ? 2 : 1);
-  if (state.godSpeed && kid.team === "red") speed *= 3;
+  if (star) speed *= 3;
   const range = state.pvp ? PVP_RANGE : throwRange(power);
   const cover = inFort(kid.x, kid.y, state.forts);
   const big = user && takeBigBuff(state, kid.team, consume);
   const ball: Snowball = {
     x: kid.x + nx * 30,
     y: kid.y + ny * 10 - 6,
-    vx: nx * speed * (big ? 0.92 : 1),
-    vy: ny * speed * (big ? 0.92 : 1),
+    vx: nx * speed * (big ? BIG_SPEED : 1),
+    vy: ny * speed * (big ? BIG_SPEED : 1),
     team: kid.team,
     r: big ? BIG_BALL_RADIUS : BALL_RADIUS,
     fromId: kid.id,
@@ -677,6 +680,15 @@ export function grantBigBuff(state: GameState, team: Team): TeamBuff {
   return buff;
 }
 
+export function claimPickup(state: GameState, team: Team): boolean {
+  if (!state.pickup || (state.phase !== "fight" && state.phase !== "intro")) return false;
+  grantBigBuff(state, team);
+  burst(state, state.pickup.x, state.pickup.y, 0, 16, "spark");
+  state.pickup = null;
+  state.pickupCd = PICKUP_CD_MIN + Math.random() * (PICKUP_CD_MAX - PICKUP_CD_MIN);
+  return true;
+}
+
 export function takeBigBuff(state: GameState, team: Team, consume: boolean) {
   const buff = state.buffs[team];
   if (!buff || buff.shots <= 0 || buff.t <= 0) return false;
@@ -722,10 +734,7 @@ export function stepPickups(state: GameState, dt: number, spawn: boolean) {
       for (const kid of state.kids) {
         if (isOut(kid)) continue;
         if (Math.hypot(kid.x - state.pickup.x, kid.y - state.pickup.y) > 42) continue;
-        grantBigBuff(state, kid.team);
-        burst(state, state.pickup.x, state.pickup.y, 0, 16, "spark");
-        state.pickup = null;
-        state.pickupCd = PICKUP_CD_MIN + Math.random() * (PICKUP_CD_MAX - PICKUP_CD_MIN);
+        claimPickup(state, kid.team);
         break;
       }
     }

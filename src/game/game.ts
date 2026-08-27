@@ -20,7 +20,7 @@ import {
   type PoseSample,
 } from "./net";
 import { render, worldFromClient, clampWorldToView } from "./render";
-import { aimFromKid, burst, clamp, createState, isOut, living, placePickup, puffMissingBalls, snapCombatFx, stepOneBall, stepPickups, stepPresentation, stepSim, throwSnowball } from "./sim";
+import { aimFromKid, burst, claimPickup, clamp, createState, isOut, living, placePickup, puffMissingBalls, snapCombatFx, stepOneBall, stepPickups, stepPresentation, stepSim, throwSnowball } from "./sim";
 import type {
   AllyMode,
   Difficulty,
@@ -1015,6 +1015,9 @@ export class SnowCraftGame {
           }
         }
         break;
+      case "claim":
+        if (this.netRole === "host" && !this.botTakeover) this.hostHonorClaim("green");
+        break;
       case "bye":
       case "bot":
         if (!this.botTakeover && this.matchStarted) this.enterDisconnect();
@@ -1365,6 +1368,10 @@ export class SnowCraftGame {
     if (this.netStatus === "disconnect") return;
     if (this.grab) this.dropGrab();
     const w = this.toWorld(e);
+    if (this.hitPickup(w.x, w.y) && this.tryClaimPickup()) {
+      e.preventDefault();
+      return;
+    }
     const kid = this.pickTeam(this.myTeam(), w.x, w.y);
     if (!kid) return;
     e.preventDefault();
@@ -1390,6 +1397,7 @@ export class SnowCraftGame {
     const w = this.toWorld(e);
     this.pointer = w;
     this.hoverId = this.pickTeam(this.myTeam(), w.x, w.y)?.id ?? null;
+    this.canvas.style.cursor = this.hitPickup(w.x, w.y) ? "pointer" : this.hoverId ? "grab" : "";
     if (!this.grab || e.pointerId !== this.grab.pointerId) return;
     const kid = this.state.kids.find((k) => k.id === this.grab!.id);
     if (!kid || isOut(kid)) return;
@@ -1455,6 +1463,43 @@ export class SnowCraftGame {
       }
     }
     return best;
+  }
+
+  private hitPickup(x: number, y: number) {
+    const orb = this.state.pickup;
+    if (!orb) return false;
+    const r = Math.max(56, playFeel(this.canvas.clientWidth).pick * 0.85);
+    return Math.hypot(orb.x - x, orb.y - y) <= r;
+  }
+
+  private tryClaimPickup() {
+    if (!this.state.pickup) return false;
+    const team = this.myTeam();
+    if (this.netRole === "guest" && !this.botTakeover) {
+      this.sendNet({ t: "claim" });
+      if (claimPickup(this.state, team)) this.audio.splat();
+      this.emit();
+      return true;
+    }
+    if (!claimPickup(this.state, team)) return false;
+    this.audio.splat();
+    this.hostBroadcastLoot(team);
+    this.emit();
+    return true;
+  }
+
+  private hostHonorClaim(team: Team) {
+    if (!claimPickup(this.state, team)) return;
+    this.audio.splat();
+    this.hostBroadcastLoot(team);
+    this.emit();
+  }
+
+  private hostBroadcastLoot(team: Team) {
+    if (this.netRole !== "host" || !this.versus) return;
+    this.sendNet({ t: "loot" });
+    const buff = this.state.buffs[team];
+    if (buff) this.sendNet({ t: "got", team, shots: buff.shots, ttl: buff.t });
   }
 
   private releaseThrow() {
@@ -1943,6 +1988,7 @@ export class SnowCraftGame {
       mirror: this.mirrored(),
       pvp: this.versus,
       godSpeed: this.state.godSpeed,
+      bigCharge: !!(this.state.buffs[this.myTeam()] && this.state.buffs[this.myTeam()]!.shots > 0 && this.state.buffs[this.myTeam()]!.t > 0),
     };
     render(this.ctx, this.canvas, this.state, this.assets, view);
   }
@@ -1987,12 +2033,15 @@ export class SnowCraftGame {
     const mine = this.state.buffs[this.myTeam()];
     const held = !!(mine && mine.shots > 0 && mine.t > 0);
     const field = !!this.state.pickup;
-    if (!held && !field) return null;
+    const other = this.myTeam() === "red" ? this.state.buffs.green : this.state.buffs.red;
+    const foeHeld = !!(this.versus && other && other.shots > 0 && other.t > 0);
+    if (!held && !field && !foeHeld) return null;
     return {
       field,
       held,
-      life: held ? mine!.t : this.state.pickup!.life,
-      maxLife: held ? BIG_HELD_TIME : this.state.pickup!.maxLife,
+      foeHeld,
+      life: held ? mine!.t : this.state.pickup ? this.state.pickup.life : other!.t,
+      maxLife: held ? BIG_HELD_TIME : this.state.pickup ? this.state.pickup.maxLife : BIG_HELD_TIME,
       shots: held ? mine!.shots : 0,
       maxShots: BIG_SHOTS,
     };

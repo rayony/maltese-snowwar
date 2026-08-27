@@ -321,6 +321,16 @@ export function SnowCraft() {
                 })}
               />
             )}
+            {ui.pickup?.foeHeld && (
+              <p
+                className={cn(
+                  "pickup-foe text-center",
+                  landscapePhone ? "text-sm" : "text-lg sm:text-xl",
+                )}
+              >
+                {t("pickupFoe")}
+              </p>
+            )}
             {ui.pickup?.field && (
               <p
                 className={cn(
