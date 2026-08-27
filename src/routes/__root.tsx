@@ -1,4 +1,5 @@
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import appCss from "../styles.css?url";
@@ -19,18 +20,13 @@ export const Route = createRootRoute({
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;600;700&family=Outfit:wght@400;500;600&display=swap",
-      },
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/__grok/manifest.webmanifest" },
       { rel: "apple-touch-icon", href: "/__grok/icon-180.png" },
       { rel: "preload", href: "/images/title-bg.jpg?v=3", as: "image" },
       { rel: "preload", href: "/fonts/Caveat-script.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" },
-      { rel: "preload", href: "/fonts/ChenYuluoyan-title.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" },
+      { rel: "preload", href: "/sprites/red/idle-1.png?v=5", as: "image" },
+      { rel: "preload", href: "/sprites/green/idle-1.png?v=5", as: "image" },
     ],
   }),
   component: () => (
@@ -40,6 +36,7 @@ export const Route = createRootRoute({
       </head>
       <body>
         <PreviewHostBridge />
+        <DeferredUiFonts />
         <AuthProvider>
           <Outlet />
         </AuthProvider>
@@ -48,3 +45,19 @@ export const Route = createRootRoute({
     </html>
   ),
 });
+
+function DeferredUiFonts() {
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      if (document.getElementById("ui-fonts")) return;
+      const l = document.createElement("link");
+      l.id = "ui-fonts";
+      l.rel = "stylesheet";
+      l.href =
+        "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;600;700&family=Outfit:wght@400;500;600&display=swap";
+      document.head.appendChild(l);
+    }, 1600);
+    return () => window.clearTimeout(id);
+  }, []);
+  return null;
+}

@@ -76,7 +76,7 @@ export function SnowCraft() {
   const [qrData, setQrData] = useState<string | null>(null);
   const [qrOpen, setQrOpen] = useState(false);
   const pendingPlay = useRef<"easy" | "hard" | null>(null);
-  const [live, setLive] = useState(false);
+  const [live, setLive] = useState(true);
 
   useEffect(() => {
     const boot = window.setTimeout(() => setLive(true), 50);
@@ -90,6 +90,10 @@ export function SnowCraft() {
       gameRef.current = game;
       void game.start();
       setLive(true);
+      const warm = () => game.warmup();
+      const ric = (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback;
+      if (ric) ric(warm, { timeout: 2000 });
+      else window.setTimeout(warm, 700);
       const queued = pendingPlay.current;
       if (queued) {
         pendingPlay.current = null;
