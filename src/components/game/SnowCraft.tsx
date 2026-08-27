@@ -382,26 +382,9 @@ export function SnowCraft() {
                     {t("slogan")}
                   </p>
                 </div>
-                <div className="flex shrink-0 flex-col items-end gap-2 pt-1">
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        gameRef.current?.armTitleAudio();
-                        gameRef.current?.toggleMute();
-                      }}
-                      className="pointer-events-auto rounded-full border border-surface/30 bg-ink/70 p-1.5 text-[#fff3c4] backdrop-blur-sm hover:bg-ink/90"
-                      aria-label={ui.muted ? t("unmute") : t("mute")}
-                    >
-                      {ui.muted ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}
-                    </button>
-                    <LangToggle nextLabel={nextLabel} onToggle={toggle} />
-                  </div>
-                  <div className="flex -space-x-2" aria-hidden>
+                <div className="flex shrink-0 -space-x-2 pt-1" aria-hidden>
                   <DogHead src="/sprites/red/idle-1.png" alt="" kind="maltese" className="z-10" />
                   <DogHead src="/sprites/green/idle-1.png" alt="" kind="retriever" />
-                  </div>
                 </div>
               </div>
               {!vsGate && !aiGate && (
