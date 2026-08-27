@@ -1,4 +1,6 @@
 # Maltese Snow War
+Open-source fan tribute. Produced by Gary.TC. Gameplay after SnowCraft; fight feel also referenced snowcraftjs by jeffreywilbur.
+<img width="598" height="336" alt="banner" src="https://github.com/user-attachments/assets/b7122350-a3a8-4901-a208-d2569200165f" />
 
 <p align="center">
   <img src="public/og.jpg" alt="Maltese Snow War" width="640">
