@@ -15,7 +15,7 @@ const dict: Record<I18nKey, string> = {
   topHard: "클리어 (어려움): {t}",
   topHardStar: "클리어 (어려움, 스타 모드): {t}",
   license: "오픈소스 라이선스",
-  architecture: "아키텍처",
+  readme: "README",
   github: "GitHub",
   fanTribute:
     "팬 헌정(이차 창작). 플레이는 Nicholson NY의 SnowCraft(1998)를 따릅니다. 강아지 디자인은 선조강아지 / moonlab에서 영감. 대결 손맛은 jeffreywilbur의 snowcraftjs도 참고.",

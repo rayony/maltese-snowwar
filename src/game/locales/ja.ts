@@ -15,7 +15,7 @@ const dict: Record<I18nKey, string> = {
   topHard: "クリア（むずかしい）: {t}",
   topHardStar: "クリア（むずかしい・スターモード）: {t}",
   license: "オープンソースライセンス",
-  architecture: "アーキテクチャ",
+  readme: "README",
   github: "GitHub",
   fanTribute:
     "ファン作品（二次創作）。ゲームプレイは Nicholson NY の SnowCraft（1998）に基づく。犬のデザインは線条小狗／moonlab に着想。対戦の手触りは jeffreywilbur の snowcraftjs も参考。",

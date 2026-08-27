@@ -570,13 +570,12 @@ export function SnowCraft() {
                       {t("license")}
                     </Link>
                     <a
-                      href="/Maltese-Snow-War-Architecture.pdf"
-                      download="Architecture.pdf"
+                      href="https://github.com/rayony/maltese-snowwar/blob/main/README.md"
                       target="_blank"
                       rel="noreferrer"
                       className="text-ice underline decoration-ice/40 underline-offset-2 hover:text-surface"
                     >
-                      {t("architecture")}
+                      {t("readme")}
                     </a>
                     <a
                       href="https://github.com/rayony/maltese-snowwar"

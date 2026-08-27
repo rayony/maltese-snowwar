@@ -121,13 +121,12 @@ function CreditsPage() {
           </p>
           <p className="mt-3">
             <a
-              href="/Maltese-Snow-War-Architecture.pdf"
-              download="Architecture.pdf"
+              href="https://github.com/rayony/maltese-snowwar/blob/main/README.md"
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center rounded-lg bg-ice px-3 py-2 text-sm font-semibold text-ink hover:bg-surface"
             >
-              Download architecture
+              README
             </a>
           </p>
 
