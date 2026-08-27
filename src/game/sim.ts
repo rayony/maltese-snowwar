@@ -351,6 +351,12 @@ function separate(state: GameState, dt: number) {
   }
 }
 
+function shrinkBigBall(ball: Snowball) {
+  if (!ball.big) return;
+  ball.big = false;
+  ball.r = BALL_RADIUS;
+}
+
 function clashBalls(state: GameState, onClash?: () => void) {
   const balls = state.balls;
   for (let i = 0; i < balls.length; i++) {
@@ -363,12 +369,21 @@ function clashBalls(state: GameState, onClash?: () => void) {
       const dy = a.y - b.y;
       const rr = a.r + b.r + 8;
       if (dx * dx + dy * dy > rr * rr) continue;
-      a.alive = false;
-      b.alive = false;
-      burst(state, (a.x + b.x) / 2, (a.y + b.y) / 2, 0, 18, "spark");
-      burst(state, (a.x + b.x) / 2, (a.y + b.y) / 2, 0, 10, "puff");
+      const mx = (a.x + b.x) / 2;
+      const my = (a.y + b.y) / 2;
+      burst(state, mx, my, 0, 18, "spark");
+      burst(state, mx, my, 0, 10, "puff");
       state.trauma = Math.min(1, state.trauma + 0.18);
       onClash?.();
+      if (a.big || b.big) {
+        if (a.big) shrinkBigBall(a);
+        else a.alive = false;
+        if (b.big) shrinkBigBall(b);
+        else b.alive = false;
+        continue;
+      }
+      a.alive = false;
+      b.alive = false;
     }
   }
 }

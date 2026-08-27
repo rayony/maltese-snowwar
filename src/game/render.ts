@@ -1,4 +1,4 @@
-import { holdPower, isCompactPlay, MARGIN, PACK_TIME, PVP_RANGE, STAR_PACK_TIME, throwRange, WORLD_H, WORLD_W } from "./constants";
+import { BALL_RADIUS, holdPower, isCompactPlay, MARGIN, PACK_TIME, PVP_RANGE, STAR_PACK_TIME, throwRange, WORLD_H, WORLD_W } from "./constants";
 import { readLang, tr } from "./i18n";
 import type { Assets } from "./assets";
 import { aimFromKid, clamp, inFort, isOut } from "./sim";
@@ -288,7 +288,7 @@ export function render(
     for (const ball of state.balls) {
       const img = frameOf(assets.ball, ball.spin, 8);
       const hop = ballHop(ball);
-      const s = view.ballSize * (ball.big ? 1.6 : 1);
+      const s = view.ballSize * (ball.r / BALL_RADIUS);
       ctx.save();
       ctx.translate(ball.x, ball.y - hop);
       ctx.rotate(ball.spin * 0.4);
@@ -305,7 +305,7 @@ export function render(
     ctx.fillStyle = "#fff";
     for (const ball of state.balls) {
       ctx.beginPath();
-      ctx.arc(ball.x, ball.y - ballHop(ball), view.ballSize * (ball.big ? 0.6 : 0.38), 0, Math.PI * 2);
+      ctx.arc(ball.x, ball.y - ballHop(ball), view.ballSize * (ball.r / BALL_RADIUS) * 0.38, 0, Math.PI * 2);
       ctx.fill();
     }
   }

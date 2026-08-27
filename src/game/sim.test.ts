@@ -156,4 +156,50 @@ describe("big snowball pickup", () => {
     assert.ok((s.buffs.green?.t ?? 0) > 9.5);
     assert.equal(s.pickup, null);
   });
+
+  it("a big ball hit by another snowball shrinks to a normal ball", () => {
+    const s = createState(1, true);
+    s.phase = "fight";
+    s.forts = [];
+    s.kids.forEach((k) => {
+      k.x = 40;
+      k.y = 40;
+    });
+    s.balls.push({
+      x: 400,
+      y: 270,
+      vx: -80,
+      vy: 0,
+      team: "red",
+      r: 40,
+      fromId: 1,
+      grace: 1,
+      spin: 0,
+      alive: true,
+      range: 800,
+      traveled: 0,
+      big: true,
+    });
+    s.balls.push({
+      x: 430,
+      y: 270,
+      vx: 80,
+      vy: 0,
+      team: "green",
+      r: 12,
+      fromId: 2,
+      grace: 1,
+      spin: 0,
+      alive: true,
+      range: 800,
+      traveled: 0,
+    });
+    stepSim(s, 1 / 60, () => {});
+    const redBall = s.balls.find((b) => b.team === "red");
+    assert.ok(redBall);
+    assert.equal(redBall.alive, true);
+    assert.equal(redBall.big, false);
+    assert.equal(redBall.r, 12);
+    assert.equal(s.balls.some((b) => b.team === "green"), false);
+  });
 });
