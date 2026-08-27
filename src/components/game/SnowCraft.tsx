@@ -192,14 +192,16 @@ export function SnowCraft() {
         {playing && (
           <header
             className={cn(
-              "pointer-events-none flex items-start justify-between gap-2 pt-[max(0.5rem,env(safe-area-inset-top))]",
-              landscapePhone ? "px-2 pb-1" : "gap-3 p-3 sm:p-4",
+              "pointer-events-none flex items-start justify-between",
+              landscapePhone
+                ? "gap-1 px-[max(0.35rem,env(safe-area-inset-left))] pr-[max(0.35rem,env(safe-area-inset-right))] pt-[max(0.2rem,env(safe-area-inset-top))]"
+                : "gap-2 p-3 sm:p-4 pt-[max(0.5rem,env(safe-area-inset-top))]",
             )}
           >
             <div
               className={cn(
-                "pointer-events-auto w-fit cursor-pointer select-none rounded-xl bg-ink/70 backdrop-blur-sm",
-                landscapePhone ? "px-2 py-1" : "px-3 py-2",
+                "pointer-events-auto w-max shrink-0 cursor-pointer select-none rounded-xl bg-ink/70 backdrop-blur-sm",
+                landscapePhone ? "px-2 py-1" : "px-2.5 py-1.5",
               )}
               onPointerDown={(e) => {
                 e.stopPropagation();
@@ -208,8 +210,8 @@ export function SnowCraft() {
             >
               <p
                 className={cn(
-                  "font-sans font-semibold leading-tight tracking-tight",
-                  landscapePhone ? "text-sm" : "text-lg",
+                  "font-sans font-semibold leading-none tracking-tight whitespace-nowrap",
+                  landscapePhone ? "text-xs" : "text-sm sm:text-base",
                 )}
               >
                 {ui.net.status !== "off" && ui.net.code
@@ -221,12 +223,12 @@ export function SnowCraft() {
                       : t("level", { n: ui.level })}
               </p>
               {ui.godSpeed && (
-                <p className="text-xs font-semibold uppercase tracking-wide text-tan">
+                <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-tan whitespace-nowrap">
                   {t("godSpeed")}
                 </p>
               )}
               {!landscapePhone && (
-              <p className="text-xs text-ice">
+              <p className="mt-1 text-[11px] leading-none text-ice whitespace-nowrap">
                 {ui.net.team === "green"
                   ? t("retrieverTeam")
                   : ui.net.status !== "off"
@@ -243,7 +245,7 @@ export function SnowCraft() {
               </p>
               )}
             </div>
-            <div className="flex items-start justify-end gap-2">
+            <div className="flex min-w-0 shrink-0 items-start justify-end gap-1.5">
             <div
               className={cn(
                 "pointer-events-auto flex cursor-pointer select-none items-center gap-2 rounded-xl bg-ink/70 text-sm tabular-nums backdrop-blur-sm",
@@ -263,7 +265,7 @@ export function SnowCraft() {
                 mode={ui.allyMode}
                 onChange={(m) => g?.setAllyMode(m)}
                 t={t}
-                compact={landscapePhone}
+                compact={landscapePhone || portraitPhone}
               />
               <Button
                 variant="ghost"
