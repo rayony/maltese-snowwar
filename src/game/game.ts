@@ -3,7 +3,7 @@ import { VersusLink } from "./versus-link";
 import { stepAi, type GreenControl } from "./ai";
 import { ASSET_TOTAL, loadCoreAssets, loadRestAssets, type Assets } from "./assets";
 import { GameAudio } from "./audio";
-import { FORT_HP, FIXED_DT, MARGIN, BALL_RADIUS, BIG_BALL_RADIUS, playFeel, PVP_RANGE, SAVE_KEY, STAR_HP, WORLD_H, WORLD_W, AI_WIN_LEVEL } from "./constants";
+import { FORT_HP, FIXED_DT, MARGIN, BALL_RADIUS, BIG_BALL_RADIUS, BIG_HELD_TIME, BIG_SHOTS, playFeel, PVP_RANGE, SAVE_KEY, STAR_HP, WORLD_H, WORLD_W, AI_WIN_LEVEL } from "./constants";
 import {
   applyState,
   applyPose,
@@ -98,6 +98,7 @@ export class SnowCraftGame {
   private fps = 0;
   private fpsFrames = 0;
   private fpsAcc = 0;
+  private buffHudAcc = 0;
   private pendingDifficulty: Difficulty = "easy";
   private selfPacked = false;
   private peerPacked = false;
@@ -655,6 +656,7 @@ export class SnowCraftGame {
     if (!ghost) {
       this.audio.throw(power);
       this.broadcastThrow(kid);
+      this.emit();
     } else {
       this.audio.throw(power * 0.85);
     }
@@ -1564,6 +1566,15 @@ export class SnowCraftGame {
       this.fpsFrames = 0;
       this.fpsAcc = 0;
     }
+    if (this.state.buffs.red || this.state.buffs.green) {
+      this.buffHudAcc += dt;
+      if (this.buffHudAcc >= 0.08) {
+        this.buffHudAcc = 0;
+        this.emit();
+      }
+    } else {
+      this.buffHudAcc = 0;
+    }
 
     this.audio.tick(dt);
     this.tickCount();
@@ -1959,10 +1970,24 @@ export class SnowCraftGame {
   private pickupUi() {
     const mine = this.state.buffs[this.myTeam()];
     if (mine && mine.shots > 0 && mine.t > 0) {
-      return { kind: "big" as const, life: mine.t, shots: mine.shots, held: true };
+      return {
+        kind: "big" as const,
+        life: mine.t,
+        maxLife: BIG_HELD_TIME,
+        shots: mine.shots,
+        maxShots: BIG_SHOTS,
+        held: true,
+      };
     }
     if (this.state.pickup) {
-      return { kind: "big" as const, life: this.state.pickup.life, shots: 0, held: false };
+      return {
+        kind: "big" as const,
+        life: this.state.pickup.life,
+        maxLife: this.state.pickup.maxLife,
+        shots: 0,
+        maxShots: BIG_SHOTS,
+        held: false,
+      };
     }
     return null;
   }

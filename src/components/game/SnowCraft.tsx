@@ -11,6 +11,7 @@ import {
   RotateCcw,
   Shield,
   Smartphone,
+  Snowflake,
   Swords,
   User,
   Users,
@@ -191,13 +192,13 @@ export function SnowCraft() {
         {playing && (
           <header
             className={cn(
-              "pointer-events-none flex items-start justify-between gap-2 pt-[max(0.5rem,env(safe-area-inset-top))]",
-              landscapePhone ? "px-2 pb-1" : "gap-3 p-3 sm:p-4",
+              "pointer-events-none relative grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start pt-[max(0.5rem,env(safe-area-inset-top))]",
+              landscapePhone ? "gap-1 px-2 pb-1" : "gap-2 p-3 sm:p-4",
             )}
           >
             <div
               className={cn(
-                "pointer-events-auto cursor-pointer select-none rounded-xl bg-ink/70 backdrop-blur-sm",
+                "pointer-events-auto w-fit cursor-pointer select-none rounded-xl bg-ink/70 backdrop-blur-sm",
                 landscapePhone ? "px-2 py-1" : "px-3 py-2",
               )}
               onPointerDown={(e) => {
@@ -220,23 +221,13 @@ export function SnowCraft() {
                       : t("level", { n: ui.level })}
               </p>
               {ui.godSpeed && (
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-300 sm:text-xs">
+                <p className="text-xs font-semibold uppercase tracking-wide text-tan">
                   {t("godSpeed")}
                 </p>
               )}
-              {ui.pickup && (
-                <p
-                  className={cn(
-                    "font-semibold tracking-wide text-[#ffe28a]",
-                    landscapePhone ? "text-[10px]" : "text-xs sm:text-sm",
-                  )}
-                >
-                  {ui.pickup.held
-                    ? t("pickupHold", {
-                        n: ui.pickup.shots,
-                        s: Math.max(0, Math.ceil(ui.pickup.life)),
-                      })
-                    : t("pickupBig")}
+              {ui.pickup && !ui.pickup.held && (
+                <p className="text-xs font-semibold tracking-wide text-tan">
+                  {t("pickupBig")}
                 </p>
               )}
               {!landscapePhone && (
@@ -257,6 +248,22 @@ export function SnowCraft() {
               </p>
               )}
             </div>
+            <div className="flex justify-center self-start">
+              {ui.pickup?.held && (
+                <BigBuffHud
+                  shots={ui.pickup.shots}
+                  maxShots={ui.pickup.maxShots}
+                  life={ui.pickup.life}
+                  maxLife={ui.pickup.maxLife}
+                  compact={landscapePhone}
+                  label={t("pickupHold", {
+                    n: ui.pickup.shots,
+                    s: Math.max(0, Math.ceil(ui.pickup.life)),
+                  })}
+                />
+              )}
+            </div>
+            <div className="flex items-start justify-end gap-2">
             <div
               className={cn(
                 "flex items-center gap-2 rounded-xl bg-ink/70 text-sm tabular-nums backdrop-blur-sm",
@@ -292,6 +299,7 @@ export function SnowCraft() {
               >
                 <Pause />
               </Button>
+            </div>
             </div>
           </header>
         )}
@@ -822,6 +830,56 @@ function TitleBoot({ t, lang, onArm }: { t: TFn; lang: Lang; onArm?: () => void 
 function joinUrl(code: string) {
   if (typeof window === "undefined") return `?vs=${code}`;
   return `${window.location.origin}${window.location.pathname}?vs=${code}`;
+}
+
+function BigBuffHud({
+  shots,
+  maxShots,
+  life,
+  maxLife,
+  compact,
+  label,
+}: {
+  shots: number;
+  maxShots: number;
+  life: number;
+  maxLife: number;
+  compact: boolean;
+  label: string;
+}) {
+  const pct = Math.max(0, Math.min(1, maxLife > 0 ? life / maxLife : 0));
+  return (
+    <div
+      className={cn(
+        "flex flex-col items-stretch rounded-xl border border-tan/50 bg-ink/80 text-tan shadow-md backdrop-blur-sm",
+        compact ? "min-w-28 gap-1 px-2 py-1" : "min-w-36 gap-1.5 px-3 py-2",
+      )}
+      role="status"
+      aria-label={label}
+    >
+      <div className="flex items-center justify-center gap-1.5">
+        <Snowflake className={compact ? "size-3.5" : "size-4"} aria-hidden />
+        <div className="flex items-center gap-1">
+          {Array.from({ length: maxShots }, (_, i) => (
+            <span
+              key={i}
+              className={cn(
+                "rounded-full border border-tan",
+                i < shots ? "bg-surface" : "opacity-30",
+                compact ? "size-2.5" : "size-3",
+              )}
+            />
+          ))}
+        </div>
+      </div>
+      <div className={cn("overflow-hidden rounded-full bg-ink", compact ? "h-1" : "h-1.5")}>
+        <div
+          className="h-full rounded-full bg-tan transition-[width] duration-100 ease-linear"
+          style={{ width: `${pct * 100}%` }}
+        />
+      </div>
+    </div>
+  );
 }
 
 function versusGameoverCopy(ui: UiSnapshot, t: TFn) {
