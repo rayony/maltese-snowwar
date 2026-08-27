@@ -65,7 +65,7 @@ const EN = {
   topHard: "Stage Clear (Hard): {t}",
   topHardStar: "Stage Clear (Hard, Star Mode Activated): {t}",
   license: "Open Source License",
-  architecture: "Architecture",
+  readme: "README",
   github: "GitHub",
   fanTribute:
     "Fan tribute (二次創作). Gameplay after SnowCraft by Nicholson NY (1998). Dogs inspired by 線條小狗, illustrated by moonlab. Fight feel also referenced snowcraftjs by jeffreywilbur.",
@@ -174,7 +174,7 @@ const ZH: Record<keyof typeof EN, string> = {
   topHard: "通關(困難) : {t}",
   topHardStar: "通關(困難,星星模式啟動) : {t}",
   license: "開源授權",
-  architecture: "架構說明",
+  readme: "README",
   github: "GitHub",
   fanTribute:
     "同人致敬（二次創作）。玩法源自 Nicholson NY 的 SnowCraft（1998）。狗狗造型靈感來自線條小狗，插畫 moonlab。對戰手感亦參考 jeffreywilbur 的 snowcraftjs。",

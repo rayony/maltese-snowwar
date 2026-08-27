@@ -15,7 +15,7 @@ const dict: Record<I18nKey, string> = {
   topHard: "通关(困难) : {t}",
   topHardStar: "通关(困难,星星模式启动) : {t}",
   license: "开源授权",
-  architecture: "架构说明",
+  readme: "README",
   github: "GitHub",
   fanTribute:
     "同人致敬（二次创作）。玩法源自 Nicholson NY 的 SnowCraft（1998）。狗狗造型灵感来自线条小狗，插画 moonlab。对战手感亦参考 jeffreywilbur 的 snowcraftjs。",
