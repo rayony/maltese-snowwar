@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Maltese Snow War — Architecture</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+  :root {
+    --ink: #15202b;
+    --ice: #8fb4cc;
+    --tan: #c4965a;
+    --paper: #f4f7fa;
+    --muted: #5c6d7c;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    color: var(--ink);
+    background: #fff;
+    font: 11.5px/1.45 "Georgia", "Times New Roman", serif;
+  }
+  h1 { font-size: 28px; letter-spacing: -0.02em; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 22px 0 8px; border-bottom: 1px solid var(--ice); padding-bottom: 3px; }
+  h3 { font-size: 13px; margin: 14px 0 6px; }
+  p { margin: 0 0 8px; }
+  .kicker { color: var(--tan); font-variant: small-caps; letter-spacing: 0.14em; font-size: 11px; }
+  .sub { color: var(--muted); font-style: italic; margin-bottom: 18px; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 14px; font-size: 10.5px; }
+  th, td { border: 1px solid #d5e0e8; padding: 5px 7px; vertical-align: top; text-align: left; }
+  th { background: #eaf2f7; font-family: "Helvetica Neue", Arial, sans-serif; font-size: 10px; }
+  code, .mono { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 10px; }
+  ul { margin: 4px 0 10px; padding-left: 18px; }
+  li { margin-bottom: 3px; }
+  .cover {
+    page-break-after: always;
+    min-height: 240mm;
+    padding-top: 48mm;
+    border-top: 8px solid var(--ink);
+  }
+  .cover .motto { font-size: 18px; color: var(--tan); font-style: italic; margin: 8px 0 28px; }
+  .foot { color: var(--muted); font-size: 10px; margin-top: 40px; }
+  .layer {
+    background: #eaf2f7;
+    padding: 8px 10px;
+    margin: 4px 0;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 11px;
+  }
+  .note { background: #fff8e8; border-left: 3px solid var(--tan); padding: 6px 10px; margin: 10px 0; }
+</style>
+</head>
+<body>
+
+<section class="cover">
+  <div class="kicker">Project briefing</div>
+  <h1>Maltese Snow War</h1>
+  <p class="motto">Hold, Dodge, and Throw!</p>
+  <p>Code structure, runtime flow, P2P smoothness, and the big-snowball pickup.</p>
+  <p>A browser remake of the 1998 Flash game SnowCraft, with moonlab’s Line Puppy dogs: Maltese vs golden retrievers. Vs AI (Easy / Hard) and 1v1 WebRTC rooms.</p>
+  <p class="foot">Internal architecture document · August 2026<br/>Source of truth: <span class="mono">github.com/rayony/maltese-snowwar</span> · live: maltese-snowwar.grok.me</p>
+</section>
+
+<h2>1. What this is</h2>
+<p>Maltese Snow War is a canvas snowball fight in the browser. Hold a dog to move, release to throw, pack snow between shots. Vs AI still uses tap-near / hold-far. Versus uses auto-aim plus a fixed range and speed. White Maltese (red scarves) stand on the right; brown retrievers (party hats) on the left. The host always plays the Maltese. The guest is mirrored and plays the retrievers.</p>
+<p>Two-hit bury, ellipse forts, pack-snow cooldown, a 3-2-1 countdown, and a mid-fight <strong>big snowball</strong> pickup. Unofficial fan tribute to Nicholson NY’s SnowCraft (1998) and moonlab’s Line Puppy illustrations.</p>
+<p>There is no dedicated game-simulation server — the host’s browser is the authority; a small signaling server only helps the two browsers find each other.</p>
+
+<h2>2. Stack</h2>
+<table>
+  <tr><th>Layer</th><th>Choice</th><th>Why</th></tr>
+  <tr><td>UI shell</td><td>React 19 + TanStack Router + Tailwind</td><td>Title, lobby, pause, HUD. Canvas sits underneath.</td></tr>
+  <tr><td>Game</td><td>TypeScript, Canvas 2D, fixed 1/60 s</td><td>Deterministic-enough sim; render is a view, not the clock.</td></tr>
+  <tr><td>Net</td><td>WebRTC data channels + HTTP/SSE fallback</td><td>Peer-to-peer after join. TURN only if NAT blocks UDP.</td></tr>
+  <tr><td>Host</td><td>Vite + Nitro (Vercel preset)</td><td>SSR title, <span class="mono">/api/rtc</span> signaling.</td></tr>
+</table>
+
+<h2>3. Repository map</h2>
+<p>Almost all game logic lives under <span class="mono">src/game/</span>. React is thin chrome around one <span class="mono">SnowCraftGame</span> instance.</p>
+<table>
+  <tr><th>Path</th><th>Role</th></tr>
+  <tr><td class="mono">src/components/game/SnowCraft.tsx</td><td>Title, Easy/Hard, lobby, pause, HUD, QR, language, pickup banners.</td></tr>
+  <tr><td class="mono">src/game/game.ts</td><td>Orchestrator: screens, input, audio, net, loop, loot/claim.</td></tr>
+  <tr><td class="mono">src/game/sim.ts</td><td>Pure world step: throws, collisions, forts, bury, pickups.</td></tr>
+  <tr><td class="mono">src/game/ai.ts</td><td>Bot brains. Easy vs Hard; Defend / Attack allies.</td></tr>
+  <tr><td class="mono">src/game/render.ts</td><td>Canvas paint. Guest view is mirrored. Gold-rim big orb.</td></tr>
+  <tr><td class="mono">src/game/net.ts</td><td>Wire types, pack/apply pose & snapshot, binary pose codec.</td></tr>
+  <tr><td class="mono">src/game/versus-link.ts</td><td>P2P + HTTP bus, seq, ping, clock offset.</td></tr>
+  <tr><td class="mono">src/game/assets.ts</td><td>Boot (title) then rest (poses) hydrate with progress.</td></tr>
+  <tr><td class="mono">src/game/i18n.ts + locales/</td><td>EN + 繁中 first; 简 / ja / ko on select.</td></tr>
+</table>
+<div class="layer">React chrome — buttons, lobby, pause — never the physics</div>
+<div class="layer">SnowCraftGame · game.ts — input, screens, hydrate, versus, audio</div>
+<div class="layer">Simulation · sim.ts + ai.ts — fixed timestep. Hits, forts, bots, pickups. Host authority.</div>
+<div class="layer">Net · versus-link + p2p + /api/rtc — poses, throws, hits, over, loot/got/claim</div>
+<div class="layer">View · render.ts + sprites — interpolated kids. Guest canvas mirrored.</div>
+<p>Data flows down: pointer → game.ts → sim (host) or local prediction (guest). Paint always reads <span class="mono">GameState</span>. The guest never decides a bury or a winner.</p>
+
+<h2>4. Screen flow</h2>
+<p>Title (boot spinner + English title assets) → mode select → pack action sprites (progress) → 3-2-1 → fight → over / rematch.</p>
+<p>Title is React-only after boot: Play vs AI / Friend are real buttons. Action sprites load only after Easy/Hard, or after both PvP seats are in the room (packed handshake). Nothing streams in mid-match. Countdown lets dogs walk but not pack snow. Vs AI can return to title from pause. Vs Friend stays in the room on defeat so rematch does not need a new code.</p>
+<h3>4.1 Versus join</h3>
+<p>Host mints a 6-letter code. Guest types it or scans the QR. Neither side starts until both have finished packing sprites. Host then sends <span class="mono">start</span>. Guest renders the yard flipped so the retrievers sit on the guest’s right.</p>
+
+<h2>5. Making P2P feel smooth</h2>
+<p>Host-authoritative P2P is uneven: the host is 0 ms from the sim, the guest is one RTT away. For a friend-code 1v1 we delay the host a little and predict on the guest. No GGPO rollback and no dedicated sim server.</p>
+<h3>5.1 What goes over the wire</h3>
+<table>
+  <tr><th>Message</th><th>Channel</th><th>When</th><th>Payload</th></tr>
+  <tr><td class="mono">pose</td><td>Unreliable + reliable copy (binary)</td><td>~14–20 Hz</td><td>id, x, y, vx, vy, facing, state, hp + live balls</td></tr>
+  <tr><td class="mono">allypose</td><td>Unreliable + reliable copy</td><td>Guest ~15–25 Hz</td><td>Guest-yard kids x,y</td></tr>
+  <tr><td class="mono">throw / allythrow</td><td>Reliable + HTTP copy</td><td>On release</td><td>id, origin, velocity, team, t0, big?</td></tr>
+  <tr><td class="mono">hit</td><td>Reliable + HTTP</td><td>On damage</td><td>id, hp, heavy. Host only.</td></tr>
+  <tr><td class="mono">loot / got / claim</td><td>Reliable + HTTP</td><td>Orb spawn / pickup / tap</td><td>xy life / team shots ttl / claim</td></tr>
+  <tr><td class="mono">snap</td><td>Unreliable + reliable copy</td><td>Every 1.2 s + start</td><td>Full field for recovery</td></tr>
+  <tr><td class="mono">over / start / rematch / packed</td><td>Reliable + HTTP</td><td>Events</td><td>Winner; over repeats 0.35 s</td></tr>
+  <tr><td class="mono">input</td><td>Move dual-sent; down/up reliable</td><td>Guest stick + throw</td><td>x, y, hold, vx, vy, at</td></tr>
+  <tr><td class="mono">ping / pong</td><td>Unreliable + reliable copy</td><td>2 s</td><td>t0, t1 → RTT + clock offset</td></tr>
+</table>
+<table>
+  <tr><th>Seat</th><th>Feel</th></tr>
+  <tr><td>Host (Maltese)</td><td>Move instant. Throw shows a ghost ball at once; real collision waits <span class="mono">clamp(RTT/2, 30–80 ms)</span> from an EMA RTT.</td></tr>
+  <tr><td>Guest (retriever)</td><td>Own move/throw are local. Opponent pose interpolates 55–70 ms. HP/SFX wait for host <span class="mono">hit</span>.</td></tr>
+</table>
+<h3>5.2 Catalogue (live)</h3>
+<ol>
+  <li><strong>Host input delay</strong> — throws queued by clamp(RTT/2, 30–80) ms. Movement stays immediate.</li>
+  <li><strong>Host ghost ball</strong> — paints immediately, collides after the delay.</li>
+  <li><strong>Guest local move & throw</strong> — no round-trip. Pose does not overwrite the grabbed dog.</li>
+  <li><strong>RTT-tiered hit juice</strong> — cosmetic only. HP/bury/winner are host-only.</li>
+  <li><strong>Remote interpolation</strong> — guest paints Maltese 55–70 ms in the past.</li>
+  <li><strong>Clock offset</strong> — ping t0 / pong t0,t1. Guest inputs carry <span class="mono">at</span>.</li>
+  <li><strong>Keyframes do not clobber balls</strong> — 1.2 s snap repairs kids/HP, keeps local balls.</li>
+  <li><strong>Two channels + pose copy</strong> — unordered state + ordered event. Poses also copy onto reliable (LAN/iOS drop).</li>
+  <li><strong>Tiny over packet</strong> — <span class="mono">{ winner }</span> resent 0.35 s.</li>
+  <li><strong>Packed handshake</strong> — match waits until both have pose sprites.</li>
+  <li><strong>ICE / TURN / relay HUD</strong> — STUN first; ICE restart; SSE poll fallback. HUD: direct vs relay, RTT, fps.</li>
+  <li><strong>Guest-local presentation</strong> — fidget, walk, aim, particles, SFX, 3-2-1 are not networked.</li>
+  <li><strong>Ally bots on the guest</strong> — Defend/Attack step locally; <span class="mono">allythrow</span> + <span class="mono">allypose</span> go up.</li>
+  <li><strong>Live EMA RTT</strong> — 0.8/0.2 drives host delay, interp window, hit-FX tier.</li>
+  <li><strong>Throw timestamps (t0)</strong> — host catch-up-simulates a late guest throw (~200 ms).</li>
+  <li><strong>Versus throw profile</strong> — auto-aim; range 520 / speed 440; tap = hold. Pack 0.92 s.</li>
+  <li><strong>Binary pose</strong> — ArrayBuffer pose (magic SC) to cut JSON GC. Events stay JSON.</li>
+  <li><strong>Guest disconnect takeover</strong> — if the DataChannel stays down ~3 s mid-match, host local AI (<span class="mono">ai.ts</span>) takes the guest team. No lobby bounce.</li>
+</ol>
+<h3>5.3 Versus combat recipe</h3>
+<table>
+  <tr><th>Knob</th><th>Vs AI</th><th>Versus</th></tr>
+  <tr><td>Aim</td><td>Nearest (Hard may scatter / shoot back)</td><td>Nearest foe, both seats</td></tr>
+  <tr><td>Charge</td><td>Tap near, 1.2 s hold = full field (×1.2 if big)</td><td>None — tap = hold</td></tr>
+  <tr><td>Range / speed</td><td>58–820 px / 360–500 (Hard ×2)</td><td>520 / 440</td></tr>
+  <tr><td>Pack</td><td>0.92 s (star 0.32 s)</td><td>0.92 s</td></tr>
+  <tr><td>Easy retrievers</td><td>Own half, no backward / left shots</td><td>—</td></tr>
+  <tr><td>Hard retrievers</td><td>May cross midfield and shoot backward</td><td>—</td></tr>
+</table>
+
+<h2>6. Big snowball pickup</h2>
+<p>A team-level buff, not bound to the dog who touched the orb. Player-initiated throws consume it; AI throws do not.</p>
+<ul>
+  <li><strong>Spawn</strong> — mid-fight, on a cooldown (~8–12 s after the last orb). Host is authority. Guest sees <span class="mono">loot</span>.</li>
+  <li><strong>Look</strong> — white snowball, gold glowing rim only (not a gold fill, not a stretched face sprite). Field orb is the same radius as a thrown big ball (~90% of the earlier oversized size).</li>
+  <li><strong>Collect</strong> — walk any living dog onto it, <em>or tap/click the orb</em> (PvP guest sends <span class="mono">claim</span>; host grants green). Second pickup refills 3 shots / 10 s.</li>
+  <li><strong>Use</strong> — next 3 <em>user</em> throws, or 10 s, whichever first. 2 HP. Fly at 0.8×. Vs AI: 1.2× hold to reach max range. PvP has no charge, so only the slower flight applies.</li>
+  <li><strong>Clash</strong> — hit by a normal ball → shrinks to a normal ball (then HP−1). Two bigs shatter both.</li>
+  <li><strong>HUD</strong> — bottom-center. Field: “A big snowball appeared! Grab it!” Held: shots + time bar. PvP foe held: blinking red “Opponent has the big snowball!”</li>
+  <li><strong>Cheat</strong> — double-tap the X vs Y HUD (host/solo) to spawn one orb. Both AI and the player can collect it.</li>
+</ul>
+<div class="note">Net: host broadcasts <span class="mono">loot</span> (spawn/despawn) and <span class="mono">got</span> (team, shots, ttl). Guest tap is <span class="mono">claim</span>. Throws carry <span class="mono">big?</span> so the guest paints the gold rim without waiting for a snap.</div>
+
+<h2>7. Loading strategy</h2>
+<p>SSR paints a spinner until React hydrates. Then <span class="mono">loadBootAssets</span>: English title background, Caveat, idle dog heads — with a progress bar. Play vs AI / Friend stay clickable. After a mode is chosen, <span class="mono">hydrateRest</span> loads pose sheets (progress on the packing screen). Language packs other than EN (and 繁中 already in the bundle) load only when that language is selected. BGM starts on the first armed tap, not on boot.</p>
+
+<h2>8. Vs AI (for contrast)</h2>
+<p>Easy: original pacing, nearest-target bots, forts are cover only, Maltese revive next heat; retrievers stay on their half and only throw forward. Hard: bot move ×3, smarter dodge, forts 10 HP, no Maltese revive, Maltese move ×2 and both teams’ snowballs ×2; retrievers may cross midfield and shoot backward. Same sim as PvP; no net. Difficulty is chosen on a gate after Play vs AI, which is also when pose sprites load.</p>
+
+<h2>9. Trust and secrets</h2>
+<p>TURN username/credential live in server env, never in git. P2P gameplay is host-honest: a cheating host can still lie. Fine for friends; not for ranked. Cheats (star mode, instant orb) are local/host only.</p>
+
+<h2>10. Credits</h2>
+<p>Game: Nicholson NY, SnowCraft, 1998. Characters: moonlab / Line Puppy (fan illustration). Fight feel referenced jeffreywilbur/snowcraftjs. Produced by Gary.TC. Libraries listed in-app at /credits.</p>
+<p class="foot">End of briefing. Source of truth is the GitHub repo (beta / main). This PDF describes the live stack as of 27 August 2026: binary pose, EMA RTT, loot/claim, gold-rim big ball, staged boot loader, guest bot takeover.</p>
+</body>
+</html>

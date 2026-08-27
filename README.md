@@ -23,10 +23,16 @@ Open-source fan tribute based on epic flash game “SnowCraft":  a browser-based
 - **Hold** a dog to move and dodge; **release** to throw (auto-aims the nearest foe)
 - Pack snow between shots — you cannot fire while packing
 - Two hits bury a dog; forts eat snowballs that pass through them
-- **Big snowball** orb can drop mid-fight. Any dog may collect it. That team gets **3 player throws / 10s** (2 HP). A second pickup refills. Clash: big vs normal shrinks the big ball; two bigs shatter
-> cheat for test purpose ONLY:
-> - Solo: **star mode**: tap the Level HUD 5× — faster pack/charge, more HP
-> - Host/solo: **instant orb**: double-tap the **X vs Y** score HUD for adding an orb instantly
+- **Big snowball** can drop mid-fight. Hint: *A big snowball appeared! Grab it!*
+  - Collect by walking a dog onto the orb **or tapping it**
+  - That **team** gets **3 player throws / 10 s** (2 HP). AI throws stay normal. A second pickup refills
+  - Thrown big ball matches the field orb (white snow, gold glowing rim). **0.8×** fly speed; vs AI needs **1.2×** hold for max range
+  - Clash: big vs a normal ball shrinks the big one (then HP−1); two bigs shatter
+  - PvP: blinking red *Opponent has the big snowball!*
+
+> Cheats (test only)
+> - Solo **star mode**: tap the Level HUD 5× — faster pack/charge, more HP
+> - Host/solo **instant orb**: double-tap the **X vs Y** score HUD
 
 ## Modes
 
@@ -37,6 +43,8 @@ Open-source fan tribute based on epic flash game “SnowCraft":  a browser-based
 | **Allies** | Unselected Maltese: Manual / Defend (hold forts, peek-throw) / Attack (press in, shoot around forts, punish after the foe throws) |
 
 Languages: English · 繁中 · 简体 · 日本語 · 한국어 (EN + 繁中 load first; others on select). Mute from the landing globe row or **M**.
+
+Landing boot: spinner + English title assets, then Play vs AI / Friend. Action sprites load **after** the mode is chosen (progress bar) — nothing streams in mid-match.
 
 ## Local development
 
@@ -52,7 +60,7 @@ npm run build
 
 There is no game-sim server. The **host browser is the authority**; a small signaling helper only lets the two browsers find each other.
 
-Host sim + reliable events (throw / hit / over / loot). Unreliable binary pose ~14–20 Hz. Throw delay uses a smoothed RTT clamp. If the guest DataChannel stays down ~3s mid-match, local AI (`src/game/ai.ts`) takes over their team.
+Host sim + reliable events (`throw` / `hit` / `over` / `loot` / `got` / `claim`). Unreliable binary pose ~14–20 Hz. Throw delay uses a smoothed RTT clamp. If the guest DataChannel stays down ~3s mid-match, local AI (`src/game/ai.ts`) takes over their team.
 
 Details: [Maltese-Snow-War-Architecture.pdf](public/Maltese-Snow-War-Architecture.pdf)
 
