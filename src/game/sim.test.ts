@@ -11,6 +11,9 @@ import {
   createState,
   isOut,
   living,
+  stepPickups,
+  stepSim,
+  throwSnowball,
 } from "./sim";
 import type { Kid } from "./types";
 
@@ -94,5 +97,45 @@ describe("createState", () => {
     assert.ok(s.kids.some((k) => k.team === "red"));
     assert.ok(s.kids.some((k) => k.team === "green"));
     assert.equal(s.phase, "intro");
+  });
+});
+
+describe("big snowball pickup", () => {
+  it("grants a held charge when a dog touches the orb", () => {
+    const s = createState(1, true);
+    s.phase = "fight";
+    s.pickup = { x: 480, y: 270, kind: "big", life: 8, maxLife: 10 };
+    s.pickupCd = 9;
+    const dog = s.kids.find((k) => k.team === "red")!;
+    dog.x = 480;
+    dog.y = 270;
+    stepPickups(s, 0.05, true);
+    assert.equal(dog.held, "big");
+    assert.equal(s.pickup, null);
+  });
+
+  it("big throw consumes the charge and deals 2 HP", () => {
+    const s = createState(1, true);
+    s.phase = "fight";
+    s.pickup = null;
+    s.forts = [];
+    const red = s.kids.find((k) => k.team === "red")!;
+    const green = s.kids.find((k) => k.team === "green")!;
+    red.held = "big";
+    red.heldT = 8;
+    red.x = 420;
+    red.y = 270;
+    green.x = 300;
+    green.y = 270;
+    green.hp = 2;
+    throwSnowball(s, red, 1, -1, 0);
+    assert.equal(red.held, null);
+    const ball = s.balls.find((b) => b.alive)!;
+    assert.equal(ball.big, true);
+    ball.x = green.x;
+    ball.y = green.y - 10;
+    ball.grace = 0;
+    stepSim(s, 1 / 60, () => {});
+    assert.ok(green.hp <= 0);
   });
 });

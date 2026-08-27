@@ -148,6 +148,23 @@ export class P2PRoom {
     }).catch(() => {});
   }
 
+  private sendOn(ch: RTCDataChannel | undefined | null, data: string | ArrayBuffer) {
+    if (!ch || ch.readyState !== "open") return;
+    try {
+      if (typeof data === "string") ch.send(data);
+      else ch.send(data);
+    } catch {
+      /* channel closing */
+    }
+  }
+
+  broadcastRaw(data: ArrayBuffer): void {
+    for (const slot of this.peers.values()) {
+      this.sendOn(slot.state, data);
+      this.sendOn(slot.reliable, data);
+    }
+  }
+
   /** Send on the unreliable game-state channel (drops stale packets). */
   broadcast(data: unknown): void {
     const wire = JSON.stringify({ t: "d", d: data });
@@ -378,9 +395,17 @@ export class P2PRoom {
     channel.onclose = () => this.emitPeers();
     channel.onerror = () => this.emitPeers();
     channel.onmessage = (e) => {
+      if (typeof e.data !== "string") {
+        this.opts.onMessage?.(
+          slot.info.id,
+          e.data,
+          channel.label === "state" ? "state" : "reliable",
+        );
+        return;
+      }
       let msg: { t: string; d?: unknown };
       try {
-        msg = JSON.parse(e.data as string) as { t: string; d?: unknown };
+        msg = JSON.parse(e.data) as { t: string; d?: unknown };
       } catch {
         return;
       }

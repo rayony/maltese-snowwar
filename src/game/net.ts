@@ -1,5 +1,5 @@
 import type { AllyMode, FightPhase, Fidget, GameState, Kid, KidState, Team } from "./types";
-import { BALL_RADIUS } from "./constants";
+import { BALL_RADIUS, BIG_BALL_RADIUS } from "./constants";
 import { ensureAi } from "./sim";
 
 const ABC = "ABCDEFGHJKLMNPQRSTUVWXYZ";
@@ -30,7 +30,7 @@ export type NetMsg =
   | { t: "ally"; mode: AllyMode }
   | { t: "allypose"; kids: { id: number; x: number; y: number }[] }
   | { t: "pose"; kids: PoseKid[]; intro: number; phase: FightPhase; t0: number; balls?: PoseBall[] }
-  | { t: "throw"; id: number; x: number; y: number; vx: number; vy: number; team: Team; t0?: number }
+  | { t: "throw"; id: number; x: number; y: number; vx: number; vy: number; team: Team; t0?: number; big?: boolean }
   | { t: "allythrow"; id: number; x: number; y: number; hold: number; dx: number; dy: number; t0?: number }
   | { t: "hit"; id: number; hp: number; heavy: boolean }
   | { t: "rematch"; yes: boolean }
@@ -39,7 +39,9 @@ export type NetMsg =
   | { t: "packed" }
   | { t: "hb" }
   | { t: "ping"; t0: number }
-  | { t: "pong"; t0: number; t1?: number };
+  | { t: "pong"; t0: number; t1?: number }
+  | { t: "loot"; x?: number; y?: number; life?: number }
+  | { t: "got"; id: number };
 
 export interface WireKid {
   id: number;
@@ -60,6 +62,8 @@ export interface WireKid {
   fidgetWait?: number;
   moving: boolean;
   cooldown?: number;
+  held?: "big";
+  heldT?: number;
 }
 
 export interface WireBall {
@@ -72,6 +76,7 @@ export interface WireBall {
   alive: boolean;
   range: number;
   traveled: number;
+  big?: boolean;
 }
 
 export interface PoseBall {
@@ -100,6 +105,7 @@ export interface PoseKid {
 export interface WireState {
   kids: WireKid[];
   balls: WireBall[];
+  pickup?: GameState["pickup"];
   forts?: GameState["forts"];
   particles?: GameState["particles"];
   footprints?: GameState["footprints"];
@@ -128,6 +134,8 @@ function packKid(k: Kid): WireKid {
     packT: Math.round(k.packT * 40) / 40,
     facing: k.facing,
     moving: k.moving,
+    held: k.held === "big" ? "big" : undefined,
+    heldT: k.held === "big" ? k.heldT : undefined,
   };
 }
 
@@ -156,7 +164,9 @@ export function packState(state: GameState): WireState {
       alive: true,
       range: q(b.range),
       traveled: q(b.traveled),
+      big: b.big || undefined,
     })),
+    pickup: state.pickup,
     forts,
     level: state.level,
     freeze: Math.round(state.freeze * 40) / 40,
@@ -387,7 +397,13 @@ export function applyState(
       ai,
     };
   });
-  for (const k of state.kids) ensureAi(k);
+  for (const k of state.kids) {
+    ensureAi(k);
+    const w = wire.kids.find((x) => x.id === k.id);
+    k.held = w?.held ?? null;
+    k.heldT = w?.heldT ?? 0;
+  }
+  if (wire.pickup !== undefined) state.pickup = wire.pickup;
   if (!opts.hard) {
     const now = typeof performance !== "undefined" ? performance.now() : 0;
     const hold = (opts.keepBallsUntil ?? 0) > now;
@@ -398,7 +414,8 @@ export function applyState(
       vx: b.vx,
       vy: b.vy,
       team: b.team,
-      r: BALL_RADIUS,
+      r: b.big ? BIG_BALL_RADIUS : BALL_RADIUS,
+      big: !!b.big,
       fromId: b.fromId,
       grace: 0,
       spin: 0,
@@ -427,7 +444,8 @@ export function applyState(
       vx: b.vx,
       vy: b.vy,
       team: b.team,
-      r: BALL_RADIUS,
+      r: b.big ? BIG_BALL_RADIUS : BALL_RADIUS,
+      big: !!b.big,
       fromId: b.fromId,
       grace: 0,
       spin: 0,

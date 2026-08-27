@@ -1,11 +1,16 @@
 import {
   BALL_RADIUS,
+  BIG_BALL_RADIUS,
+  BIG_HELD_TIME,
   enemyCountForLevel,
   holdPower,
   HP,
   INTRO_TIME,
   MARGIN,
   PACK_TIME,
+  PICKUP_CD_MAX,
+  PICKUP_CD_MIN,
+  PICKUP_LIFE,
   STAR_PACK_TIME,
   PLAYER_COUNT,
   PVP_RANGE,
@@ -17,7 +22,7 @@ import {
   WORLD_H,
   WORLD_W,
 } from "./constants";
-import type { Fort, GameState, Kid, Snowball, Team } from "./types";
+import type { Fort, GameState, Kid, Pickup, Snowball, Team } from "./types";
 
 export function clamp(v: number, a: number, b: number) {
   return Math.max(a, Math.min(b, v));
@@ -75,6 +80,8 @@ function makeKid(state: GameState, team: Team, x: number, y: number): Kid {
     fidgetWait: rand(0.35, 2.6),
     moving: false,
     ai: makeBrain(x, y),
+    held: null,
+    heldT: 0,
   };
 }
 
@@ -107,6 +114,8 @@ export function createState(
     hard: !!opts.hard,
     pvp: versus,
     godSpeed: false,
+    pickup: null,
+    pickupCd: 2.5,
   };
 
   const redYs = [128, 270, 412];
@@ -210,13 +219,18 @@ export function throwSnowball(
   if (state.godSpeed && kid.team === "red") speed *= 3;
   const range = state.pvp ? PVP_RANGE : throwRange(power);
   const cover = inFort(kid.x, kid.y, state.forts);
+  const big = kid.held === "big";
+  if (big) {
+    kid.held = null;
+    kid.heldT = 0;
+  }
   const ball: Snowball = {
     x: kid.x + nx * 30,
     y: kid.y + ny * 10 - 6,
-    vx: nx * speed,
-    vy: ny * speed,
+    vx: nx * speed * (big ? 0.92 : 1),
+    vy: ny * speed * (big ? 0.92 : 1),
     team: kid.team,
-    r: BALL_RADIUS,
+    r: big ? BIG_BALL_RADIUS : BALL_RADIUS,
     fromId: kid.id,
     grace: cover ? 0.24 : 0.12,
     spin: Math.random() * Math.PI * 2,
@@ -225,6 +239,7 @@ export function throwSnowball(
     traveled: 0,
     local,
     born: typeof performance !== "undefined" ? performance.now() : 0,
+    big,
   };
   state.balls.push(ball);
   kid.state = "throw";
@@ -233,7 +248,8 @@ export function throwSnowball(
   kid.packT = state.godSpeed && kid.team === "red" ? STAR_PACK_TIME : PACK_TIME;
   kid.facing = nx < 0 ? -1 : 1;
   clearFidget(kid);
-  burst(state, kid.x + nx * 22, kid.y, nx * 40, 8, "puff");
+  burst(state, kid.x + nx * 22, kid.y, nx * 40, big ? 16 : 8, "puff");
+  if (big) burst(state, kid.x + nx * 22, kid.y, nx * 20, 10, "spark");
   return power;
 }
 
@@ -391,7 +407,7 @@ function stepBalls(
         ball.alive = false;
         wall.hitFlash = 0.28;
         if (wall.maxHp > 0 && wall.hp > 0) {
-          wall.hp -= 1;
+          wall.hp -= ball.big ? 2 : 1;
           if (wall.hp <= 0) {
             wall.hp = 0;
             burst(state, wall.x, wall.y, 0, 22, "puff");
@@ -424,16 +440,17 @@ function hitKid(
   ball: Snowball,
   onHit: (heavy: boolean) => void,
 ) {
-  kid.hp -= 1;
+  kid.hp -= ball.big ? 2 : 1;
   kid.flash = 0.12;
-  kid.stun = 0.35;
+  kid.stun = ball.big ? 0.5 : 0.35;
   kid.state = kid.hp <= 0 ? "buried" : "hurt";
   kid.stateT = kid.hp <= 0 ? 0 : 0.42;
   kid.packT = 0;
   clearFidget(kid);
   kid.x += Math.sign(ball.vx) * 10;
   kid.y += ball.vy * 0.02;
-  burst(state, kid.x, kid.y, ball.vx * 0.05, 14, "puff");
+  burst(state, kid.x, kid.y, ball.vx * 0.05, ball.big ? 22 : 14, "puff");
+  if (ball.big) burst(state, kid.x, kid.y, 0, 12, "spark");
   state.trauma = Math.min(1, state.trauma + (kid.hp <= 0 ? 0.55 : 0.32));
   state.freeze = kid.hp <= 0 ? 0.07 : 0.045;
   onHit(kid.hp <= 0);
@@ -634,6 +651,56 @@ function stepFx(state: GameState, dt: number) {
   }
 }
 
+
+export function placePickup(state: GameState, x = 480, y = 270): Pickup {
+  const orb: Pickup = { x, y, kind: "big", life: PICKUP_LIFE, maxLife: PICKUP_LIFE };
+  state.pickup = orb;
+  state.pickupCd = PICKUP_CD_MIN;
+  burst(state, x, y, 0, 18, "spark");
+  return orb;
+}
+
+function spawnPickup(state: GameState): Pickup {
+  for (let i = 0; i < 8; i++) {
+    const x = 480 + rand(-80, 80);
+    const y = 270 + rand(-100, 100);
+    if (inFort(x, y, state.forts)) continue;
+    return placePickup(state, x, y);
+  }
+  return placePickup(state);
+}
+
+/** spawn=true on host/solo. Guest only ticks held timers and orb life. */
+export function stepPickups(state: GameState, dt: number, spawn: boolean) {
+  for (const kid of state.kids) {
+    if (!kid.held) continue;
+    kid.heldT = Math.max(0, (kid.heldT ?? 0) - dt);
+    if (kid.heldT <= 0) kid.held = null;
+  }
+  if (state.pickup) {
+    state.pickup.life -= dt;
+    if (state.pickup.life <= 0) {
+      state.pickup = null;
+      if (spawn) state.pickupCd = PICKUP_CD_MIN + Math.random() * (PICKUP_CD_MAX - PICKUP_CD_MIN);
+    } else if (spawn) {
+      for (const kid of state.kids) {
+        if (isOut(kid) || kid.held) continue;
+        if (Math.hypot(kid.x - state.pickup.x, kid.y - state.pickup.y) > 42) continue;
+        kid.held = state.pickup.kind;
+        kid.heldT = BIG_HELD_TIME;
+        burst(state, state.pickup.x, state.pickup.y, 0, 16, "spark");
+        state.pickup = null;
+        state.pickupCd = PICKUP_CD_MIN + Math.random() * (PICKUP_CD_MAX - PICKUP_CD_MIN);
+        break;
+      }
+    }
+    return;
+  }
+  if (!spawn || state.phase !== "fight" || state.kids.some((k) => k.held)) return;
+  state.pickupCd -= dt;
+  if (state.pickupCd <= 0) spawnPickup(state);
+}
+
 export function stepSim(
   state: GameState,
   dt: number,
@@ -658,6 +725,7 @@ export function stepSim(
   }
 
   stepKids(state, dt);
+  stepPickups(state, dt, true);
   stepBalls(state, dt, onHit, extra);
   separate(state, dt);
   stepFx(state, dt);

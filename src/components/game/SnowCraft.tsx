@@ -58,6 +58,7 @@ const INITIAL: UiSnapshot = {
     link: "relay",
   },
   fps: 0,
+  pickup: null,
 };
 
 export function SnowCraft() {
@@ -221,6 +222,13 @@ export function SnowCraft() {
               {ui.godSpeed && (
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-300 sm:text-xs">
                   {t("godSpeed")}
+                </p>
+              )}
+              {ui.pickup && (
+                <p className="text-[10px] font-semibold tracking-wide text-[#ffe28a] sm:text-xs">
+                  {ui.pickup.held
+                    ? t("pickupHold", { s: Math.max(0, Math.ceil(ui.pickup.life)) })
+                    : t("pickupBig")}
                 </p>
               )}
               {!landscapePhone && (

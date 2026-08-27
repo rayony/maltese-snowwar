@@ -251,11 +251,43 @@ export function render(
   layers.sort((a, b) => a.y - b.y);
   for (const layer of layers) layer.draw();
 
+  if (state.pickup) {
+    const pulse = 1 + 0.18 * Math.sin(state.time * 7);
+    const s = 46 * pulse;
+    ctx.save();
+    ctx.globalAlpha = 0.4 + 0.25 * Math.sin(state.time * 5);
+    ctx.fillStyle = "#ffe28a";
+    ctx.beginPath();
+    ctx.arc(state.pickup.x, state.pickup.y, s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = "#fff8d0";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(state.pickup.x, state.pickup.y, s * 0.72, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(state.pickup.x, state.pickup.y - 6, s * 0.48, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  for (const kid of state.kids) {
+    if (kid.held !== "big") continue;
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,226,138,0.95)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(kid.x, kid.y - 18, 30, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   if (assets) {
     for (const ball of state.balls) {
       const img = frameOf(assets.ball, ball.spin, 8);
       const hop = ballHop(ball);
-      const s = view.ballSize;
+      const s = view.ballSize * (ball.big ? 1.6 : 1);
       ctx.save();
       ctx.translate(ball.x, ball.y - hop);
       ctx.rotate(ball.spin * 0.4);
@@ -272,7 +304,7 @@ export function render(
     ctx.fillStyle = "#fff";
     for (const ball of state.balls) {
       ctx.beginPath();
-      ctx.arc(ball.x, ball.y - ballHop(ball), view.ballSize * 0.38, 0, Math.PI * 2);
+      ctx.arc(ball.x, ball.y - ballHop(ball), view.ballSize * (ball.big ? 0.6 : 0.38), 0, Math.PI * 2);
       ctx.fill();
     }
   }
