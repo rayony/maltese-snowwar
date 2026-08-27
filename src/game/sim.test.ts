@@ -15,6 +15,7 @@ import {
   stepSim,
   throwSnowball,
 } from "./sim";
+import { aiThrowAim } from "./ai";
 import type { Kid } from "./types";
 
 function kid(partial: Partial<Kid> & Pick<Kid, "id" | "team" | "x" | "y">): Kid {
@@ -97,6 +98,25 @@ describe("aimFromKid", () => {
     const { dx, dy } = aimFromKid(me, [me, foe]);
     assert.equal(dx, 0);
     assert.ok(dy < 0);
+  });
+});
+
+describe("aiThrowAim", () => {
+  it("easy retrievers never aim left / backward", () => {
+    const dog = kid({ id: 1, team: "green", x: 200, y: 200 });
+    const behind = kid({ id: 2, team: "red", x: 80, y: 200 });
+    const front = kid({ id: 3, team: "red", x: 500, y: 220 });
+    const aim = aiThrowAim(dog, [dog, behind, front], false, false);
+    assert.ok(aim);
+    assert.ok(aim.dx > 0);
+  });
+
+  it("hard retrievers may aim at a foe behind them", () => {
+    const dog = kid({ id: 1, team: "green", x: 400, y: 200 });
+    const behind = kid({ id: 2, team: "red", x: 120, y: 200 });
+    const aim = aiThrowAim(dog, [dog, behind], true, false);
+    assert.ok(aim);
+    assert.ok(aim.dx < 0);
   });
 });
 

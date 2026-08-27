@@ -53,7 +53,7 @@ export function stepAi(
       const py = incoming.x - kid.x;
       const len = Math.hypot(px, py) || 1;
       const dist = hard && stance === "enemy" ? 118 : stance === "defend" ? 88 : 64;
-      kid.ai.destX = clampSide(kid.x + (px / len) * dist, kid.team);
+      kid.ai.destX = clampSide(kid.x + (px / len) * dist, kid.team, hard && stance === "enemy");
       kid.ai.destY = clamp(kid.y + (py / len) * dist, MARGIN, WORLD_H - MARGIN);
       if (stance === "defend" && !forbidFort) {
         const fort = nearestFort(state, kid);
@@ -91,7 +91,13 @@ export function stepAi(
         continue;
       }
       if (kid.ai.t <= 0) {
-        const { dx, dy } = aimFromKid(kid, state.kids, 0, 0, hard && stance === "enemy");
+        const aim = aiThrowAim(kid, state.kids, hard && stance === "enemy", hard && stance === "enemy");
+        if (!aim) {
+          kid.ai.phase = "idle";
+          kid.ai.t = rand(0.12, 0.3);
+          continue;
+        }
+        const { dx, dy } = aim;
         const holdScale = stance === "defend" ? 0.42 + 0.35 * kid.ai.charge : 0.58 + 0.42 * kid.ai.charge;
         const hold = MAX_CHARGE * holdScale;
         const power = throwSnowball(state, kid, hold, dx, dy, localBalls);
@@ -115,7 +121,7 @@ export function stepAi(
         kid.ai.phase = "move";
         kid.ai.t = rand(0.35, stance === "defend" ? 1.3 : 0.95);
         if (forbidFort) pickAwayFromFort(state, kid);
-        else pickDest(state, kid, stance, hard && stance === "enemy");
+        else pickDest(state, kid, stance, hard && stance === "enemy", hard && stance === "enemy");
       }
     }
   }
@@ -166,7 +172,7 @@ function pickAwayFromFort(state: GameState, kid: Kid) {
   kid.ai!.destY = y;
 }
 
-function pickDest(state: GameState, kid: Kid, stance: "defend" | "attack" | "enemy", scatter = false) {
+function pickDest(state: GameState, kid: Kid, stance: "defend" | "attack" | "enemy", scatter = false, cross = false) {
   if (kid.ai && kid.ai.awayT > 0) {
     pickAwayFromFort(state, kid);
     return;
@@ -174,7 +180,7 @@ function pickDest(state: GameState, kid: Kid, stance: "defend" | "attack" | "ene
   if (state.pickup && kid.ai) {
     const d = Math.hypot(kid.x - state.pickup.x, kid.y - state.pickup.y);
     if (d < 240 && Math.random() < 0.7) {
-      kid.ai.destX = state.pickup.x + rand(-6, 6);
+      kid.ai.destX = clampSide(state.pickup.x + rand(-6, 6), kid.team, cross);
       kid.ai.destY = state.pickup.y + rand(-6, 6);
       return;
     }
@@ -216,13 +222,18 @@ function pickDest(state: GameState, kid: Kid, stance: "defend" | "attack" | "ene
   }
 
   if (fort && Math.random() < 0.28) {
-    kid.ai!.destX = clampSide(fort.x + rand(-30, 30), kid.team);
+    kid.ai!.destX = clampSide(fort.x + rand(-30, 30), kid.team, cross);
     kid.ai!.destY = clamp(fort.y + rand(-16, 16), MARGIN, WORLD_H - MARGIN);
   } else if (target && Math.random() < 0.45) {
-    kid.ai!.destX = clampSide(target.x * 0.35 + 80, kid.team);
+    const chase = cross
+      ? clamp(target.x - rand(70, 150), MARGIN, WORLD_W - MARGIN)
+      : clampSide(target.x * 0.35 + 80, kid.team);
+    kid.ai!.destX = chase;
     kid.ai!.destY = clamp(target.y + rand(-40, 40), MARGIN, WORLD_H - MARGIN);
   } else {
-    kid.ai!.destX = rand(MARGIN + 10, WORLD_W * 0.42);
+    kid.ai!.destX = cross
+      ? rand(MARGIN + 10, WORLD_W * 0.72)
+      : rand(MARGIN + 10, WORLD_W * 0.42);
     kid.ai!.destY = rand(MARGIN, WORLD_H - MARGIN);
   }
 }
@@ -244,8 +255,31 @@ function clamp(v: number, a: number, b: number) {
   return Math.max(a, Math.min(b, v));
 }
 
-function clampSide(x: number, team: Kid["team"]) {
-  if (team === "green") return clamp(x, MARGIN, WORLD_W * 0.48);
+/** Easy retrievers only fire toward the Maltese half (never left / backward). */
+export function aiThrowAim(kid: Kid, kids: Kid[], hard: boolean, scatter: boolean) {
+  if (kid.team === "green" && !hard) {
+    let best: Kid | null = null;
+    let bestD = Infinity;
+    for (const k of kids) {
+      if (k.team === kid.team || isOut(k)) continue;
+      if (k.x < kid.x - 8) continue;
+      const d = (k.x - kid.x) ** 2 + (k.y - kid.y) ** 2;
+      if (d < bestD) {
+        bestD = d;
+        best = k;
+      }
+    }
+    if (!best) return null;
+    return { dx: Math.max(1, best.x - kid.x), dy: best.y - kid.y };
+  }
+  return aimFromKid(kid, kids, 0, 0, scatter);
+}
+
+function clampSide(x: number, team: Kid["team"], cross = false) {
+  if (team === "green") {
+    if (cross) return clamp(x, MARGIN, WORLD_W - MARGIN);
+    return clamp(x, MARGIN, WORLD_W * 0.48);
+  }
   return clamp(x, WORLD_W * 0.52, WORLD_W - MARGIN);
 }
 
