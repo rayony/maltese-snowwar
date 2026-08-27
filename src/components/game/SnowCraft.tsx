@@ -225,9 +225,17 @@ export function SnowCraft() {
                 </p>
               )}
               {ui.pickup && (
-                <p className="text-[10px] font-semibold tracking-wide text-[#ffe28a] sm:text-xs">
+                <p
+                  className={cn(
+                    "font-semibold tracking-wide text-[#ffe28a]",
+                    landscapePhone ? "text-[10px]" : "text-xs sm:text-sm",
+                  )}
+                >
                   {ui.pickup.held
-                    ? t("pickupHold", { s: Math.max(0, Math.ceil(ui.pickup.life)) })
+                    ? t("pickupHold", {
+                        n: ui.pickup.shots,
+                        s: Math.max(0, Math.ceil(ui.pickup.life)),
+                      })
                     : t("pickupBig")}
                 </p>
               )}

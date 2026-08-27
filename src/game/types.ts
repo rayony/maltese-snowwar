@@ -40,8 +40,6 @@ export interface Kid {
   ai: AiBrain | null;
   viewX?: number;
   viewY?: number;
-  held?: "big" | null;
-  heldT?: number;
 }
 
 export interface Snowball {
@@ -92,6 +90,12 @@ export interface Pickup {
   maxLife: number;
 }
 
+export interface TeamBuff {
+  kind: "big";
+  shots: number;
+  t: number;
+}
+
 export interface Footprint {
   x: number;
   y: number;
@@ -130,6 +134,7 @@ export interface GameState {
   godSpeed: boolean;
   pickup: Pickup | null;
   pickupCd: number;
+  buffs: { red: TeamBuff | null; green: TeamBuff | null };
 }
 
 export type NetRole = "solo" | "host" | "guest";
@@ -168,7 +173,7 @@ export interface UiSnapshot {
   godSpeed: boolean;
   net: NetUi;
   fps: number;
-  pickup: { kind: "big"; life: number; held: boolean } | null;
+  pickup: { kind: "big"; life: number; shots: number; held: boolean } | null;
 }
 
 export interface View {

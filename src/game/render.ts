@@ -273,7 +273,8 @@ export function render(
     ctx.restore();
   }
   for (const kid of state.kids) {
-    if (kid.held !== "big") continue;
+    const buff = state.buffs[kid.team];
+    if (!buff || isOut(kid)) continue;
     ctx.save();
     ctx.strokeStyle = "rgba(255,226,138,0.95)";
     ctx.lineWidth = 3;

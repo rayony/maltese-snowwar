@@ -101,7 +101,7 @@ describe("createState", () => {
 });
 
 describe("big snowball pickup", () => {
-  it("grants a held charge when a dog touches the orb", () => {
+  it("grants a team buff when a dog touches the orb", () => {
     const s = createState(1, true);
     s.phase = "fight";
     s.pickup = { x: 480, y: 270, kind: "big", life: 8, maxLife: 10 };
@@ -110,27 +110,31 @@ describe("big snowball pickup", () => {
     dog.x = 480;
     dog.y = 270;
     stepPickups(s, 0.05, true);
-    assert.equal(dog.held, "big");
+    assert.equal(s.buffs.red?.shots, 3);
+    assert.ok((s.buffs.red?.t ?? 0) > 9);
     assert.equal(s.pickup, null);
   });
 
-  it("big throw consumes the charge and deals 2 HP", () => {
+  it("user throws consume the team buff; AI throws do not", () => {
     const s = createState(1, true);
     s.phase = "fight";
     s.pickup = null;
     s.forts = [];
+    s.buffs.red = { kind: "big", shots: 3, t: 10 };
     const red = s.kids.find((k) => k.team === "red")!;
+    const ally = s.kids.find((k) => k.team === "red" && k.id !== red.id)!;
     const green = s.kids.find((k) => k.team === "green")!;
-    red.held = "big";
-    red.heldT = 8;
     red.x = 420;
     red.y = 270;
     green.x = 300;
     green.y = 270;
     green.hp = 2;
-    throwSnowball(s, red, 1, -1, 0);
-    assert.equal(red.held, null);
-    const ball = s.balls.find((b) => b.alive)!;
+    throwSnowball(s, ally, 1, -1, 0, false, false);
+    assert.equal(s.buffs.red?.shots, 3);
+    assert.equal(s.balls.at(-1)?.big, false);
+    throwSnowball(s, red, 1, -1, 0, false, true, true);
+    assert.equal(s.buffs.red?.shots, 2);
+    const ball = s.balls.find((b) => b.big)!;
     assert.equal(ball.big, true);
     ball.x = green.x;
     ball.y = green.y - 10;

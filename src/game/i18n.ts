@@ -157,7 +157,7 @@ const EN = {
   loseHost: "The retrievers buried you. Ask your friend for a rematch — you both have to accept.",
   loseSolo: "The retrievers buried you at level {n}. Best {best}.",
   pickupBig: "Big snowball on the field",
-  pickupHold: "Big snowball · {s}s",
+  pickupHold: "Big snowball · {n} throws · {s}s",
 } as const;
 
 const ZH: Record<keyof typeof EN, string> = {
@@ -262,7 +262,7 @@ const ZH: Record<keyof typeof EN, string> = {
   loseHost: "小金毛把你埋了。請朋友再來一局——雙方都要同意。",
   loseSolo: "小金毛在第 {n} 關把你埋了。最高 {best}。",
   pickupBig: "場上有大雪球",
-  pickupHold: "大雪球 · {s}秒",
+  pickupHold: "大雪球 · 剩 {n} 球 · {s}秒",
 };
 
 /** Simplified Chinese — same meaning as 繁中, Mainland orthography. */
@@ -368,7 +368,7 @@ const ZH_CN: Record<keyof typeof EN, string> = {
   loseHost: "小金毛把你埋了。请朋友再来一局——双方都要同意。",
   loseSolo: "小金毛在第 {n} 关把你埋了。最高 {best}。",
   pickupBig: "场上有大雪球",
-  pickupHold: "大雪球 · {s}秒",
+  pickupHold: "大雪球 · 剩 {n} 球 · {s}秒",
 };
 
 const JA: Record<keyof typeof EN, string> = {
@@ -478,7 +478,7 @@ const JA: Record<keyof typeof EN, string> = {
   loseHost: "レトリバーに埋められた。再戦は双方の承諾が必要。",
   loseSolo: "レベル {n} で埋められた。最高 {best}。",
   pickupBig: "大きな雪玉が落ちている",
-  pickupHold: "大雪玉 · {s}秒",
+  pickupHold: "大雪玉 · 残り{n}球 · {s}秒",
 };
 
 const KO: Record<keyof typeof EN, string> = {
@@ -588,7 +588,7 @@ const KO: Record<keyof typeof EN, string> = {
   loseHost: "리트리버에게 묻혔습니다. 재경기는 양쪽이 모두 동의해야 합니다.",
   loseSolo: "레벨 {n}에서 묻혔습니다. 최고 {best}.",
   pickupBig: "큰 눈덩이가 떨어져 있어요",
-  pickupHold: "큰 눈덩이 · {s}초",
+  pickupHold: "큰 눈덩이 · {n}개 남음 · {s}초",
 };
 
 export type I18nKey = keyof typeof EN;

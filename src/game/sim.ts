@@ -2,6 +2,7 @@ import {
   BALL_RADIUS,
   BIG_BALL_RADIUS,
   BIG_HELD_TIME,
+  BIG_SHOTS,
   enemyCountForLevel,
   holdPower,
   HP,
@@ -22,7 +23,7 @@ import {
   WORLD_H,
   WORLD_W,
 } from "./constants";
-import type { Fort, GameState, Kid, Pickup, Snowball, Team } from "./types";
+import type { Fort, GameState, Kid, Pickup, Snowball, Team, TeamBuff } from "./types";
 
 export function clamp(v: number, a: number, b: number) {
   return Math.max(a, Math.min(b, v));
@@ -80,8 +81,6 @@ function makeKid(state: GameState, team: Team, x: number, y: number): Kid {
     fidgetWait: rand(0.35, 2.6),
     moving: false,
     ai: makeBrain(x, y),
-    held: null,
-    heldT: 0,
   };
 }
 
@@ -116,6 +115,7 @@ export function createState(
     godSpeed: false,
     pickup: null,
     pickupCd: 2.5,
+    buffs: { red: null, green: null },
   };
 
   const redYs = [128, 270, 412];
@@ -204,6 +204,8 @@ export function throwSnowball(
   dirX: number,
   dirY: number,
   local = false,
+  user = false,
+  consume = true,
 ) {
   if (kid.packT > 0 || kid.state === "pack") return 0;
   const power = state.pvp ? 1 : holdPower(charge, state.godSpeed && kid.team === "red");
@@ -219,11 +221,7 @@ export function throwSnowball(
   if (state.godSpeed && kid.team === "red") speed *= 3;
   const range = state.pvp ? PVP_RANGE : throwRange(power);
   const cover = inFort(kid.x, kid.y, state.forts);
-  const big = kid.held === "big";
-  if (big) {
-    kid.held = null;
-    kid.heldT = 0;
-  }
+  const big = user && takeBigBuff(state, kid.team, consume);
   const ball: Snowball = {
     x: kid.x + nx * 30,
     y: kid.y + ny * 10 - 6,
@@ -652,6 +650,22 @@ function stepFx(state: GameState, dt: number) {
 }
 
 
+export function grantBigBuff(state: GameState, team: Team): TeamBuff {
+  const buff: TeamBuff = { kind: "big", shots: BIG_SHOTS, t: BIG_HELD_TIME };
+  state.buffs[team] = buff;
+  return buff;
+}
+
+export function takeBigBuff(state: GameState, team: Team, consume: boolean) {
+  const buff = state.buffs[team];
+  if (!buff || buff.shots <= 0 || buff.t <= 0) return false;
+  if (consume) {
+    buff.shots -= 1;
+    if (buff.shots <= 0) state.buffs[team] = null;
+  }
+  return true;
+}
+
 export function placePickup(state: GameState, x = 480, y = 270): Pickup {
   const orb: Pickup = { x, y, kind: "big", life: PICKUP_LIFE, maxLife: PICKUP_LIFE };
   state.pickup = orb;
@@ -670,12 +684,13 @@ function spawnPickup(state: GameState): Pickup {
   return placePickup(state);
 }
 
-/** spawn=true on host/solo. Guest only ticks held timers and orb life. */
+/** spawn=true on host/solo. Guest only ticks buff timers and the visible orb. */
 export function stepPickups(state: GameState, dt: number, spawn: boolean) {
-  for (const kid of state.kids) {
-    if (!kid.held) continue;
-    kid.heldT = Math.max(0, (kid.heldT ?? 0) - dt);
-    if (kid.heldT <= 0) kid.held = null;
+  for (const team of ["red", "green"] as const) {
+    const buff = state.buffs[team];
+    if (!buff) continue;
+    buff.t -= dt;
+    if (buff.t <= 0 || buff.shots <= 0) state.buffs[team] = null;
   }
   if (state.pickup) {
     state.pickup.life -= dt;
@@ -684,10 +699,9 @@ export function stepPickups(state: GameState, dt: number, spawn: boolean) {
       if (spawn) state.pickupCd = PICKUP_CD_MIN + Math.random() * (PICKUP_CD_MAX - PICKUP_CD_MIN);
     } else if (spawn) {
       for (const kid of state.kids) {
-        if (isOut(kid) || kid.held) continue;
+        if (isOut(kid)) continue;
         if (Math.hypot(kid.x - state.pickup.x, kid.y - state.pickup.y) > 42) continue;
-        kid.held = state.pickup.kind;
-        kid.heldT = BIG_HELD_TIME;
+        grantBigBuff(state, kid.team);
         burst(state, state.pickup.x, state.pickup.y, 0, 16, "spark");
         state.pickup = null;
         state.pickupCd = PICKUP_CD_MIN + Math.random() * (PICKUP_CD_MAX - PICKUP_CD_MIN);
@@ -696,7 +710,7 @@ export function stepPickups(state: GameState, dt: number, spawn: boolean) {
     }
     return;
   }
-  if (!spawn || state.phase !== "fight" || state.kids.some((k) => k.held)) return;
+  if (!spawn || state.phase !== "fight") return;
   state.pickupCd -= dt;
   if (state.pickupCd <= 0) spawnPickup(state);
 }

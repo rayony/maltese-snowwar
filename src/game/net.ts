@@ -41,7 +41,7 @@ export type NetMsg =
   | { t: "ping"; t0: number }
   | { t: "pong"; t0: number; t1?: number }
   | { t: "loot"; x?: number; y?: number; life?: number }
-  | { t: "got"; id: number };
+  | { t: "got"; team: Team; shots: number; ttl: number };
 
 export interface WireKid {
   id: number;
@@ -62,8 +62,6 @@ export interface WireKid {
   fidgetWait?: number;
   moving: boolean;
   cooldown?: number;
-  held?: "big";
-  heldT?: number;
 }
 
 export interface WireBall {
@@ -106,6 +104,7 @@ export interface WireState {
   kids: WireKid[];
   balls: WireBall[];
   pickup?: GameState["pickup"];
+  buffs?: GameState["buffs"];
   forts?: GameState["forts"];
   particles?: GameState["particles"];
   footprints?: GameState["footprints"];
@@ -134,8 +133,6 @@ function packKid(k: Kid): WireKid {
     packT: Math.round(k.packT * 40) / 40,
     facing: k.facing,
     moving: k.moving,
-    held: k.held === "big" ? "big" : undefined,
-    heldT: k.held === "big" ? k.heldT : undefined,
   };
 }
 
@@ -167,6 +164,7 @@ export function packState(state: GameState): WireState {
       big: b.big || undefined,
     })),
     pickup: state.pickup,
+    buffs: state.buffs,
     forts,
     level: state.level,
     freeze: Math.round(state.freeze * 40) / 40,
@@ -397,13 +395,9 @@ export function applyState(
       ai,
     };
   });
-  for (const k of state.kids) {
-    ensureAi(k);
-    const w = wire.kids.find((x) => x.id === k.id);
-    k.held = w?.held ?? null;
-    k.heldT = w?.heldT ?? 0;
-  }
+  for (const k of state.kids) ensureAi(k);
   if (wire.pickup !== undefined) state.pickup = wire.pickup;
+  if (wire.buffs) state.buffs = wire.buffs;
   if (!opts.hard) {
     const now = typeof performance !== "undefined" ? performance.now() : 0;
     const hold = (opts.keepBallsUntil ?? 0) > now;

@@ -645,7 +645,7 @@ export class SnowCraftGame {
   }
 
   private commitThrow(kid: Kid, hold: number, dx: number, dy: number, local = false, ghost = false) {
-    const power = throwSnowball(this.state, kid, hold, dx, dy, local || ghost);
+    const power = throwSnowball(this.state, kid, hold, dx, dy, local || ghost, true, !ghost);
     if (power <= 0) return 0;
     const ball = this.lastBallFrom(kid.id);
     if (ball && ghost) {
@@ -988,15 +988,15 @@ export class SnowCraftGame {
           this.state.pickup = null;
         }
         break;
-      case "got": {
-        const owner = this.state.kids.find((k) => k.id === data.id);
-        if (owner) {
-          owner.held = "big";
-          owner.heldT = 8;
+      case "got":
+        if (data.team === "red" || data.team === "green") {
+          if (!data.shots) this.state.buffs[data.team] = null;
+          else {
+            this.state.buffs[data.team] = { kind: "big", shots: data.shots, t: data.ttl ?? 10 };
+            this.state.pickup = null;
+          }
         }
-        this.state.pickup = null;
         break;
-      }
       case "bye":
       case "bot":
         if (!this.botTakeover && this.matchStarted) this.enterDisconnect();
@@ -1785,7 +1785,10 @@ export class SnowCraftGame {
     );
     const hpBefore = new Map(this.state.kids.map((k) => [k.id, k.hp]));
     const hadPickup = !!this.state.pickup;
-    const hadHeld = this.state.kids.find((k) => k.held === "big")?.id ?? null;
+    const hadBuff = {
+      red: this.state.buffs.red ? { ...this.state.buffs.red } : null,
+      green: this.state.buffs.green ? { ...this.state.buffs.green } : null,
+    };
     stepSim(
       this.state,
       dt,
@@ -1811,17 +1814,27 @@ export class SnowCraftGame {
         onFort: () => this.audio.fort(),
       },
     );
-    this.syncLoot(hadPickup, hadHeld);
+    this.syncLoot(hadPickup, hadBuff);
     this.handleOutcome();
   }
 
-  private syncLoot(hadPickup: boolean, hadHeld: number | null) {
+  private syncLoot(
+    hadPickup: boolean,
+    hadBuff: { red: { shots: number; t: number } | null; green: { shots: number; t: number } | null },
+  ) {
     if (this.netRole !== "host" || !this.versus || this.botTakeover) return;
     const orb = this.state.pickup;
-    const holder = this.state.kids.find((k) => k.held === "big");
     if (orb && !hadPickup) this.sendNet({ t: "loot", x: orb.x, y: orb.y, life: orb.life });
-    if (!orb && hadPickup && !holder) this.sendNet({ t: "loot" });
-    if (holder && holder.id !== hadHeld) this.sendNet({ t: "got", id: holder.id });
+    if (!orb && hadPickup) this.sendNet({ t: "loot" });
+    for (const team of ["red", "green"] as const) {
+      const now = this.state.buffs[team];
+      const prev = hadBuff[team];
+      if (now && (!prev || prev.shots !== now.shots)) {
+        this.sendNet({ t: "got", team, shots: now.shots, ttl: now.t });
+      } else if (!now && prev) {
+        this.sendNet({ t: "got", team, shots: 0, ttl: 0 });
+      }
+    }
   }
 
   private recordClear() {
@@ -1944,9 +1957,13 @@ export class SnowCraftGame {
   }
 
   private pickupUi() {
-    const mine = this.state.kids.find((k) => k.held === "big" && k.team === this.myTeam());
-    if (mine) return { kind: "big" as const, life: mine.heldT ?? 0, held: true };
-    if (this.state.pickup) return { kind: "big" as const, life: this.state.pickup.life, held: false };
+    const mine = this.state.buffs[this.myTeam()];
+    if (mine && mine.shots > 0 && mine.t > 0) {
+      return { kind: "big" as const, life: mine.t, shots: mine.shots, held: true };
+    }
+    if (this.state.pickup) {
+      return { kind: "big" as const, life: this.state.pickup.life, shots: 0, held: false };
+    }
     return null;
   }
 }
