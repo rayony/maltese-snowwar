@@ -105,6 +105,12 @@ export function stepAi(
           kid.ai.t = rand(0.12, 0.3);
           continue;
         }
+        if (stance === "attack" && shotHitsFort(kid, aim.dx, aim.dy, state.forts)) {
+          kid.ai.phase = "move";
+          kid.ai.t = rand(0.28, 0.5);
+          pickDest(state, kid, stance, false, false);
+          continue;
+        }
         const { dx, dy } = aim;
         const holdScale = stance === "defend" ? 0.42 + 0.35 * kid.ai.charge : 0.58 + 0.42 * kid.ai.charge;
         const hold = MAX_CHARGE * holdScale;
@@ -119,16 +125,16 @@ export function stepAi(
 
     if (kid.ai.t <= 0) {
       const cover = !!inFort(kid.x, kid.y, state.forts);
-      const throwChance =
-        stance === "defend"
-          ? cover
-            ? 0.7
-            : 0.08
-          : stance === "attack"
-            ? kid.packT > 0
-              ? 0.2
-              : 0.82
-            : 0.55;
+      let throwChance = 0.55;
+      if (stance === "defend") {
+        throwChance = cover ? 0.7 : 0.08;
+      } else if (stance === "attack") {
+        const foe = assignedFoe(state, kid);
+        const punish = foeIsOpen(foe);
+        const blocked = foe ? lineHitsFort(kid.x, kid.y, foe.x, foe.y, state.forts) : true;
+        if (blocked) throwChance = 0;
+        else throwChance = punish ? 0.92 : 0.16;
+      }
       if (Math.random() < throwChance && !(forbidFort && cover)) {
         kid.ai.phase = "windup";
         kid.ai.t = rand(0.2, stance === "attack" ? 0.48 : 0.7);
@@ -225,11 +231,14 @@ function pickDest(state: GameState, kid: Kid, stance: "defend" | "attack" | "ene
   if (stance === "attack") {
     const target = assignedFoe(state, kid) ?? closestEnemy(kid, state.kids);
     if (target) {
-      kid.ai!.destX =
+      const y = clearShotY(kid, target, state.forts);
+      const gap = rand(150, 230);
+      const pressX =
         kid.team === "red"
-          ? clampSide(rand(WORLD_W * 0.58, WORLD_W * 0.7), kid.team)
-          : clampSide(rand(WORLD_W * 0.3, WORLD_W * 0.44), kid.team, cross);
-      kid.ai!.destY = clamp(target.y + laneOffset(state, kid, 18), MARGIN, WORLD_H - MARGIN);
+          ? clamp(target.x + gap, WORLD_W * 0.46, WORLD_W * 0.68)
+          : clamp(target.x - gap, WORLD_W * 0.32, WORLD_W * 0.54);
+      kid.ai!.destX = kid.team === "red" ? pressX : clampSide(pressX, kid.team, cross);
+      kid.ai!.destY = clamp(y + laneOffset(state, kid, 10), MARGIN, WORLD_H - MARGIN);
       return;
     }
   }
@@ -323,8 +332,9 @@ function throwAimForStance(kid: Kid, state: GameState, stance: "defend" | "attac
   if (stance === "attack" || stance === "defend") {
     const foe = assignedFoe(state, kid) ?? closestEnemy(kid, state.kids);
     if (!foe) return aiThrowAim(kid, state.kids, hard, false);
+    const aimY = stance === "attack" ? clearShotY(kid, foe, state.forts) : foe.y;
     const dx = foe.x - kid.x;
-    const dy = foe.y - kid.y;
+    const dy = aimY - kid.y;
     if (kid.team === "green" && !hard && dx < 1) return aiThrowAim(kid, state.kids, false, false);
     if (kid.team === "red" && dx > 12 && stance === "defend") {
       const front = closestEnemy(kid, state.kids);
@@ -333,6 +343,47 @@ function throwAimForStance(kid: Kid, state: GameState, stance: "defend" | "attac
     return { dx, dy };
   }
   return aiThrowAim(kid, state.kids, hard && stance === "enemy", hard && stance === "enemy");
+}
+
+function foeIsOpen(foe: Kid | null) {
+  if (!foe) return false;
+  return foe.packT > 0.08 || foe.state === "throw" || foe.state === "hurt" || foe.stun > 0;
+}
+
+function lineHitsFort(x0: number, y0: number, x1: number, y1: number, forts: Fort[]) {
+  const dist = Math.hypot(x1 - x0, y1 - y0);
+  const steps = Math.max(6, Math.ceil(dist / 18));
+  for (let i = 1; i < steps; i++) {
+    const t = i / steps;
+    if (inFort(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, forts)) return true;
+  }
+  return false;
+}
+
+function shotHitsFort(kid: Kid, dx: number, dy: number, forts: Fort[]) {
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = dx / len;
+  const ny = dy / len;
+  return lineHitsFort(kid.x + nx * 28, kid.y + ny * 8, kid.x + nx * 420, kid.y + ny * 420, forts);
+}
+
+function clearShotY(from: Kid, to: Kid, forts: Fort[]) {
+  if (!lineHitsFort(from.x, from.y, to.x, to.y, forts)) return to.y;
+  let hit: Fort | null = null;
+  const dist = Math.hypot(to.x - from.x, to.y - from.y);
+  const steps = Math.max(6, Math.ceil(dist / 18));
+  for (let i = 1; i < steps; i++) {
+    const t = i / steps;
+    const f = inFort(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t, forts);
+    if (f) {
+      hit = f;
+      break;
+    }
+  }
+  if (!hit) return to.y;
+  const above = hit.y - hit.ry - 40;
+  const below = hit.y + hit.ry + 40;
+  return Math.abs(from.y - above) <= Math.abs(from.y - below) ? above : below;
 }
 
 function clamp(v: number, a: number, b: number) {
