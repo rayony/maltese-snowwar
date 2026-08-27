@@ -6,7 +6,7 @@ A browser-based snowball fight: three Maltese vs golden retrievers. Fan tribute 
 > Unofficial fan tribute (二次創作) to Nicholson NY’s **SnowCraft** (1998). This repo only contains the original chibi pups as game characters, which is inspired by [Maltese@moonlab studio](https://www.instagram.com/moonlab_studio/). This is not affiliated with the original authors.  Readers may choose to import and use other characters themselves.
 
 <p align="center">
-  <img src="public/og.jpg" alt="Maltese Snow War — Line Puppy banner" width="640">
+  <img src="public/og.jpg" alt="Maltese Snow War — banner" width="640">
 </p>
 
 
@@ -52,16 +52,16 @@ Two casts:
 
 | Pack | Path | Who uses it |
 |---|---|---|
-| **Line Puppy** (default on grok.me) | `public/sprites/` | Title dogs, in-game, until you switch |
-| **Christmas pups** 小白 / 小金毛 | `public/skins/xmas/sprites/` | Tap the title heads to switch |
+| **Maltese** (default on grok.me) | `public/sprites/` | Title dogs, in-game, until you switch |
+| **Chibi Pups**  | `public/skins/xmas/sprites/` | Tap the title heads to switch |
 
 Snowballs / forts / impacts stay shared in `public/sprites/fx/` (except `buried-*.png`, which follows the skin).
 
 ### In the running game
 
-On the title card, tap the **two round dog heads** (top-right, under mute / language). That toggles Line Puppy ⇄ Christmas. The choice is stored as `localStorage.msw-skin-v2`.
+On the title card, tap the **two round dog heads** (top-right, under mute / language). That toggles Maltese ⇄ Chibi Pups. The choice is stored as `localStorage.msw-skin-v2`.
 
-[grok.me](https://maltese-snowwar.grok.me/) always **starts on Line Puppy**.
+[grok.me](https://maltese-snowwar.grok.me/) always **starts on Maltese**.
 
 ### Swap or add dogs yourself
 
@@ -115,4 +115,4 @@ _This is my first vibe-coding project — let me know if you have thoughts!_
 
 You may copy, learn from, and adapt this repo **for non-commercial use**, with attribution, and keep the same license on remixes. Selling the game, putting it behind ads/paywalls, or using it as a company product is not allowed.
 
-This does **not** license SnowCraft, its name, or other IP from Nicholson NY. Line Puppy art is not published in this GitHub tree.
+This does **not** license SnowCraft, its name, or other IP from Nicholson NY. Maltese art is not published in this GitHub tree.
