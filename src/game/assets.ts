@@ -20,23 +20,22 @@ export interface Assets {
 
 export type SkinId = "classic" | "xmas";
 
-const SKIN_KEY = "msw-skin";
-const SKIN_VER = "7";
+const SKIN_KEY = "msw-skin-v2";
+const SKIN_VER = "8";
 
-let skin: SkinId = "xmas";
-let classicOk = false;
+let skin: SkinId = "classic";
 
 export function currentSkin() {
   return skin;
 }
 
 export function classicAvailable() {
-  return classicOk;
+  return true;
 }
 
-/** Character sprites: classic (line-puppy, Grok-only pack) or xmas (public/sprites). Shared FX stay at /sprites/fx. */
+/** classic = public/sprites (Line Puppy on Grok). xmas = public/skins/xmas. Shared FX stay at /sprites/fx. */
 export function spriteUrl(path: string) {
-  const root = skin === "classic" ? "/skins/line-puppy/sprites" : "/sprites";
+  const root = skin === "xmas" ? "/skins/xmas/sprites" : "/sprites";
   return `${root}/${path}?v=${SKIN_VER}`;
 }
 
@@ -48,17 +47,7 @@ export function buriedUrl(team: "red" | "green") {
   return spriteUrl(`fx/buried-${team}.png`);
 }
 
-async function probe(url: string) {
-  try {
-    const res = await fetch(url, { method: "GET", cache: "force-cache" });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
 export async function initSkin(): Promise<SkinId> {
-  classicOk = await probe(`/skins/line-puppy/sprites/red/idle-1.png?v=${SKIN_VER}`);
   let saved: SkinId | null = null;
   try {
     const raw = localStorage.getItem(SKIN_KEY);
@@ -66,14 +55,11 @@ export async function initSkin(): Promise<SkinId> {
   } catch {
     /* private mode */
   }
-  if (saved === "xmas") skin = "xmas";
-  else if (saved === "classic" && classicOk) skin = "classic";
-  else skin = classicOk ? "classic" : "xmas";
+  skin = saved === "xmas" ? "xmas" : "classic";
   return skin;
 }
 
 export function setSkin(id: SkinId): SkinId {
-  if (id === "classic" && !classicOk) id = "xmas";
   skin = id;
   try {
     localStorage.setItem(SKIN_KEY, id);

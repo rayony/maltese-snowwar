@@ -22,7 +22,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "re
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { SnowCraftGame } from "@/game/game";
-import { classicAvailable, currentSkin, dogUrl, buriedUrl, initSkin, loadBootAssets, toggleSkin, type SkinId } from "@/game/assets";
+import { dogUrl, buriedUrl, initSkin, loadBootAssets, toggleSkin, type SkinId } from "@/game/assets";
 import { normalizeCode } from "@/game/net";
 import { LANGS, htmlLang, useLang, formatClearTime, type I18nKey, type Lang } from "@/game/i18n";
 import { APP_COMMIT_URL, APP_VERSION } from "@/game/version";
@@ -78,8 +78,7 @@ export function SnowCraft() {
   const [qrOpen, setQrOpen] = useState(false);
   const pendingPlay = useRef<"easy" | "hard" | null>(null);
   const [live, setLive] = useState(false);
-  const [skin, setSkin] = useState<SkinId>("xmas");
-  const [canClassic, setCanClassic] = useState(false);
+  const [skin, setSkin] = useState<SkinId>("classic");
   const [bootDone, setBootDone] = useState(0);
   const [bootTotal, setBootTotal] = useState(4);
 
@@ -111,7 +110,6 @@ export function SnowCraft() {
       const id = await initSkin();
       if (cancelled) return;
       setSkin(id);
-      setCanClassic(classicAvailable());
       await loadBootAssets((done, total) => {
         if (!cancelled) {
           setBootDone(done);
@@ -417,19 +415,20 @@ export function SnowCraft() {
                   </div>
                   <button
                     type="button"
-                    className="flex -space-x-2 rounded-full outline-offset-2 hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-tan"
+                    className="pointer-events-auto relative z-20 flex -space-x-2 rounded-full outline-offset-2 hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-tan"
+                    onPointerDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
+                      e.preventDefault();
                       e.stopPropagation();
-                      if (!canClassic && currentSkin() === "xmas") return;
                       const next = toggleSkin();
                       setSkin(next);
                       gameRef.current?.dropAssets();
                     }}
-                    aria-label={skin === "xmas" ? "Line Puppy characters" : "Christmas pup characters"}
-                    title={canClassic ? (skin === "xmas" ? "Switch to Line Puppy" : "Switch to Christmas pups") : undefined}
+                    aria-label={skin === "xmas" ? "Switch to Line Puppy" : "Switch to Christmas pups"}
+                    title={skin === "xmas" ? "Switch to Line Puppy" : "Switch to Christmas pups"}
                   >
-                    <DogHead src={dogUrl("red", "idle", 1)} alt="" kind="maltese" className="z-10" />
-                    <DogHead src={dogUrl("green", "idle", 1)} alt="" kind="retriever" />
+                    <DogHead key={`${skin}-red`} src={dogUrl("red", "idle", 1)} alt="" kind="maltese" className="z-10" />
+                    <DogHead key={`${skin}-green`} src={dogUrl("green", "idle", 1)} alt="" kind="retriever" />
                   </button>
                 </div>
               </div>
