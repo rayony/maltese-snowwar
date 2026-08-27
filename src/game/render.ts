@@ -135,7 +135,7 @@ function contentBox(img: HTMLImageElement): Box | null {
     let maxY = 0;
     for (let y = 0; y < c.height; y++) {
       for (let x = 0; x < c.width; x++) {
-        if (data[(y * c.width + x) * 4 + 3]! > 18) {
+        if (data[(y * c.width + x) * 4 + 3]! > 28) {
           if (x < minX) minX = x;
           if (y < minY) minY = y;
           if (x > maxX) maxX = x;
@@ -161,13 +161,15 @@ function drawAlignedSprite(
   img: HTMLImageElement,
   dest: number,
   fit: "height" | "width" = "height",
+  ref: Box | null = null,
 ) {
   const box = contentBox(img);
   if (!box) {
     ctx.drawImage(img, -dest / 2, -dest + 16, dest, dest);
     return;
   }
-  const s = fit === "height" ? dest / box.h : dest / box.w;
+  const basis = fit === "height" ? (ref ?? box).h : (ref ?? box).w;
+  const s = dest / Math.max(8, basis);
   const dw = box.w * s;
   const dh = box.h * s;
   ctx.drawImage(img, box.x, box.y, box.w, box.h, -dw / 2, -dh + 16, dw, dh);
@@ -496,7 +498,9 @@ function drawKid(
     ctx.translate(0, -lifted);
     if (kid.team === "red" ? kid.facing === -1 : kid.facing === 1) ctx.scale(-1, 1);
     if (kid.flash > 0) ctx.filter = "brightness(2.4)";
-    drawAlignedSprite(ctx, img, size, buried ? "width" : "height");
+    const set = assets ? (kid.team === "red" ? assets.red : assets.green) : null;
+    const idleBox = !buried && set?.idle[0] ? contentBox(set.idle[0]) : null;
+    drawAlignedSprite(ctx, img, size, buried ? "width" : "height", idleBox);
     ctx.filter = "none";
     ctx.restore();
   }
