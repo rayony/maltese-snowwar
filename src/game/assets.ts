@@ -21,7 +21,7 @@ export interface Assets {
 export type SkinId = "classic" | "xmas";
 
 const SKIN_KEY = "msw-skin-v2";
-const SKIN_VER = "8";
+const SKIN_VER = "9";
 
 let skin: SkinId = "classic";
 

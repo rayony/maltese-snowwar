@@ -20,7 +20,7 @@ import {
   type PoseSample,
 } from "./net";
 import { render, worldFromClient, clampWorldToView } from "./render";
-import { aimFromKid, burst, claimPickup, clamp, createState, isOut, living, placePickup, puffMissingBalls, snapCombatFx, stepOneBall, stepPickups, stepPresentation, stepSim, throwSnowball } from "./sim";
+import { aimFromKid, burst, claimPickup, clamp, createState, faceNearest, isOut, living, placePickup, puffMissingBalls, snapCombatFx, stepOneBall, stepPickups, stepPresentation, stepSim, throwSnowball } from "./sim";
 import type {
   AllyMode,
   Difficulty,
@@ -1850,6 +1850,7 @@ export class SnowCraftGame {
       stepPresentation(this.state, dt);
       stepPickups(this.state, dt, false);
       this.clampOwnTeam();
+      faceNearest(this.state, this.seat);
       this.sendAllyPose();
       return;
     }
