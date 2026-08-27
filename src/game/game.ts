@@ -215,6 +215,15 @@ export class SnowCraftGame {
     return this.restPromise;
   }
 
+  /** Drop loaded sprites so a skin change reloads the next match. */
+  dropAssets() {
+    this.assets = null;
+    this.restPromise = null;
+    this.restLoading = false;
+    this.loadDone = 0;
+    this.loadTotal = ASSET_TOTAL;
+  }
+
   destroy() {
     this.destroyed = true;
     cancelAnimationFrame(this.raf);

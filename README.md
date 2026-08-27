@@ -46,6 +46,8 @@ Languages: English · 繁中 · 简体 · 日本語 · 한국어 (EN + 繁中 lo
 
 Landing boot: spinner + English title assets, then Play vs AI / Friend. Action sprites load **after** the mode is chosen (progress bar) — nothing streams in mid-match.
 
+On GitHub / this repo the dogs are original Christmas chibi pups (小白 / 小金毛). The Grok live build can still ship the Line Puppy pack locally; tap the two round dog heads on the title card to switch skins.
+
 ## Local development
 
 ```bash

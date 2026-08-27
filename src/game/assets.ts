@@ -18,6 +18,75 @@ export interface Assets {
   ready: boolean;
 }
 
+export type SkinId = "classic" | "xmas";
+
+const SKIN_KEY = "msw-skin";
+const SKIN_VER = "7";
+
+let skin: SkinId = "xmas";
+let classicOk = false;
+
+export function currentSkin() {
+  return skin;
+}
+
+export function classicAvailable() {
+  return classicOk;
+}
+
+/** Character sprites: classic (line-puppy, Grok-only pack) or xmas (public/sprites). Shared FX stay at /sprites/fx. */
+export function spriteUrl(path: string) {
+  const root = skin === "classic" ? "/skins/line-puppy/sprites" : "/sprites";
+  return `${root}/${path}?v=${SKIN_VER}`;
+}
+
+export function dogUrl(team: "red" | "green", pose: string, frame = 1) {
+  return spriteUrl(`${team}/${pose}-${frame}.png`);
+}
+
+export function buriedUrl(team: "red" | "green") {
+  return spriteUrl(`fx/buried-${team}.png`);
+}
+
+async function probe(url: string) {
+  try {
+    const res = await fetch(url, { method: "GET", cache: "force-cache" });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function initSkin(): Promise<SkinId> {
+  classicOk = await probe(`/skins/line-puppy/sprites/red/idle-1.png?v=${SKIN_VER}`);
+  let saved: SkinId | null = null;
+  try {
+    const raw = localStorage.getItem(SKIN_KEY);
+    if (raw === "classic" || raw === "xmas") saved = raw;
+  } catch {
+    /* private mode */
+  }
+  if (saved === "xmas") skin = "xmas";
+  else if (saved === "classic" && classicOk) skin = "classic";
+  else skin = classicOk ? "classic" : "xmas";
+  return skin;
+}
+
+export function setSkin(id: SkinId): SkinId {
+  if (id === "classic" && !classicOk) id = "xmas";
+  skin = id;
+  try {
+    localStorage.setItem(SKIN_KEY, id);
+  } catch {
+    /* ignore */
+  }
+  return skin;
+}
+
+export function toggleSkin(): SkinId {
+  return setSkin(skin === "xmas" ? "classic" : "xmas");
+}
+
 function loadImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image();
@@ -41,28 +110,29 @@ function loadImage(src: string) {
 }
 
 function frames(team: "red" | "green", pose: string) {
-  return [1, 2, 3, 4].map((i) => `/sprites/${team}/${pose}-${i}.png?v=5`);
+  return [1, 2, 3, 4].map((i) => dogUrl(team, pose, i));
 }
 
-export const CORE_URLS = [
-  "/sprites/red/idle-1.png?v=5",
-  "/sprites/green/idle-1.png?v=5",
-  "/sprites/fx/fort.png?v=3",
-] as const;
+export function coreUrls() {
+  return [dogUrl("red", "idle", 1), dogUrl("green", "idle", 1), "/sprites/fx/fort.png?v=3"];
+}
 
 /** Title-screen English boot — no action poses, no music. */
-export const BOOT_URLS = [
-  "/images/title-bg.jpg?v=3",
-  "/fonts/Caveat-script.woff2",
-  "/sprites/red/idle-1.png?v=5",
-  "/sprites/green/idle-1.png?v=5",
-] as const;
+export function bootUrls() {
+  return [
+    "/images/title-bg.jpg?v=3",
+    "/fonts/Caveat-script.woff2",
+    dogUrl("red", "idle", 1),
+    dogUrl("green", "idle", 1),
+  ];
+}
 
 export async function loadBootAssets(onProgress?: (done: number, total: number) => void) {
-  const total = BOOT_URLS.length;
+  const urls = bootUrls();
+  const total = urls.length;
   let done = 0;
   await Promise.all(
-    BOOT_URLS.map(async (src) => {
+    urls.map(async (src) => {
       try {
         if (src.endsWith(".woff2")) {
           const buf = await fetch(src).then((r) => r.arrayBuffer());
@@ -91,12 +161,12 @@ export function restUrls() {
     ...poses.flatMap((p) => frames("green", p)),
     ...[1, 2, 3, 4].map((i) => `/sprites/fx/projectile-${i}.png?v=3`),
     ...[1, 2, 3, 4].map((i) => `/sprites/fx/impact-${i}.png?v=3`),
-    "/sprites/fx/buried-red.png?v=3",
-    "/sprites/fx/buried-green.png?v=3",
+    buriedUrl("red"),
+    buriedUrl("green"),
   ];
 }
 
-export const ASSET_TOTAL = CORE_URLS.length + restUrls().length;
+export const ASSET_TOTAL = 3 + 6 * 4 * 2 + 4 + 4 + 2;
 
 async function loadTracked(urls: string[], onProgress?: (done: number, total: number) => void, start = 0, total = urls.length) {
   let done = start;
@@ -115,7 +185,8 @@ async function loadTracked(urls: string[], onProgress?: (done: number, total: nu
 
 /** Idle only — enough to paint Maltese / retriever instead of placeholder blobs. */
 export async function loadCoreAssets(onProgress?: (done: number, total: number) => void): Promise<Assets> {
-  const imgs = await loadTracked([...CORE_URLS], onProgress, 0, ASSET_TOTAL);
+  const urls = coreUrls();
+  const imgs = await loadTracked(urls, onProgress, 0, ASSET_TOTAL);
   const empty = [] as HTMLImageElement[];
   const redIdle = imgs[0]!;
   const greenIdle = imgs[1]!;
@@ -154,7 +225,7 @@ export async function loadRestAssets(
   onProgress?: (done: number, total: number) => void,
 ): Promise<void> {
   const urls = restUrls();
-  const imgs = await loadTracked(urls, onProgress, CORE_URLS.length, ASSET_TOTAL);
+  const imgs = await loadTracked(urls, onProgress, coreUrls().length, ASSET_TOTAL);
   let i = 0;
   const take = (n: number) => imgs.slice(i, (i += n));
   assets.red.throw = take(4);
