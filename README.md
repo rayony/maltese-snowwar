@@ -1,5 +1,5 @@
 # Maltese Snow War
-Open-source fan tribute based on epic flash game “SnowCraft":  a browser-based snowball fight game: three Maltese vs golden retrievers. Hold a dog to move, release to throw, pack snow between shots. Two hits bury; ellipse forts block shots.
+A browser-based snowball fight: three Maltese vs golden retrievers. Fan tribute to the Flash game “SnowCraft”. Hold a dog to move, release to throw, pack snow between shots. Two hits bury; ellipse forts block shots.
 
 **Play Now:** [maltese-snowwar.grok.me](https://maltese-snowwar.grok.me/)
 
@@ -106,6 +106,14 @@ Details: [Maltese-Snow-War-Architecture.pdf](public/Maltese-Snow-War-Architectur
 
 ## Credits
 
-Open-source fan work. Produced by **Gary.TC**. Gameplay after SnowCraft; fight feel also referenced [snowcraftjs](https://github.com/jeffreywilbur/snowcraftjs) by jeffreywilbur.
+Fan work by **Gary.TC**. Gameplay after SnowCraft; fight feel also referenced [snowcraftjs](https://github.com/jeffreywilbur/snowcraftjs) by jeffreywilbur.
 
 _This is my first vibe-coding project — let me know if you have thoughts!_
+
+## License
+
+[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) — see [LICENSE](LICENSE).
+
+You may copy, learn from, and adapt this repo **for non-commercial use**, with attribution, and keep the same license on remixes. Selling the game, putting it behind ads/paywalls, or using it as a company product is not allowed.
+
+This does **not** license SnowCraft, its name, or other IP from Nicholson NY. Line Puppy art is not published in this GitHub tree.
