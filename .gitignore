@@ -6,3 +6,5 @@ node_modules/
 !.env.example
 # Line Puppy pack — Grok live only, not published to GitHub
 public/skins/line-puppy/
+# Sprite generation workspace (raw sheets, Imagine outputs) — local only
+assets/
