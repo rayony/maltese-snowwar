@@ -3,7 +3,7 @@ Open-source fan tribute based on epic flash game “SnowCraft":  a browser-based
 
 **Play Now:** [maltese-snowwar.grok.me](https://maltese-snowwar.grok.me/)
 
-> Unofficial fan tribute (二次創作) to Nicholson NY’s **SnowCraft** (1998). Dogs after 線條小狗 (moonlab). Not affiliated with the original authors.
+> Unofficial fan tribute (二次創作) to Nicholson NY’s **SnowCraft** (1998). This repo’s dogs are original Christmas chibi pups (小白 / 小金毛). Not affiliated with the original authors.
 
 <p align="center">
   <img src="public/og.jpg" alt="Maltese Snow War" width="640">
@@ -46,7 +46,46 @@ Languages: English · 繁中 · 简体 · 日本語 · 한국어 (EN + 繁中 lo
 
 Landing boot: spinner + English title assets, then Play vs AI / Friend. Action sprites load **after** the mode is chosen (progress bar) — nothing streams in mid-match.
 
-On GitHub / this repo the dogs are original Christmas chibi pups (小白 / 小金毛). The Grok live build can still ship the Line Puppy pack locally; tap the two round dog heads on the title card to switch skins.
+## Character skins
+
+**This GitHub repo ships the Christmas pups** (white 小白, gold 小金毛). Snowballs / forts / impacts stay shared.
+
+### In the running game
+
+On the title card, tap the **two round dog heads** (top-right, under mute / language).
+
+| Build | What happens |
+|---|---|
+| [grok.me](https://maltese-snowwar.grok.me/) | Starts on Line Puppy. Tap heads ⇄ Christmas pups. Choice is remembered in `localStorage` (`msw-skin`). |
+| Clone of this repo | Only Christmas pups are in git, so the heads stay on that set unless you add a second pack (below). |
+
+### Swap the default dogs yourself
+
+Replace files under `public/sprites/` with the **same names**. PNG, ~128×128, transparent, character facing **left** (the game mirrors). Keep `idle-1.png` as the title portrait.
+
+```
+public/sprites/
+  red/     idle throw hurt walk pack wave dance   × 1–4.png   ← your “Maltese” / right team
+  green/   idle throw hurt walk pack wave dance   × 1–4.png   ← your “retrievers” / left team
+  fx/      buried-red.png  buried-green.png
+           fort.png  projectile-1..4.png  impact-1..4.png     ← leave these unless you want new FX
+```
+
+Then refresh (bump `SKIN_VER` in `src/game/assets.ts` if the browser caches old PNGs).
+
+### Optional second pack (title-head toggle)
+
+The live Grok build keeps Line Puppy **out of git** and loads it only if this folder exists:
+
+```
+public/skins/line-puppy/sprites/red/idle-1.png
+public/skins/line-puppy/sprites/green/idle-1.png
+…same pose files as public/sprites/…
+```
+
+If that idle file is reachable, the title heads toggle `classic` ⇄ `xmas`. Copy any extra cast into `public/skins/line-puppy/sprites/` using the same layout; do not commit art you cannot publish.
+
+`public/skins/line-puppy/` is gitignored on purpose.
 
 ## Local development
 
