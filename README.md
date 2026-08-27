@@ -8,6 +8,7 @@ Fan tribute to classic **SnowCraft** (Nicholson NY, 1998): three Maltese vs gold
 
 ## Live play
 
+- Try the demo here: [maltese-snowwar.grok.me](https://maltese-snowwar.grok.me/)
 - Deploy from this repo (Vercel / your host) after `npm run build`
 - Open the same URL on two devices → **Play vs Friend** → share the 6-letter room code or QR
 
@@ -52,9 +53,6 @@ Host runs the authoritative sim. Guests send inputs; host broadcasts **binary po
 There is two modes: Play vs AI (Easy / Hard) on one machine, and Play vs Friend connected two devices via a 6-letter room code.  VS AI uses three white Maltese (red hats) stand on the right against several brown Retriever (green hats) on the left.  For VS Friend, the host always plays the Maltese, guest is mirrored and plays the Retriever.
 
 There is no dedicated game-simulation server — the host’s browser is the authority; a small signaling server only helps the two browsers find each other, and various netcode techniques.
-
-Try the demo here:
-[maltese-snowwar.grok.me](https://maltese-snowwar.grok.me/)
 
 To understand more, pls refer:
 https://github.com/rayony/maltese-snowwar/blob/main/public/Maltese-Snow-War-Architecture.pdf
