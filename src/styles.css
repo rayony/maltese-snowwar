@@ -226,6 +226,29 @@ html[lang="ko"] {
   animation: pickup-glow 1s ease-in-out infinite;
 }
 
+/* iOS Safari: text-stroke + paint-order + custom fonts / backdrop-filter
+   can crash WebContent ("A problem repeatedly occurred"). */
+@supports (-webkit-touch-callout: none) {
+  .font-script,
+  .font-title-script,
+  .font-motto-script {
+    -webkit-text-stroke: 0 !important;
+    paint-order: normal;
+  }
+  .pickup-notice {
+    -webkit-text-stroke: 0;
+    paint-order: normal;
+    text-shadow:
+      0 1px 0 var(--color-ink),
+      0 0 10px var(--color-tan);
+  }
+  .backdrop-blur-sm,
+  .backdrop-blur-\[2px\] {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

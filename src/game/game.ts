@@ -120,7 +120,8 @@ export class SnowCraftGame {
 
   constructor(canvas: HTMLCanvasElement, onUi: (s: UiSnapshot) => void) {
     this.canvas = canvas;
-    this.ctx = canvas.getContext("2d")!;
+    this.ctx = canvas.getContext("2d", { alpha: false }) ?? canvas.getContext("2d");
+    if (!this.ctx) throw new Error("Canvas 2D is not available");
     this.onUi = onUi;
     try {
       const raw = localStorage.getItem(SAVE_KEY);
@@ -1601,7 +1602,7 @@ export class SnowCraftGame {
         kid.viewY = kid.y;
       }
     }
-    this.draw();
+    if (this.screen !== "title") this.draw();
   };
 
   private tickCount() {

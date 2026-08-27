@@ -38,7 +38,8 @@ export class GameAudio {
   unlock() {
     if (!this.ctx) {
       const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      this.ctx = new Ctx({ latencyHint: "interactive" });
+      const ios = /iP(ad|hone|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      this.ctx = ios ? new Ctx() : new Ctx({ latencyHint: "interactive" });
       this.master = this.ctx.createGain();
       this.sfx = this.ctx.createGain();
       this.music = this.ctx.createGain();
