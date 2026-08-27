@@ -14,20 +14,6 @@
   font-display: swap;
   src: url("/fonts/ChenYuluoyan-title.woff2") format("woff2");
 }
-@font-face {
-  font-family: "Klee One";
-  font-style: normal;
-  font-weight: 400 700;
-  font-display: swap;
-  src: url("/fonts/KleeOne-title.woff2") format("woff2");
-}
-@font-face {
-  font-family: "Ma Shan Zheng";
-  font-style: normal;
-  font-weight: 400 700;
-  font-display: swap;
-  src: url("/fonts/MaShanZheng-title.woff2") format("woff2");
-}
 
 @theme {
   --color-bg: #d7e4ee;
