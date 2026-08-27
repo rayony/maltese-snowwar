@@ -345,13 +345,23 @@ export function SnowCraft() {
 
       {ui.screen === "title" && live && (
         <div
-          className="fixed inset-0 z-50 flex items-stretch justify-center bg-ink bg-cover bg-center p-3 sm:p-4"
+          className={cn(
+            "fixed inset-0 z-50 flex justify-center bg-ink bg-cover bg-center",
+            landscapePhone ? "items-center p-2" : "items-stretch p-3 sm:p-4",
+          )}
           style={{ backgroundImage: "url(/images/title-bg.jpg?v=3)", touchAction: "manipulation" }}
           onPointerDown={() => gameRef.current?.armTitleAudio()}
         >
           <div className="pointer-events-none absolute inset-0 bg-ink/45" />
-          <div className="relative z-10 flex h-full max-h-[min(92dvh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-surface/15 bg-ink/80 shadow-xl pb-[env(safe-area-inset-bottom)]">
-            <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-8">
+          <div
+            className={cn(
+              "relative z-10 flex w-full max-w-lg flex-col overflow-hidden rounded-xl border border-surface/15 bg-ink/80 shadow-xl",
+              landscapePhone
+                ? "max-h-[calc(100svh-0.7rem)]"
+                : "h-full max-h-[min(92dvh,720px)] pb-[env(safe-area-inset-bottom)]",
+            )}
+          >
+            <div className={cn("shrink-0", landscapePhone ? "px-4 pb-1 pt-3" : "px-5 pt-5 sm:px-8 sm:pt-8")}>
               <div className="flex items-start justify-end gap-3">
                 <div className="flex shrink-0 items-center gap-1.5">
                     <button
@@ -369,17 +379,27 @@ export function SnowCraft() {
                     <LangMenu lang={lang} onChange={setLang} label={t("language")} tone="title" />
                 </div>
               </div>
-              <div className="mt-2 flex items-start justify-between gap-3">
+              <div className={cn("flex items-start justify-between gap-3", landscapePhone ? "mt-0.5" : "mt-2")}>
                 <div className="min-w-0 flex-1">
                   <h1
                     lang={htmlLang(lang)}
-                    className="font-title-script text-[clamp(1.7rem,7.2vw,3rem)] leading-snug tracking-tight text-surface sm:text-5xl"
+                    className={cn(
+                      "font-title-script leading-snug tracking-tight text-surface",
+                      landscapePhone
+                        ? "text-[clamp(1.35rem,5.4vw,2.1rem)]"
+                        : "text-[clamp(1.7rem,7.2vw,3rem)] sm:text-5xl",
+                    )}
                   >
                     {t("gameTitle")}
                   </h1>
                   <p
                     lang={htmlLang(lang)}
-                    className="mt-1.5 font-motto-script text-[clamp(1.05rem,4.6vw,1.5rem)] leading-snug text-[#fff3c4] sm:text-2xl"
+                    className={cn(
+                      "font-motto-script leading-snug text-[#fff3c4]",
+                      landscapePhone
+                        ? "mt-0.5 text-[clamp(0.9rem,3.6vw,1.2rem)]"
+                        : "mt-1.5 text-[clamp(1.05rem,4.6vw,1.5rem)] sm:text-2xl",
+                    )}
                   >
                     {t("slogan")}
                   </p>
@@ -389,54 +409,68 @@ export function SnowCraft() {
                   <DogHead src="/sprites/green/idle-1.png" alt="" kind="retriever" />
                 </div>
               </div>
-              {!vsGate && !aiGate && (
-                <>
-                  <p className="mt-3 text-sm leading-relaxed text-surface/80">
-                    {t("blurb")}
-                  </p>
-                </>
+            </div>
+            <div
+              className={cn(
+                "min-h-0 flex-1 overflow-y-auto",
+                landscapePhone ? "px-4 py-1" : "px-5 py-3 sm:px-8",
+              )}
+            >
+              {!vsGate && !aiGate && !landscapePhone && (
+                <p className="text-sm leading-relaxed text-surface/80">
+                  {t("blurb")}
+                </p>
               )}
               {aiGate && (
-                <div className="mt-3">
-                  <h2 className="font-display text-2xl font-semibold text-surface sm:text-3xl">
+                <div>
+                  <h2 className={cn("font-display font-semibold text-surface", landscapePhone ? "text-lg" : "text-2xl sm:text-3xl")}>
                     {t("playVsAi")}
                   </h2>
-                  <ol className="mt-3 space-y-1 text-sm text-surface/75">
+                  <ol className={cn("mt-2 space-y-1 text-surface/75", landscapePhone ? "text-xs" : "text-sm")}>
                     <li>{t("aiHow1")}</li>
                     <li>{t("aiHow2")}</li>
                     <li>{t("aiHow3")}</li>
                   </ol>
-                  <p className="mt-3 text-sm leading-relaxed text-surface/80">
-                    {t("easyBlurb")}
-                  </p>
-                  <p className="mt-2 text-sm font-medium text-surface/90">{t("hard")}</p>
-                  <ul className="mt-1 list-disc space-y-0.5 pl-4 text-sm leading-relaxed text-surface/75">
-                    <li>{t("hard1")}</li>
-                    <li>{t("hard2")}</li>
-                    <li>{t("hard3")}</li>
-                    <li>{t("hard4")}</li>
-                  </ul>
+                  {!landscapePhone && (
+                    <>
+                      <p className="mt-3 text-sm leading-relaxed text-surface/80">
+                        {t("easyBlurb")}
+                      </p>
+                      <p className="mt-2 text-sm font-medium text-surface/90">{t("hard")}</p>
+                      <ul className="mt-1 list-disc space-y-0.5 pl-4 text-sm leading-relaxed text-surface/75">
+                        <li>{t("hard1")}</li>
+                        <li>{t("hard2")}</li>
+                        <li>{t("hard3")}</li>
+                        <li>{t("hard4")}</li>
+                      </ul>
+                    </>
+                  )}
                 </div>
               )}
               {vsGate && (
-                <div className="mt-3">
-                  <h2 className="font-display text-2xl font-semibold text-surface sm:text-3xl">
+                <div>
+                  <h2 className={cn("font-display font-semibold text-surface", landscapePhone ? "text-lg" : "text-2xl sm:text-3xl")}>
                     {t("playVsFriend")}
                   </h2>
-                  <p className="mt-2 text-sm leading-relaxed text-surface/80">
+                  <p className={cn("mt-2 leading-relaxed text-surface/80", landscapePhone ? "text-xs" : "text-sm")}>
                     {t("vsFriendLead")}
                   </p>
-                  <ul className="mt-2 list-disc space-y-0.5 pl-4 text-sm leading-relaxed text-surface/75">
-                    <li>{t("vsRule1")}</li>
-                    <li>{t("vsRule2")}</li>
-                    <li>{t("vsRule3")}</li>
-                    <li>{t("vsRule4")}</li>
-                  </ul>
+                  {!landscapePhone && (
+                    <ul className="mt-2 list-disc space-y-0.5 pl-4 text-sm leading-relaxed text-surface/75">
+                      <li>{t("vsRule1")}</li>
+                      <li>{t("vsRule2")}</li>
+                      <li>{t("vsRule3")}</li>
+                      <li>{t("vsRule4")}</li>
+                    </ul>
+                  )}
                 </div>
               )}
             </div>
             <div
-              className="relative z-20 shrink-0 border-t border-surface/10 bg-ink/90 p-4 sm:p-5"
+              className={cn(
+                "relative z-20 shrink-0 border-t border-surface/10 bg-ink/90",
+                landscapePhone ? "px-3 py-2.5" : "p-4 sm:p-5",
+              )}
               style={{ touchAction: "manipulation" }}
             >
               {aiGate ? (
@@ -479,12 +513,13 @@ export function SnowCraft() {
                   </Button>
                 </div>
               ) : !vsGate ? (
-                <div className="flex flex-col gap-2.5">
-                  <p className="text-center text-xs text-ice">{t("unofficial")}</p>
+                <div className="flex flex-col gap-2">
+                  <p className="text-center text-[10px] text-ice sm:text-xs">{t("unofficial")}</p>
+                  <div className="flex gap-2">
                   <button
                     type="button"
                     data-testid="play-vs-ai"
-                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-7 text-base font-medium text-primary-fg shadow-sm [touch-action:manipulation] hover:bg-primary/90"
+                    className="inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary px-2 text-sm font-medium text-primary-fg shadow-sm [touch-action:manipulation] hover:bg-primary/90 sm:h-12 sm:text-base"
                     onClick={() => setAiGate(true)}
                   >
                     <Play className="size-4 shrink-0" />
@@ -493,12 +528,13 @@ export function SnowCraft() {
                   <button
                     type="button"
                     data-testid="play-vs-friend"
-                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#3d8fd4] px-7 text-base font-medium text-white shadow-sm [touch-action:manipulation] hover:bg-[#347ebd]"
+                    className="inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#3d8fd4] px-2 text-sm font-medium text-white shadow-sm [touch-action:manipulation] hover:bg-[#347ebd] sm:h-12 sm:text-base"
                     onClick={() => setVsGate(true)}
                   >
                     <Users className="size-4 shrink-0" />
                     {t("playVsFriend")}
                   </button>
+                  </div>
                   {ui.net.error && <p className="text-center text-xs text-primary">{ui.net.error}</p>}
                   {ui.clearEasyMs || ui.clearHardMs ? (
                     <div className="space-y-0.5 text-center text-xs text-ice">
@@ -522,7 +558,7 @@ export function SnowCraft() {
                       <p className="text-center text-xs text-ice">{t("bestLevel", { n: ui.best })}</p>
                     )
                   )}
-                  <div className="mt-3 flex items-center justify-center gap-4 text-[11px]">
+                  <div className={cn("flex items-center justify-center gap-4 text-[11px]", landscapePhone ? "mt-1" : "mt-3")}>
                     <Link
                       to="/credits"
                       className="text-ice underline decoration-ice/40 underline-offset-2 hover:text-surface"
@@ -547,6 +583,8 @@ export function SnowCraft() {
                       {t("github")}
                     </a>
                   </div>
+                  {!landscapePhone && (
+                    <>
                   <p className="mt-3 text-center text-[11px] leading-relaxed text-surface/50">
                     {t("fanTribute")}
                   </p>
@@ -560,6 +598,8 @@ export function SnowCraft() {
                   >
                     {APP_VERSION}
                   </a>
+                    </>
+                  )}
                 </div>
               ) : (
                 <div className="flex flex-col gap-2.5">
@@ -770,7 +810,7 @@ export function SnowCraft() {
             return (
               <div className="flex flex-col items-center text-center">
                 <ResultMascot win={win} team={ui.net.team} />
-                <h2 className="mt-3 font-display text-3xl font-semibold">
+                <h2 className="mt-2 font-display text-2xl font-semibold max-[500px]:text-xl sm:mt-3 sm:text-3xl">
                   {win ? t("victory") : t("buried")}
                 </h2>
                 {win && (
@@ -790,7 +830,7 @@ export function SnowCraft() {
           {ui.net.rematchMine && !ui.net.rematchTheirs && (
             <p className="mt-3 text-sm text-muted">{t("rematchWait")}</p>
           )}
-          <div className="mt-6 flex flex-col gap-2">
+          <div className="mt-4 flex flex-col gap-2 sm:mt-6">
             <Button
               size="lg"
               onClick={() => (rematchOpen ? g?.voteRematch(true) : g?.retry())}
@@ -925,7 +965,7 @@ function ResultMascot({ win, team }: { win: boolean; team: Team }) {
   const src = win ? dance[frame]! : `/sprites/fx/buried-${side}.png?v=3`;
   return (
     <span
-      className="relative size-24 overflow-hidden rounded-full border border-ink/10 bg-[#c5d6e2] shadow-inner sm:size-28"
+      className="relative size-16 overflow-hidden rounded-full border border-ink/10 bg-[#c5d6e2] shadow-inner max-[500px]:size-14 sm:size-24"
       aria-hidden
     >
       <img
@@ -1138,13 +1178,13 @@ function Modal({ children, appear }: { children: ReactNode; appear?: boolean }) 
   return (
     <div
       className={cn(
-        "absolute inset-0 flex items-center justify-center bg-ink/55 p-4 backdrop-blur-[2px]",
+        "fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-ink/55 px-3 py-3 pt-[max(0.5rem,env(safe-area-inset-top))] pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-[2px]",
         appear && "modal-veil",
       )}
     >
       <div
         className={cn(
-          "w-full max-w-sm rounded-xl border border-surface/15 bg-surface p-6 text-ink shadow-xl sm:p-7",
+          "my-auto w-full max-w-sm max-h-[calc(100svh-1rem)] overflow-y-auto rounded-xl border border-surface/15 bg-surface p-4 text-ink shadow-xl sm:p-7",
           appear && "modal-pop",
         )}
       >
