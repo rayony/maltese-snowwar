@@ -25,8 +25,8 @@ export const Route = createRootRoute({
       { rel: "apple-touch-icon", href: "/__grok/icon-180.png" },
       { rel: "preload", href: "/images/title-bg.jpg?v=3", as: "image" },
       { rel: "preload", href: "/fonts/Caveat-script.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" },
-      { rel: "preload", href: "/sprites/red/idle-1.png?v=8", as: "image" },
-      { rel: "preload", href: "/sprites/green/idle-1.png?v=8", as: "image" },
+      { rel: "preload", href: "/sprites/red/idle-1.png?v=9", as: "image" },
+      { rel: "preload", href: "/sprites/green/idle-1.png?v=9", as: "image" },
     ],
   }),
   component: () => (

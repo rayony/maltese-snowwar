@@ -772,6 +772,7 @@ export function stepSim(
   stepPickups(state, dt, true);
   stepBalls(state, dt, onHit, extra);
   separate(state, dt);
+  faceNearest(state);
   stepFx(state, dt);
 
   const reds = living(state.kids, "red").length;
@@ -783,6 +784,16 @@ export function stepSim(
 export function faceFromDir(dx: number, dy: number, fallback: 1 | -1): 1 | -1 {
   if (Math.abs(dx) < Math.max(0.12, Math.abs(dy) * 0.35)) return fallback;
   return dx < 0 ? -1 : 1;
+}
+
+/** Face the nearest living foe. Straight up/down keeps the last facing. */
+export function faceNearest(state: GameState, team?: Team) {
+  for (const kid of state.kids) {
+    if (team && kid.team !== team) continue;
+    if (isOut(kid) || kid.state === "hurt") continue;
+    const { dx, dy } = aimFromKid(kid, state.kids);
+    kid.facing = faceFromDir(dx, dy, kid.facing);
+  }
 }
 
 export function aimFromKid(kid: Kid, kids: Kid[], _extraX = 0, _extraY = 0, scatter = false, _allowBack = false) {

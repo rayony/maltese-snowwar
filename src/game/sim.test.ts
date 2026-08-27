@@ -10,6 +10,8 @@ import {
   claimPickup,
   closestEnemy,
   createState,
+  faceFromDir,
+  faceNearest,
   isOut,
   living,
   stepPickups,
@@ -100,6 +102,45 @@ describe("aimFromKid", () => {
     const { dx, dy } = aimFromKid(me, [me, foe]);
     assert.equal(dx, 0);
     assert.ok(dy < 0);
+  });
+});
+
+describe("faceNearest", () => {
+  it("red faces left toward a foe on the left", () => {
+    const me = kid({ id: 1, team: "red", x: 700, y: 200, facing: -1 });
+    const foe = kid({ id: 2, team: "green", x: 200, y: 200 });
+    const state = createState(1);
+    state.kids = [me, foe];
+    faceNearest(state);
+    assert.equal(me.facing, -1);
+  });
+
+  it("red faces right when the nearest foe is on the right", () => {
+    const me = kid({ id: 1, team: "red", x: 300, y: 200, facing: -1 });
+    const foe = kid({ id: 2, team: "green", x: 500, y: 200 });
+    const state = createState(1);
+    state.kids = [me, foe];
+    faceNearest(state);
+    assert.equal(me.facing, 1);
+  });
+
+  it("green (pvp guest) faces the nearest maltese, including behind", () => {
+    const me = kid({ id: 1, team: "green", x: 200, y: 200, facing: 1 });
+    const foe = kid({ id: 2, team: "red", x: 100, y: 200 });
+    const state = createState(1);
+    state.kids = [me, foe];
+    faceNearest(state, "green");
+    assert.equal(me.facing, -1);
+  });
+
+  it("pure vertical aim keeps previous facing", () => {
+    const me = kid({ id: 1, team: "red", x: 400, y: 300, facing: -1 });
+    const foe = kid({ id: 2, team: "green", x: 400, y: 100 });
+    const state = createState(1);
+    state.kids = [me, foe];
+    faceNearest(state);
+    assert.equal(me.facing, -1);
+    assert.equal(faceFromDir(0, -1, 1), 1);
   });
 });
 
