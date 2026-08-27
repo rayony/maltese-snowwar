@@ -50,6 +50,40 @@ export const CORE_URLS = [
   "/sprites/fx/fort.png?v=3",
 ] as const;
 
+/** Title-screen English boot — no action poses, no music. */
+export const BOOT_URLS = [
+  "/images/title-bg.jpg?v=3",
+  "/fonts/Caveat-script.woff2",
+  "/sprites/red/idle-1.png?v=5",
+  "/sprites/green/idle-1.png?v=5",
+] as const;
+
+export async function loadBootAssets(onProgress?: (done: number, total: number) => void) {
+  const total = BOOT_URLS.length;
+  let done = 0;
+  await Promise.all(
+    BOOT_URLS.map(async (src) => {
+      try {
+        if (src.endsWith(".woff2")) {
+          const buf = await fetch(src).then((r) => r.arrayBuffer());
+          if (typeof FontFace !== "undefined") {
+            const face = new FontFace("Caveat", buf);
+            await face.load();
+            document.fonts.add(face);
+          }
+        } else {
+          await loadImage(src);
+        }
+      } catch {
+        /* still count so the title can open */
+      } finally {
+        done += 1;
+        onProgress?.(done, total);
+      }
+    }),
+  );
+}
+
 export function restUrls() {
   const poses = ["throw", "hurt", "dance", "wave", "walk", "pack"] as const;
   return [

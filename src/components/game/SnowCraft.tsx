@@ -22,6 +22,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { SnowCraftGame } from "@/game/game";
+import { loadBootAssets } from "@/game/assets";
 import { normalizeCode } from "@/game/net";
 import { LANGS, htmlLang, useLang, formatClearTime, type I18nKey, type Lang } from "@/game/i18n";
 import { APP_COMMIT_URL, APP_VERSION } from "@/game/version";
@@ -76,24 +77,21 @@ export function SnowCraft() {
   const [qrData, setQrData] = useState<string | null>(null);
   const [qrOpen, setQrOpen] = useState(false);
   const pendingPlay = useRef<"easy" | "hard" | null>(null);
-  const [live, setLive] = useState(true);
+  const [live, setLive] = useState(false);
+  const [bootDone, setBootDone] = useState(0);
+  const [bootTotal, setBootTotal] = useState(4);
 
   useEffect(() => {
-    const boot = window.setTimeout(() => setLive(true), 50);
+    let cancelled = false;
     const canvas = canvasRef.current;
     if (!canvas) {
       setLive(true);
-      return () => window.clearTimeout(boot);
+      return;
     }
     try {
       const game = new SnowCraftGame(canvas, setUi);
       gameRef.current = game;
       void game.start();
-      setLive(true);
-      const warm = () => game.warmup();
-      const ric = (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback;
-      if (ric) ric(warm, { timeout: 2000 });
-      else window.setTimeout(warm, 700);
       const queued = pendingPlay.current;
       if (queued) {
         pendingPlay.current = null;
@@ -106,10 +104,17 @@ export function SnowCraft() {
       }
     } catch (err) {
       console.error(err);
-      setLive(true);
     }
+    void loadBootAssets((done, total) => {
+      if (!cancelled) {
+        setBootDone(done);
+        setBootTotal(total);
+      }
+    }).finally(() => {
+      if (!cancelled) setLive(true);
+    });
     return () => {
-      window.clearTimeout(boot);
+      cancelled = true;
       gameRef.current?.destroy();
       gameRef.current = null;
     };
@@ -344,7 +349,7 @@ export function SnowCraft() {
       </div>
 
       {ui.screen === "title" && !live && (
-        <TitleBoot t={t} lang={lang} onArm={() => gameRef.current?.armTitleAudio()} />
+        <TitleBoot t={t} lang={lang} done={bootDone} total={bootTotal} onArm={() => gameRef.current?.armTitleAudio()} />
       )}
 
       {ui.screen === "title" && live && (
@@ -354,12 +359,16 @@ export function SnowCraft() {
             landscapePhone ? "items-center p-2" : "items-stretch p-3 sm:p-4",
           )}
           style={{ backgroundImage: "url(/images/title-bg.jpg?v=3)", touchAction: "manipulation" }}
-          onPointerDown={() => gameRef.current?.armTitleAudio()}
+          onPointerDown={(e) => {
+            const el = e.target as HTMLElement | null;
+            if (el?.closest("button, a, input, textarea, [role='button']")) return;
+            gameRef.current?.armTitleAudio();
+          }}
         >
           <div className="pointer-events-none absolute inset-0 bg-ink/45" />
           <div
             className={cn(
-              "relative z-10 flex w-full max-w-lg flex-col overflow-hidden rounded-xl border border-surface/15 bg-ink/80 shadow-xl",
+              "relative z-10 pointer-events-auto flex w-full max-w-lg flex-col overflow-hidden rounded-xl border border-surface/15 bg-ink/80 shadow-xl",
               landscapePhone
                 ? "max-h-[calc(100svh-0.7rem)]"
                 : "h-full max-h-[min(92dvh,720px)] pb-[env(safe-area-inset-bottom)]",
@@ -472,10 +481,11 @@ export function SnowCraft() {
             </div>
             <div
               className={cn(
-                "relative z-20 shrink-0 border-t border-surface/10 bg-ink/90",
+                "relative z-20 shrink-0 pointer-events-auto border-t border-surface/10 bg-ink/90",
                 landscapePhone ? "px-3 py-2.5" : "p-4 sm:p-5",
               )}
               style={{ touchAction: "manipulation" }}
+              onPointerDown={(e) => e.stopPropagation()}
             >
               {aiGate ? (
                 <div className="flex flex-col gap-2.5">
@@ -867,21 +877,39 @@ export function SnowCraft() {
 
 type TFn = (key: I18nKey, vars?: Record<string, string | number>) => string;
 
-function TitleBoot({ t, lang, onArm }: { t: TFn; lang: Lang; onArm?: () => void }) {
+function TitleBoot({
+  t,
+  lang,
+  done,
+  total,
+  onArm,
+}: {
+  t: TFn;
+  lang: Lang;
+  done: number;
+  total: number;
+  onArm?: () => void;
+}) {
+  const pct = Math.min(100, Math.round((done / Math.max(1, total)) * 100));
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink bg-cover bg-center"
-      style={{ backgroundImage: "url(/images/title-bg.jpg?v=3)" }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink"
       aria-busy="true"
       aria-live="polite"
       onPointerDown={() => onArm?.()}
     >
-      <div className="absolute inset-0 bg-ink/50" />
-      <div className="relative flex flex-col items-center gap-4 text-surface">
+      <div className="relative flex w-full max-w-xs flex-col items-center gap-4 px-6 text-surface">
         <Loader2 className="size-10 animate-spin text-ice" aria-hidden />
         <p className="text-xs font-medium uppercase tracking-[0.22em] text-ice">{t("loading")}</p>
         <p lang={htmlLang(lang)} className="font-title-script text-3xl">{t("gameTitle")}</p>
         <p lang={htmlLang(lang)} className="font-motto-script text-xl text-[#fff3c4] sm:text-2xl">{t("slogan")}</p>
+        <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-surface/15">
+          <div
+            className="h-full rounded-full bg-ice transition-[width] duration-200"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        <p className="font-mono text-sm text-ice">{pct}%</p>
       </div>
     </div>
   );
