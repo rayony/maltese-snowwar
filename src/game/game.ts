@@ -195,6 +195,11 @@ export class SnowCraftGame {
     return this.assets;
   }
 
+  /** Pull remaining poses in the background so the first match is ready. */
+  warmup() {
+    void this.hydrateRest();
+  }
+
   /** Full pose set. Resolves when match sprites are in. */
   private hydrateRest(): Promise<void> {
     if (this.assets?.ready) return Promise.resolve();
@@ -247,8 +252,12 @@ export class SnowCraftGame {
       started = true;
       this.beginSolo();
     };
-    void this.hydrateRest().then(go, go);
-    window.setTimeout(go, 10000);
+    void this.hydrateCore()
+      .then(() => {
+        go();
+        void this.hydrateRest();
+      }, go);
+    window.setTimeout(go, 5000);
   }
 
   private beginSolo() {
@@ -302,6 +311,7 @@ export class SnowCraftGame {
     this.screen = "lobby";
     this.p2p = this.openLink(code, "host", "Maltese");
     this.emit();
+    this.warmup();
     try {
       await this.p2p.join();
     } catch {
@@ -333,6 +343,7 @@ export class SnowCraftGame {
     this.screen = "lobby";
     this.p2p = this.openLink(code, "guest", "Retriever");
     this.emit();
+    this.warmup();
     try {
       await this.p2p.join();
     } catch {
