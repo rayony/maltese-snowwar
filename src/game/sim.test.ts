@@ -202,4 +202,33 @@ describe("big snowball pickup", () => {
     assert.equal(redBall.r, 12);
     assert.equal(s.balls.some((b) => b.team === "green"), false);
   });
+
+  it("two big balls shatter each other", () => {
+    const s = createState(1, true);
+    s.phase = "fight";
+    s.forts = [];
+    s.kids.forEach((k) => {
+      k.x = 40;
+      k.y = 40;
+    });
+    for (const team of ["red", "green"] as const) {
+      s.balls.push({
+        x: team === "red" ? 400 : 430,
+        y: 270,
+        vx: team === "red" ? -80 : 80,
+        vy: 0,
+        team,
+        r: 40,
+        fromId: team === "red" ? 1 : 2,
+        grace: 1,
+        spin: 0,
+        alive: true,
+        range: 800,
+        traveled: 0,
+        big: true,
+      });
+    }
+    stepSim(s, 1 / 60, () => {});
+    assert.equal(s.balls.length, 0);
+  });
 });

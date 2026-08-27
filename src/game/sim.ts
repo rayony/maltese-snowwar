@@ -376,10 +376,16 @@ function clashBalls(state: GameState, onClash?: () => void) {
       state.trauma = Math.min(1, state.trauma + 0.18);
       onClash?.();
       if (a.big || b.big) {
-        if (a.big) shrinkBigBall(a);
-        else a.alive = false;
-        if (b.big) shrinkBigBall(b);
-        else b.alive = false;
+        if (a.big && b.big) {
+          a.alive = false;
+          b.alive = false;
+        } else if (a.big) {
+          shrinkBigBall(a);
+          b.alive = false;
+        } else {
+          shrinkBigBall(b);
+          a.alive = false;
+        }
         continue;
       }
       a.alive = false;
