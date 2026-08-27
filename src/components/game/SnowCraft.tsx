@@ -22,7 +22,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "re
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { SnowCraftGame } from "@/game/game";
-import { loadBootAssets } from "@/game/assets";
+import { classicAvailable, currentSkin, dogUrl, buriedUrl, initSkin, loadBootAssets, toggleSkin, type SkinId } from "@/game/assets";
 import { normalizeCode } from "@/game/net";
 import { LANGS, htmlLang, useLang, formatClearTime, type I18nKey, type Lang } from "@/game/i18n";
 import { APP_COMMIT_URL, APP_VERSION } from "@/game/version";
@@ -78,6 +78,8 @@ export function SnowCraft() {
   const [qrOpen, setQrOpen] = useState(false);
   const pendingPlay = useRef<"easy" | "hard" | null>(null);
   const [live, setLive] = useState(false);
+  const [skin, setSkin] = useState<SkinId>("xmas");
+  const [canClassic, setCanClassic] = useState(false);
   const [bootDone, setBootDone] = useState(0);
   const [bootTotal, setBootTotal] = useState(4);
 
@@ -105,14 +107,19 @@ export function SnowCraft() {
     } catch (err) {
       console.error(err);
     }
-    void loadBootAssets((done, total) => {
-      if (!cancelled) {
-        setBootDone(done);
-        setBootTotal(total);
-      }
-    }).finally(() => {
+    void (async () => {
+      const id = await initSkin();
+      if (cancelled) return;
+      setSkin(id);
+      setCanClassic(classicAvailable());
+      await loadBootAssets((done, total) => {
+        if (!cancelled) {
+          setBootDone(done);
+          setBootTotal(total);
+        }
+      });
       if (!cancelled) setLive(true);
-    });
+    })();
     return () => {
       cancelled = true;
       gameRef.current?.destroy();
@@ -408,10 +415,22 @@ export function SnowCraft() {
                     </button>
                     <LangMenu lang={lang} onChange={setLang} label={t("language")} tone="title" />
                   </div>
-                  <div className="flex -space-x-2" aria-hidden>
-                    <DogHead src="/sprites/red/idle-1.png" alt="" kind="maltese" className="z-10" />
-                    <DogHead src="/sprites/green/idle-1.png" alt="" kind="retriever" />
-                  </div>
+                  <button
+                    type="button"
+                    className="flex -space-x-2 rounded-full outline-offset-2 hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-tan"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!canClassic && currentSkin() === "xmas") return;
+                      const next = toggleSkin();
+                      setSkin(next);
+                      gameRef.current?.dropAssets();
+                    }}
+                    aria-label={skin === "xmas" ? "Line Puppy characters" : "Christmas pup characters"}
+                    title={canClassic ? (skin === "xmas" ? "Switch to Line Puppy" : "Switch to Christmas pups") : undefined}
+                  >
+                    <DogHead src={dogUrl("red", "idle", 1)} alt="" kind="maltese" className="z-10" />
+                    <DogHead src={dogUrl("green", "idle", 1)} alt="" kind="retriever" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -1085,14 +1104,14 @@ function versusGameoverCopy(ui: UiSnapshot, t: TFn) {
 function ResultMascot({ win, team }: { win: boolean; team: Team }) {
   const side = team === "green" ? "green" : "red";
   const kind = team === "green" ? "retriever" : "maltese";
-  const dance = [1, 2, 3, 4].map((i) => `/sprites/${side}/dance-${i}.png`);
+  const dance = [1, 2, 3, 4].map((i) => dogUrl(side, "dance", i));
   const [frame, setFrame] = useState(0);
   useEffect(() => {
     if (!win) return;
     const id = window.setInterval(() => setFrame((f) => (f + 1) % 4), 140);
     return () => window.clearInterval(id);
   }, [win, side]);
-  const src = win ? dance[frame]! : `/sprites/fx/buried-${side}.png?v=3`;
+  const src = win ? dance[frame]! : buriedUrl(side);
   return (
     <span
       className="relative size-16 overflow-hidden rounded-full border border-ink/10 bg-[#c5d6e2] shadow-inner max-[500px]:size-14 sm:size-24"
