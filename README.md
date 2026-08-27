@@ -42,7 +42,7 @@ A browser-based snowball fight: three Maltese vs golden retrievers. Fan tribute 
 | **vs Friend** | Same URL on two devices. Host is always Maltese; guest is mirrored and plays Retrievers. Share the 6-letter code or QR |
 | **Allies** | Unselected Maltese: Manual / Defend (hold forts, peek-throw) / Attack (press in, shoot around forts, punish after the foe throws) |
 
-Languages: English · 繁中 · 简体 · 日本語 · 한국어 (EN + 繁中 load first; others on select). Mute from the landing globe row or **M**.
+Languages: English · 繁中 · 简体 · 日本語 · 한국어 (EN load first; others on select). Mute from the landing globe row or **M**.
 
 Landing boot: spinner + English title assets, then Play vs AI / Friend. Action sprites load **after** the mode is chosen (progress bar) — nothing streams in mid-match.
 
