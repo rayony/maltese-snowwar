@@ -688,7 +688,7 @@ function ballHop(ball: Snowball) {
   return Math.sin(u * Math.PI) * (10 + ball.range * 0.03);
 }
 
-/** Gold pulse snowball — field pickup and thrown big balls. Not a scaled face sprite. */
+/** White snowball with a pulsing gold rim — field pickup and thrown big balls. */
 function drawGoldOrb(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -697,29 +697,36 @@ function drawGoldOrb(
   time: number,
   spin = 0,
 ) {
-  const pulse = 0.92 + 0.08 * Math.sin(time * 6);
+  const pulse = 0.94 + 0.06 * Math.sin(time * 6);
   const r = radius * pulse;
+  const glow = 0.55 + 0.45 * Math.sin(time * 5);
   ctx.save();
   ctx.translate(x, y);
-  ctx.globalAlpha = 0.32 + 0.18 * Math.sin(time * 5);
-  ctx.fillStyle = "#ffe28a";
+
+  ctx.shadowColor = `rgba(255, 196, 64, ${0.55 + 0.35 * glow})`;
+  ctx.shadowBlur = r * 0.7;
+  ctx.strokeStyle = `rgba(255, 210, 72, ${0.45 + 0.4 * glow})`;
+  ctx.lineWidth = Math.max(5, r * 0.2);
   ctx.beginPath();
-  ctx.arc(0, 0, r * 1.42, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.globalAlpha = 1;
+  ctx.arc(0, 0, r * 1.02, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
   ctx.rotate(spin * 0.25);
-  const g = ctx.createRadialGradient(-r * 0.28, -r * 0.34, r * 0.06, 0, 0, r);
-  g.addColorStop(0, "#ffffff");
-  g.addColorStop(0.28, "#fff8e8");
-  g.addColorStop(0.68, "#f3d98a");
-  g.addColorStop(1, "#c9963a");
-  ctx.fillStyle = g;
+  const snow = ctx.createRadialGradient(-r * 0.28, -r * 0.34, r * 0.08, 0, 0, r);
+  snow.addColorStop(0, "#ffffff");
+  snow.addColorStop(0.42, "#f3f7fb");
+  snow.addColorStop(0.82, "#d4e0ea");
+  snow.addColorStop(1, "#b8c8d4");
+  ctx.fillStyle = snow;
   ctx.beginPath();
   ctx.arc(0, 0, r, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = "rgba(255, 248, 210, 0.95)";
-  ctx.lineWidth = Math.max(2, r * 0.07);
+
+  ctx.strokeStyle = `rgba(255, 196, 48, ${0.75 + 0.25 * glow})`;
+  ctx.lineWidth = Math.max(2.4, r * 0.1);
   ctx.stroke();
+
   ctx.fillStyle = "rgba(255,255,255,0.72)";
   ctx.beginPath();
   ctx.ellipse(-r * 0.28, -r * 0.34, r * 0.28, r * 0.16, -0.5, 0, Math.PI * 2);
