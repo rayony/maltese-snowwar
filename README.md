@@ -1,28 +1,42 @@
 # Maltese Snow War
-Open-source fan tribute. Produced by Gary.TC. Gameplay after SnowCraft; fight feel also referenced snowcraftjs by jeffreywilbur.
-<img width="598" height="336" alt="banner" src="https://github.com/user-attachments/assets/b7122350-a3a8-4901-a208-d2569200165f" />
+Open-source fan tribute based on epic flash game “SnowCraft":  a browser-based snowball fight game: three Maltese vs golden retrievers. Hold a dog to move, release to throw, pack snow between shots. Two hits bury; ellipse forts block shots.
 
-Fan tribute to classic **SnowCraft** (Nicholson NY, 1998): three Maltese vs golden retrievers in a snowball brawl. Browser P2P multiplayer (WebRTC listen-server), solo vs AI, and a star-mode cheat.
+**Play Now:** [maltese-snowwar.grok.me](https://maltese-snowwar.grok.me/)
 
-> Unofficial fan work (二次創作). Dogs inspired by 線條小狗 (moonlab). Not affiliated with the original authors.
+> Unofficial fan tribute (二次創作) to Nicholson NY’s **SnowCraft** (1998). Dogs after 線條小狗 (moonlab). Not affiliated with the original authors.
 
-## Live play
+<p align="center">
+  <img src="public/og.jpg" alt="Maltese Snow War" width="640">
+</p>
 
-- Try the demo here: [maltese-snowwar.grok.me](https://maltese-snowwar.grok.me/)
-- Deploy from this repo (Vercel / your host) after `npm run build`
-- Open the same URL on two devices → **Play vs Friend** → share the 6-letter room code or QR
 
-## Tech highlights
+## How it plays
 
-| Layer | Choice |
-|--------|--------|
-| UI | TanStack Start + React + Vite |
-| Sim | Canvas 2D, fixed-timestep (`src/game/sim.ts`) |
-| Net | Host-authoritative WebRTC P2P (`VersusLink`, binary pose + reliable events) |
-| Audio | Web Audio holiday loops (no copyrighted carols) |
-| i18n | EN · 繁中 · 简体 · 日 · 韓 |
+| Hold / dodge | Throw |
+|:---:|:---:|
+| ![Hold to move](public/readme/hold-dodge.gif) | ![Release to throw](public/readme/throw.gif) |
+| **Pack snow** | **Brawl** |
+| ![Pack](public/readme/pack.gif) | ![Two-hit bury](public/readme/brawl.gif) |
+| **Big snowball** | **Victory** |
+| ![Big snowball](public/readme/big-snowball.gif) | ![Victory dance](public/readme/victory.gif) |
 
-Architecture notes: [`public/Maltese-Snow-War-Architecture.pdf`](public/Maltese-Snow-War-Architecture.pdf)
+- **Hold** a dog to move and dodge; **release** to throw (auto-aims the nearest foe)
+- Pack snow between shots — you cannot fire while packing
+- Two hits bury a dog; forts eat snowballs that pass through them
+- **Big snowball** orb can drop mid-fight. Any dog may collect it. That team gets **3 player throws / 10s** (2 HP). A second pickup refills. Clash: big vs normal shrinks the big ball; two bigs shatter
+> cheat for test purpose ONLY:
+> - Solo: **star mode**: tap the Level HUD 5× — faster pack/charge, more HP
+> - Host/solo: **instant orb**: double-tap the **X vs Y** score HUD for adding an orb instantly
+
+## Modes
+
+| | |
+|---|---|
+| **vs AI** | You are the Maltese (right, red hats). Retrievers on the left. Easy stays on their half and only throws forward. Hard can cross midfield, shoot backward, and dodge well |
+| **vs Friend** | Same URL on two devices. Host is always Maltese; guest is mirrored and plays Retrievers. Share the 6-letter code or QR |
+| **Allies** | Unselected Maltese: Manual / Defend (hold forts, peek-throw) / Attack (press in, shoot around forts, punish after the foe throws) |
+
+Languages: English · 繁中 · 简体 · 日本語 · 한국어 (EN + 繁中 load first; others on select). Mute from the landing globe row or **M**.
 
 ## Local development
 
@@ -30,35 +44,27 @@ Architecture notes: [`public/Maltese-Snow-War-Architecture.pdf`](public/Maltese-
 npm ci
 npm run dev          # http://0.0.0.0:8080
 npm run typecheck
-npm test             # includes src/game/sim.test.ts and src/game/wire.test.ts
+npm test
 npm run build
 ```
 
-## Controls
+## Network
 
-- **Hold** a dog to move / dodge
-- **Release** to throw (auto-aims nearest foe in PvP)
-- Pack snow between shots
-- **Star mode**: tap Level HUD 5× (solo) — faster pack/charge, stronger HP
-- **Big snowball**: glowing orb drops mid-fight; any dog (player or AI) can collect it. That team gets **3 player throws / 10s** (2 HP). Picking another orb refills to 3 / 10s. Double-tap the **X vs Y** score HUD (host/solo) to spawn one for testing
-- **M** or landing mute button — mute
+There is no game-sim server. The **host browser is the authority**; a small signaling helper only lets the two browsers find each other.
 
-## Network model (short)
+Host sim + reliable events (throw / hit / over / loot). Unreliable binary pose ~14–20 Hz. Throw delay uses a smoothed RTT clamp. If the guest DataChannel stays down ~3s mid-match, local AI (`src/game/ai.ts`) takes over their team.
 
-Host runs the authoritative sim. Guests send inputs; host broadcasts **binary pose** (~14–20 Hz, dual-send on unreliable + reliable DataChannels) and reliable events (throw / hit / over). Throw delay uses a smoothed RTT clamp. If the guest DataChannel stays down for ~3s mid-match, the host hands their team to local AI (`ai.ts`) instead of ending the round. See the architecture PDF § netcode.
+Details: [Maltese-Snow-War-Architecture.pdf](public/Maltese-Snow-War-Architecture.pdf)
 
-## License / credit
-**Maltese Snow War** is a canvas snowball fight in the browser. Hold a dog to move, release to throw, pack snow between shots. Two-hit bury, ellipse forts, pack-snow cooldown.  It is an unofficial fan tribute to Nicholson NY’s SnowCraft (1998) using moonlab’s puppy illustrations named Maltese.
+| Layer | Choice |
+|--------|--------|
+| UI | TanStack Start + React + Vite |
+| Sim | Canvas 2D, fixed timestep (`src/game/sim.ts`) |
+| Net | WebRTC P2P listen-server (`VersusLink`) |
+| Audio | Web Audio holiday loops (no copyrighted carols) |
 
-There is two modes: Play vs AI (Easy / Hard) on one machine, and Play vs Friend connected two devices via a 6-letter room code.  VS AI uses three white Maltese (red hats) stand on the right against several brown Retriever (green hats) on the left.  For VS Friend, the host always plays the Maltese, guest is mirrored and plays the Retriever.
+## Credits
 
-There is no dedicated game-simulation server — the host’s browser is the authority; a small signaling server only helps the two browsers find each other, and various netcode techniques.
+Open-source fan work. Produced by **Gary.TC**. Gameplay after SnowCraft; fight feel also referenced [snowcraftjs](https://github.com/jeffreywilbur/snowcraftjs) by jeffreywilbur.
 
-To understand more, pls refer:
-https://github.com/rayony/maltese-snowwar/blob/main/public/Maltese-Snow-War-Architecture.pdf
-
-_This is my first vibe coding project, let me know if you have any thoughts! - Gary.TC_
-
-<img width="500" height="362" alt="landing" src="https://github.com/user-attachments/assets/10dbde96-4dcf-4d43-8d39-02843b9b11a0" />
-<img width="500" height="399" alt="gameplay" src="https://github.com/user-attachments/assets/6edac842-4cd3-4fe4-a42a-cac1589d0b79" />
-
+_This is my first vibe-coding project — let me know if you have thoughts!_
