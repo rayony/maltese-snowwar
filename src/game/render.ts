@@ -249,7 +249,7 @@ export function render(
   for (const layer of layers) layer.draw();
 
   if (state.pickup) {
-    drawGoldOrb(ctx, state.pickup.x, state.pickup.y, 26, state.time, state.time * 1.2);
+    drawGoldOrb(ctx, state.pickup.x, state.pickup.y, 23.4, state.time, state.time * 1.2);
   }
   for (const kid of state.kids) {
     const buff = state.buffs[kid.team];
