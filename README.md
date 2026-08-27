@@ -3,13 +3,12 @@ Open-source fan tribute based on epic flash game “SnowCraft":  a browser-based
 
 **Play Now:** [maltese-snowwar.grok.me](https://maltese-snowwar.grok.me/)
 
-> Unofficial fan tribute (二次創作) to Nicholson NY’s **SnowCraft** (1998). This repo’s dogs are original Christmas chibi pups (小白 / 小金毛). Not affiliated with the original authors.
+> Unofficial fan tribute (二次創作) to Nicholson NY’s **SnowCraft** (1998). This repo only contains the original chibi pups as game characters, which is inspired by [Maltese@moonlab studio](https://www.instagram.com/moonlab_studio/). This is not affiliated with the original authors.  Readers may choose to import and use other characters themselves.
 
 <p align="center">
   <img src="public/og.jpg" alt="Maltese Snow War — Line Puppy banner" width="640">
 </p>
 
-Action clips below use the Christmas pups (小白 / 小金毛). Tap the title dog heads on [grok.me](https://maltese-snowwar.grok.me/) to switch.
 
 ## How it plays
 
