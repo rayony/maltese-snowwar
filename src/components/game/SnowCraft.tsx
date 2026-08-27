@@ -225,11 +225,6 @@ export function SnowCraft() {
                   {t("godSpeed")}
                 </p>
               )}
-              {ui.pickup && !ui.pickup.held && (
-                <p className="text-xs font-semibold tracking-wide text-tan">
-                  {t("pickupBig")}
-                </p>
-              )}
               {!landscapePhone && (
               <p className="text-xs text-ice">
                 {ui.net.team === "green"
@@ -249,7 +244,7 @@ export function SnowCraft() {
               )}
             </div>
             <div className="flex justify-center self-start">
-              {ui.pickup?.held && (
+              {ui.pickup?.held ? (
                 <BigBuffHud
                   shots={ui.pickup.shots}
                   maxShots={ui.pickup.maxShots}
@@ -261,7 +256,16 @@ export function SnowCraft() {
                     s: Math.max(0, Math.ceil(ui.pickup.life)),
                   })}
                 />
-              )}
+              ) : ui.pickup ? (
+                <p
+                  className={cn(
+                    "rounded-xl border border-tan/40 bg-ink/80 font-semibold tracking-wide text-tan shadow-md backdrop-blur-sm",
+                    landscapePhone ? "px-2 py-1 text-xs" : "px-3 py-2 text-sm",
+                  )}
+                >
+                  {t("pickupBig")}
+                </p>
+              ) : null}
             </div>
             <div className="flex items-start justify-end gap-2">
             <div
