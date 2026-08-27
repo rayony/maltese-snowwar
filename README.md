@@ -66,4 +66,4 @@ Details: [Maltese-Snow-War-Architecture.pdf](public/Maltese-Snow-War-Architectur
 
 Open-source fan work. Produced by **Gary.TC**. Gameplay after SnowCraft; fight feel also referenced [snowcraftjs](https://github.com/jeffreywilbur/snowcraftjs) by jeffreywilbur.
 
-_This is my first vibe-coding project — let me know if you have thoughts._
+_This is my first vibe-coding project — let me know if you have thoughts!_
