@@ -111,7 +111,7 @@ function kidFrame(kid: Kid, assets: Assets, star = false) {
   return idle;
 }
 
-type Box = { x: number; y: number; w: number; h: number };
+type Box = { x: number; y: number; w: number; h: number; headW: number };
 const boxCache = new WeakMap<HTMLImageElement, Box | null>();
 
 function contentBox(img: HTMLImageElement): Box | null {
@@ -147,7 +147,20 @@ function contentBox(img: HTMLImageElement): Box | null {
       boxCache.set(img, null);
       return null;
     }
-    const box = { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+    const h = maxY - minY + 1;
+    const hy = minY + Math.max(4, Math.floor(h * 0.34));
+    let hx0 = c.width;
+    let hx1 = 0;
+    for (let y = minY; y < hy; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        if (data[(y * c.width + x) * 4 + 3]! > 28) {
+          if (x < hx0) hx0 = x;
+          if (x > hx1) hx1 = x;
+        }
+      }
+    }
+    const headW = hx1 >= hx0 ? hx1 - hx0 + 1 : maxX - minX + 1;
+    const box = { x: minX, y: minY, w: maxX - minX + 1, h, headW };
     boxCache.set(img, box);
     return box;
   } catch {
@@ -168,8 +181,17 @@ function drawAlignedSprite(
     ctx.drawImage(img, -dest / 2, -dest + 16, dest, dest);
     return;
   }
-  const basis = fit === "height" ? (ref ?? box).h : (ref ?? box).w;
-  const s = dest / Math.max(8, basis);
+  let s: number;
+  if (fit === "width") {
+    s = dest / Math.max(8, (ref ?? box).w);
+  } else {
+    const refH = Math.max(8, (ref ?? box).h);
+    const refHead = Math.max(8, (ref ?? box).headW);
+    const head = Math.max(8, box.headW);
+    const base = dest / refH;
+    s = base * (refHead / head);
+    s = Math.max(base * 0.88, Math.min(base * 1.75, s));
+  }
   const dw = box.w * s;
   const dh = box.h * s;
   ctx.drawImage(img, box.x, box.y, box.w, box.h, -dw / 2, -dh + 16, dw, dh);
