@@ -157,6 +157,9 @@ export class SnowCraftGame {
     this.emit();
     this.last = performance.now() / 1000;
     this.raf = requestAnimationFrame(this.loop);
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("capture") === "1") {
+      (window as unknown as { __snow?: SnowCraftGame }).__snow = this;
+    }
   }
 
   /** Browsers block BGM until a tap. First gesture on title starts the menu loop. */
