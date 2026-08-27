@@ -176,6 +176,7 @@ export interface UiSnapshot {
   pickup: {
     field: boolean;
     held: boolean;
+    foeHeld: boolean;
     life: number;
     maxLife: number;
     shots: number;
@@ -196,4 +197,5 @@ export interface View {
   mirror: boolean;
   pvp: boolean;
   godSpeed: boolean;
+  bigCharge: boolean;
 }

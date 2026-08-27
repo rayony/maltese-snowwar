@@ -108,6 +108,7 @@ const dict: Record<I18nKey, string> = {
   loseSolo: "레벨 {n}에서 묻혔습니다. 최고 {best}.",
   pickupBig: "큰 눈덩이가 떨어져 있어요!",
   pickupHold: "큰 눈덩이 · {n}개 남음 · {s}초",
+  pickupFoe: "상대가 큰 눈덩이를 들고 있어요!",
 };
 
 export default dict;

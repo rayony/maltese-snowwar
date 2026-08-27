@@ -100,7 +100,7 @@ export class VersusLink {
       } else {
         this.rtc.send(wire);
         const t = msg.t;
-        if (t === "over" || t === "start" || t === "rematch" || t === "throw" || t === "hit" || t === "packed" || t === "loot" || t === "got") {
+        if (t === "over" || t === "start" || t === "rematch" || t === "throw" || t === "hit" || t === "packed" || t === "loot" || t === "got" || t === "claim") {
           this.rtc.broadcast(wire);
           this.http.send(wire);
         }

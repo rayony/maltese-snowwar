@@ -108,6 +108,7 @@ const dict: Record<I18nKey, string> = {
   loseSolo: "レベル {n} で埋められた。最高 {best}。",
   pickupBig: "大きな雪玉が落ちている！",
   pickupHold: "大雪玉 · 残り{n}球 · {s}秒",
+  pickupFoe: "相手が大雪玉を持っている！",
 };
 
 export default dict;

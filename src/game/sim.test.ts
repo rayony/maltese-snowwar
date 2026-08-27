@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import {
   aimFromKid,
   clamp,
+  claimPickup,
   closestEnemy,
   createState,
   isOut,
@@ -15,6 +16,7 @@ import {
   stepSim,
   throwSnowball,
 } from "./sim";
+import { holdPower, MAX_CHARGE, BIG_CHARGE, BIG_SPEED, throwSpeed } from "./constants";
 import { aiThrowAim } from "./ai";
 import type { Kid } from "./types";
 
@@ -184,6 +186,33 @@ describe("big snowball pickup", () => {
     assert.equal(s.buffs.green?.shots, 3);
     assert.ok((s.buffs.green?.t ?? 0) > 9.5);
     assert.equal(s.pickup, null);
+  });
+
+  it("click-claim grants the team buff without walking a dog", () => {
+    const s = createState(1, true);
+    s.phase = "fight";
+    s.pickup = { x: 480, y: 270, kind: "big", life: 10, maxLife: 10 };
+    assert.equal(claimPickup(s, "red"), true);
+    assert.equal(s.buffs.red?.shots, 3);
+    assert.equal(s.pickup, null);
+    assert.equal(claimPickup(s, "green"), false);
+  });
+
+  it("big ball flies at 0.8x and needs 1.2x hold for full range", () => {
+    assert.equal(holdPower(MAX_CHARGE), 1);
+    assert.ok(holdPower(MAX_CHARGE, false, true) < 1);
+    assert.equal(holdPower(MAX_CHARGE * BIG_CHARGE, false, true), 1);
+    const s = createState(1, false);
+    s.phase = "fight";
+    s.forts = [];
+    s.buffs.red = { kind: "big", shots: 3, t: 10 };
+    const red = s.kids.find((k) => k.team === "red")!;
+    red.packT = 0;
+    red.state = "idle";
+    throwSnowball(s, red, MAX_CHARGE * BIG_CHARGE, -1, 0, false, true, true);
+    const ball = s.balls.find((b) => b.big)!;
+    const full = throwSpeed(1);
+    assert.ok(Math.abs(Math.hypot(ball.vx, ball.vy) - full * BIG_SPEED) < 1e-6);
   });
 
   it("a big ball hit by another snowball shrinks to a normal ball", () => {
