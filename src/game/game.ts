@@ -1401,8 +1401,8 @@ export class SnowCraftGame {
     if (this.state.godSpeed && kid.team === "red") {
       const extraX = kid.x - this.grab.originX + this.grab.vx;
       const extraY = kid.y - this.grab.originY + this.grab.vy;
-      const { dx } = aimFromKid(kid, this.state.kids, extraX, extraY, false, true);
-      if (Math.abs(dx) > 2) kid.facing = dx < 0 ? -1 : 1;
+      const { dx, dy } = aimFromKid(kid, this.state.kids, extraX, extraY, false, true);
+      kid.facing = Math.abs(dx) < Math.max(8, Math.abs(dy) * 0.35) ? kid.facing : dx < 0 ? -1 : 1;
     }
     if (this.netRole === "guest") {
       const t = performance.now();

@@ -69,25 +69,34 @@ describe("closestEnemy", () => {
 });
 
 describe("aimFromKid", () => {
-  it("locks onto nearest foe for red (forward hemisphere)", () => {
+  it("locks onto nearest foe for red", () => {
     const me = kid({ id: 1, team: "red", x: 700, y: 200 });
     const foe = kid({ id: 2, team: "green", x: 200, y: 250 });
     const { dx } = aimFromKid(me, [me, foe], 5, 0, false, true);
     assert.ok(dx < 0, "red should aim left toward foe");
   });
 
-  it("ignores small rightward wobble in star mode", () => {
+  it("ignores drag wobble and still aims at the nearest foe", () => {
     const me = kid({ id: 1, team: "red", x: 700, y: 200 });
     const foe = kid({ id: 2, team: "green", x: 200, y: 200 });
-    const { dx } = aimFromKid(me, [me, foe], 20, 5, false, true);
-    assert.ok(dx < 0, "small right drag must not steal aim");
+    const { dx } = aimFromKid(me, [me, foe], 80, 5, false, true);
+    assert.ok(dx < 0, "right drag must not steal aim into empty space");
   });
 
-  it("honors clear intentional back-throw in star mode", () => {
-    const me = kid({ id: 1, team: "red", x: 700, y: 200 });
-    const foe = kid({ id: 2, team: "green", x: 200, y: 200 });
-    const { dx } = aimFromKid(me, [me, foe], 80, 0, false, true);
-    assert.ok(dx > 0, "clear back-throw should use manual aim");
+  it("aims at a nearer foe even if they are behind the maltese", () => {
+    const me = kid({ id: 1, team: "red", x: 300, y: 200 });
+    const behind = kid({ id: 2, team: "green", x: 360, y: 200 });
+    const farFront = kid({ id: 3, team: "green", x: 40, y: 200 });
+    const { dx } = aimFromKid(me, [me, behind, farFront]);
+    assert.ok(dx > 0, "nearest is to the right");
+  });
+
+  it("allows a pure vertical throw when the foe is directly above", () => {
+    const me = kid({ id: 1, team: "red", x: 400, y: 300 });
+    const foe = kid({ id: 2, team: "green", x: 400, y: 80 });
+    const { dx, dy } = aimFromKid(me, [me, foe]);
+    assert.equal(dx, 0);
+    assert.ok(dy < 0);
   });
 });
 

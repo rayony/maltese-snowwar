@@ -244,7 +244,7 @@ export function throwSnowball(
   kid.stateT = 0.38;
   kid.cooldown = THROW_COOLDOWN;
   kid.packT = state.godSpeed && kid.team === "red" ? STAR_PACK_TIME : PACK_TIME;
-  kid.facing = nx < 0 ? -1 : 1;
+  kid.facing = faceFromDir(nx, ny, kid.facing);
   clearFidget(kid);
   burst(state, kid.x + nx * 22, kid.y, nx * 40, big ? 16 : 8, "puff");
   if (big) burst(state, kid.x + nx * 22, kid.y, nx * 20, 10, "spark");
@@ -771,25 +771,16 @@ export function stepSim(
   else if (greens === 0) state.phase = "won";
 }
 
-export function aimFromKid(kid: Kid, kids: Kid[], extraX = 0, extraY = 0, scatter = false, allowBack = false) {
+export function faceFromDir(dx: number, dy: number, fallback: 1 | -1): 1 | -1 {
+  if (Math.abs(dx) < Math.max(0.12, Math.abs(dy) * 0.35)) return fallback;
+  return dx < 0 ? -1 : 1;
+}
+
+export function aimFromKid(kid: Kid, kids: Kid[], _extraX = 0, _extraY = 0, scatter = false, _allowBack = false) {
   const foes = kids.filter((k) => k.team !== kid.team && !isOut(k));
   const target = scatter && foes.length ? foes[(Math.random() * foes.length) | 0]! : closestEnemy(kid, kids);
-  // Star mode: only honor an explicit back-throw when the drag is clearly
-  // opposite the natural facing. A small rightward wobble used to steal aim
-  // from the nearest foe and send the ball into empty space.
-  const dragLen = Math.hypot(extraX, extraY);
-  const intentionalBack =
-    allowBack &&
-    dragLen > 56 &&
-    ((kid.team === "red" && extraX > 48) || (kid.team === "green" && extraX < -48));
-  if (intentionalBack) return { dx: extraX, dy: extraY };
   if (!target) {
     return { dx: kid.team === "red" ? -1 : 1, dy: 0 };
   }
-  let dx = target.x - kid.x;
-  const dy = target.y - kid.y;
-  // Always prefer the nearest foe in the forward hemisphere.
-  if (kid.team === "red") dx = Math.min(dx, -28);
-  else dx = Math.max(dx, 28);
-  return { dx, dy };
+  return { dx: target.x - kid.x, dy: target.y - kid.y };
 }
