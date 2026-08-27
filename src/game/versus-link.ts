@@ -1,6 +1,7 @@
 import { P2PRoom, type PeerInfo } from "@/lib/multiplayer";
 import { isNetMsg, type NetMsg } from "./net";
 import { RoomChannel, type RoomPeer } from "./room-channel";
+import { decodeWire, encodeWire } from "./wire";
 
 export type Envelope = { n: number; m: NetMsg };
 export type SendKind = "event" | "snap" | "pose";
@@ -82,13 +83,24 @@ export class VersusLink {
         ? this.snapSeq++
         : this.poseSeq++
       : this.seq++;
+    const dc = this.rtc.dcReady();
+    this.rtcOpen = dc && !this.iceGaveUp;
+    if (dc && (msg.t === "pose" || msg.t === "allypose")) {
+      const bin = encodeWire(n, msg);
+      if (bin) {
+        this.rtc.broadcastRaw(bin);
+        return;
+      }
+    }
     const wire: Envelope = { n, m: msg };
-    if (this.rtcOpen) {
-      if (unreliable) this.rtc.broadcast(wire);
-      else {
+    if (dc) {
+      if (unreliable) {
+        this.rtc.broadcast(wire);
+        this.rtc.send(wire);
+      } else {
         this.rtc.send(wire);
         const t = msg.t;
-        if (t === "over" || t === "start" || t === "rematch" || t === "throw" || t === "hit" || t === "packed") {
+        if (t === "over" || t === "start" || t === "rematch" || t === "throw" || t === "hit" || t === "packed" || t === "loot" || t === "got") {
           this.rtc.broadcast(wire);
           this.http.send(wire);
         }
@@ -96,6 +108,14 @@ export class VersusLink {
       return;
     }
     this.http.send(wire);
+  }
+
+  /** Mid-match Wi-Fi→cell: refresh ICE without tearing the room down. */
+  restartIce() {
+    this.iceGaveUp = false;
+    this.iceTried = false;
+    this.checkingSince = Date.now();
+    this.rtc.restartIce();
   }
 
   close() {
@@ -112,6 +132,11 @@ export class VersusLink {
   }
 
   private ingest(data: unknown, onMessage: (msg: NetMsg) => void) {
+    if (data instanceof ArrayBuffer || ArrayBuffer.isView(data)) {
+      const decoded = decodeWire(data);
+      if (decoded) this.ingest(decoded, onMessage);
+      return;
+    }
     const env = asEnvelope(data);
     if (!env) return;
     if (env.m.t === "ping") {
@@ -139,7 +164,12 @@ export class VersusLink {
       onMessage(env.m);
       return;
     }
-    if (env.m.t === "pose") {
+    const poseStream =
+      env.m.t === "pose" ||
+      env.m.t === "allypose" ||
+      env.m.t === "hb" ||
+      (env.m.t === "input" && env.m.kind === "move");
+    if (poseStream) {
       if (env.n > 0 && env.n < this.lastPose) return;
       if (env.n > 0) this.lastPose = env.n;
       onMessage(env.m);
@@ -152,7 +182,7 @@ export class VersusLink {
 
   private onRtcPeers(peers: PeerInfo[], onRtc?: (open: boolean) => void) {
     const live = peers.find((p) => p.connectionState === "connected");
-    const open = !!live && !this.iceGaveUp;
+    const open = !!live && !this.iceGaveUp && this.rtc.dcReady();
     if (live?.rttMs != null) this.rttMs = live.rttMs;
     const trying = peers.some(
       (p) => p.connectionState === "connecting" || p.connectionState === "new",
@@ -161,6 +191,7 @@ export class VersusLink {
     if (open) {
       this.checkingSince = 0;
       this.iceTried = false;
+      this.iceGaveUp = false;
     } else if (trying) {
       if (!this.checkingSince) this.checkingSince = now;
       const waited = now - this.checkingSince;
@@ -170,7 +201,7 @@ export class VersusLink {
       }
       if (waited > 4500 && !this.iceGaveUp) {
         this.iceGaveUp = true;
-        this.rtc.close();
+        this.rtc.restartIce();
       }
     }
     if (open === this.rtcOpen && !this.iceGaveUp) {

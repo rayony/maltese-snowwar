@@ -5,23 +5,33 @@ export const KID_RADIUS = 26;
 export const BALL_RADIUS = 12;
 export const PLAYER_COUNT = 3;
 export const HP = 2;
-/** Seconds of hold to reach a full-field throw. */
+export const STAR_HP = 10;
 export const MAX_CHARGE = 1.2;
-/** Tap / short hold lands close; full hold crosses the field. */
 export const MIN_RANGE = 58;
 export const MAX_RANGE = 820;
 export const MIN_THROW_SPEED = 360;
 export const MAX_THROW_SPEED = 500;
 export const THROW_COOLDOWN = 0.12;
 export const PACK_TIME = 0.92;
+export const STAR_PACK_TIME = 0.32;
+export const STAR_CHARGE = 0.4;
+export const PVP_RANGE = 520;
+export const PVP_SPEED = 440;
+export const BIG_BALL_RADIUS = 40;
+export const BIG_HELD_TIME = 10;
+export const BIG_SHOTS = 3;
+export const PICKUP_LIFE = 10;
+export const PICKUP_CD_MIN = 8;
+export const PICKUP_CD_MAX = 12;
 export const INTRO_TIME = 3;
 export const MARGIN = 34;
 export const SAVE_KEY = "snowcraft-v1";
 export const MAX_ENEMIES = 15;
 export const FORT_HP = 10;
+export const AI_WIN_LEVEL = 5;
 
-export function holdPower(seconds: number) {
-  const t = Math.max(0, Math.min(1, seconds / MAX_CHARGE));
+export function holdPower(seconds: number, star = false) {
+  const t = Math.max(0, Math.min(1, seconds / (star ? STAR_CHARGE : MAX_CHARGE)));
   return t;
 }
 
@@ -51,15 +61,10 @@ export function aiMoveSpeed(level: number) {
 
 export interface PlayFeel {
   compact: boolean;
-  /** On-screen height of the opaque sprite, in world px. */
   draw: number;
-  /** Target width of a buried pile, in world px. */
   buried: number;
-  /** Finger/cursor grab radius in world px. */
   pick: number;
-  /** Snowball collision radius in world px. */
   hit: number;
-  /** Drawn snowball size in world px. */
   ball: number;
 }
 

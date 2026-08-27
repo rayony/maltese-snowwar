@@ -1,6 +1,7 @@
 import {
   Copy,
   Flame,
+  Globe,
   Home,
   Leaf,
   Loader2,
@@ -10,6 +11,7 @@ import {
   RotateCcw,
   Shield,
   Smartphone,
+  Snowflake,
   Swords,
   User,
   Users,
@@ -21,7 +23,7 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { SnowCraftGame } from "@/game/game";
 import { normalizeCode } from "@/game/net";
-import { useLang, formatClearTime, type I18nKey, type Lang } from "@/game/i18n";
+import { LANGS, htmlLang, useLang, formatClearTime, type I18nKey, type Lang } from "@/game/i18n";
 import { APP_COMMIT_URL, APP_VERSION } from "@/game/version";
 import type { AllyMode, Team, UiSnapshot } from "@/game/types";
 import { cn } from "@/lib/utils";
@@ -57,12 +59,13 @@ const INITIAL: UiSnapshot = {
     link: "relay",
   },
   fps: 0,
+  pickup: null,
 };
 
 export function SnowCraft() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<SnowCraftGame | null>(null);
-  const { lang, t, toggle, nextLabel } = useLang();
+  const { lang, t, setLang } = useLang();
   const [ui, setUi] = useState<UiSnapshot>(INITIAL);
   const [portraitPhone, setPortraitPhone] = useState(false);
   const [landscapePhone, setLandscapePhone] = useState(false);
@@ -195,7 +198,7 @@ export function SnowCraft() {
           >
             <div
               className={cn(
-                "pointer-events-auto cursor-pointer select-none rounded-xl bg-ink/70 backdrop-blur-sm",
+                "pointer-events-auto w-fit cursor-pointer select-none rounded-xl bg-ink/70 backdrop-blur-sm",
                 landscapePhone ? "px-2 py-1" : "px-3 py-2",
               )}
               onPointerDown={(e) => {
@@ -218,7 +221,7 @@ export function SnowCraft() {
                       : t("level", { n: ui.level })}
               </p>
               {ui.godSpeed && (
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-300 sm:text-xs">
+                <p className="text-xs font-semibold uppercase tracking-wide text-tan">
                   {t("godSpeed")}
                 </p>
               )}
@@ -240,11 +243,16 @@ export function SnowCraft() {
               </p>
               )}
             </div>
+            <div className="flex items-start justify-end gap-2">
             <div
               className={cn(
-                "flex items-center gap-2 rounded-xl bg-ink/70 text-sm tabular-nums backdrop-blur-sm",
+                "pointer-events-auto flex cursor-pointer select-none items-center gap-2 rounded-xl bg-ink/70 text-sm tabular-nums backdrop-blur-sm",
                 landscapePhone ? "px-2 py-1" : "px-3 py-2",
               )}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                g?.tapScoreHud();
+              }}
             >
               <span className="font-medium text-primary">{ui.redAlive}</span>
               <span className="text-ice">vs</span>
@@ -276,24 +284,56 @@ export function SnowCraft() {
                 <Pause />
               </Button>
             </div>
+            </div>
           </header>
         )}
 
-        {playing && portraitPhone && (
-          <div className="mt-auto flex justify-center px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-            <p className="flex items-center gap-2 rounded-full bg-ink/75 px-3.5 py-2 text-xs text-surface shadow-md backdrop-blur-sm sm:text-sm">
-              <Smartphone className="size-4 rotate-90" aria-hidden />
-              {t("rotate")}
-            </p>
+        {playing && (
+          <div
+            className={cn(
+              "mt-auto flex flex-col items-center gap-2",
+              landscapePhone
+                ? "px-2 pb-[max(0.35rem,env(safe-area-inset-bottom))]"
+                : "px-4 pb-[max(1rem,env(safe-area-inset-bottom))]",
+            )}
+          >
+            {ui.pickup?.held && (
+              <BigBuffHud
+                shots={ui.pickup.shots}
+                maxShots={ui.pickup.maxShots}
+                life={ui.pickup.life}
+                maxLife={ui.pickup.maxLife}
+                compact={landscapePhone}
+                label={t("pickupHold", {
+                  n: ui.pickup.shots,
+                  s: Math.max(0, Math.ceil(ui.pickup.life)),
+                })}
+              />
+            )}
+            {ui.pickup?.field && (
+              <p
+                className={cn(
+                  "pickup-notice text-center",
+                  landscapePhone ? "text-sm" : "text-lg sm:text-xl",
+                )}
+              >
+                {t("pickupBig")}
+              </p>
+            )}
+            {portraitPhone && (
+              <p className="flex items-center gap-2 rounded-full bg-ink/75 px-3.5 py-2 text-xs text-surface shadow-md backdrop-blur-sm sm:text-sm">
+                <Smartphone className="size-4 rotate-90" aria-hidden />
+                {t("rotate")}
+              </p>
+            )}
+            {!portraitPhone && !landscapePhone && (
+              <p className="text-center font-sans text-xs text-ink/80 sm:text-sm">
+                {versus
+                  ? t("hintPvp", { dog: t(myTeam === "green" ? "retriever" : "maltese") })
+                  : t("hintAi", { dog: t(myTeam === "green" ? "retriever" : "maltese") })}
+              </p>
+            )}
           </div>
-        )}
-
-        {playing && !portraitPhone && !landscapePhone && (
-          <p className="mt-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center font-sans text-xs text-ink/80 sm:text-sm">
-            {versus
-              ? t("hintPvp", { dog: t(myTeam === "green" ? "retriever" : "maltese") })
-              : t("hintAi", { dog: t(myTeam === "green" ? "retriever" : "maltese") })}
-          </p>
         )}
       </div>
 
@@ -308,17 +348,37 @@ export function SnowCraft() {
           onPointerDown={() => gameRef.current?.armTitleAudio()}
         >
           <div className="pointer-events-none absolute inset-0 bg-ink/45" />
-          <div className="relative z-10 flex h-full max-h-[min(92dvh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-surface/15 bg-ink/80 shadow-xl">
+          <div className="relative z-10 flex h-full max-h-[min(92dvh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-surface/15 bg-ink/80 shadow-xl pb-[env(safe-area-inset-bottom)]">
             <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-8">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-ice sm:text-xs">
-                    {t("greet")}
-                  </p>
-                  <h1 className="mt-1 font-title-script text-4xl leading-tight tracking-tight text-surface sm:text-5xl">
+              <div className="flex items-start justify-end gap-3">
+                <div className="flex shrink-0 items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        gameRef.current?.armTitleAudio();
+                        gameRef.current?.toggleMute();
+                      }}
+                      className="pointer-events-auto inline-flex size-11 items-center justify-center rounded-full border border-surface/30 bg-ink/70 text-[#fff3c4] backdrop-blur-sm hover:bg-ink/90 sm:size-9"
+                      aria-label={ui.muted ? t("unmute") : t("mute")}
+                    >
+                      {ui.muted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
+                    </button>
+                    <LangMenu lang={lang} onChange={setLang} label={t("language")} tone="title" />
+                </div>
+              </div>
+              <div className="mt-2 flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <h1
+                    lang={htmlLang(lang)}
+                    className="font-title-script text-[clamp(1.7rem,7.2vw,3rem)] leading-snug tracking-tight text-surface sm:text-5xl"
+                  >
                     {t("gameTitle")}
                   </h1>
-                  <p className="mt-1.5 font-motto-script text-xl leading-tight text-[#fff3c4] sm:text-2xl">
+                  <p
+                    lang={htmlLang(lang)}
+                    className="mt-1.5 font-motto-script text-[clamp(1.05rem,4.6vw,1.5rem)] leading-snug text-[#fff3c4] sm:text-2xl"
+                  >
                     {t("slogan")}
                   </p>
                 </div>
@@ -708,9 +768,7 @@ export function SnowCraft() {
               <RotateCcw />
               {t("restart")}
             </Button>
-            <Button variant="secondary" onClick={toggle}>
-              {nextLabel}
-            </Button>
+            <LangMenu lang={lang} onChange={setLang} label={t("language")} tone="modal" className="w-full" />
             <Button variant="secondary" onClick={() => g?.toTitle()}>
               <Home />
               {t("title")}
@@ -731,7 +789,7 @@ export function SnowCraft() {
                   {win ? t("victory") : t("buried")}
                 </h2>
                 {win && (
-                  <p className="mt-1 font-motto-script text-xl text-pine">{t("slogan")}</p>
+                  <p lang={htmlLang(lang)} className="mt-1 font-motto-script text-xl text-pine">{t("slogan")}</p>
                 )}
                 <p className="mt-2 text-sm leading-relaxed text-muted">
                   {versusGameoverCopy(ui, t)}
@@ -794,8 +852,8 @@ function TitleBoot({ t, lang, onArm }: { t: TFn; lang: Lang; onArm?: () => void 
       <div className="relative flex flex-col items-center gap-4 text-surface">
         <Loader2 className="size-10 animate-spin text-ice" aria-hidden />
         <p className="text-xs font-medium uppercase tracking-[0.22em] text-ice">{t("loading")}</p>
-        <p className="font-title-script text-3xl">{t("gameTitle")}</p>
-        <p className="font-motto-script text-xl text-[#fff3c4] sm:text-2xl">{t("slogan")}</p>
+        <p lang={htmlLang(lang)} className="font-title-script text-3xl">{t("gameTitle")}</p>
+        <p lang={htmlLang(lang)} className="font-motto-script text-xl text-[#fff3c4] sm:text-2xl">{t("slogan")}</p>
       </div>
     </div>
   );
@@ -804,6 +862,56 @@ function TitleBoot({ t, lang, onArm }: { t: TFn; lang: Lang; onArm?: () => void 
 function joinUrl(code: string) {
   if (typeof window === "undefined") return `?vs=${code}`;
   return `${window.location.origin}${window.location.pathname}?vs=${code}`;
+}
+
+function BigBuffHud({
+  shots,
+  maxShots,
+  life,
+  maxLife,
+  compact,
+  label,
+}: {
+  shots: number;
+  maxShots: number;
+  life: number;
+  maxLife: number;
+  compact: boolean;
+  label: string;
+}) {
+  const pct = Math.max(0, Math.min(1, maxLife > 0 ? life / maxLife : 0));
+  return (
+    <div
+      className={cn(
+        "flex flex-col items-stretch rounded-xl border border-tan/50 bg-ink/80 text-tan shadow-md backdrop-blur-sm",
+        compact ? "min-w-28 gap-1 px-2 py-1" : "min-w-36 gap-1.5 px-3 py-2",
+      )}
+      role="status"
+      aria-label={label}
+    >
+      <div className="flex items-center justify-center gap-1.5">
+        <Snowflake className={compact ? "size-3.5" : "size-4"} aria-hidden />
+        <div className="flex items-center gap-1">
+          {Array.from({ length: maxShots }, (_, i) => (
+            <span
+              key={i}
+              className={cn(
+                "rounded-full border border-tan",
+                i < shots ? "bg-surface" : "opacity-30",
+                compact ? "size-2.5" : "size-3",
+              )}
+            />
+          ))}
+        </div>
+      </div>
+      <div className={cn("overflow-hidden rounded-full bg-ink", compact ? "h-1" : "h-1.5")}>
+        <div
+          className="h-full rounded-full bg-tan transition-[width] duration-100 ease-linear"
+          style={{ width: `${pct * 100}%` }}
+        />
+      </div>
+    </div>
+  );
 }
 
 function versusGameoverCopy(ui: UiSnapshot, t: TFn) {
@@ -883,27 +991,119 @@ function DogHead({
   );
 }
 
-function LangToggle({
-  nextLabel,
-  onToggle,
+function LangMenu({
+  lang,
+  onChange,
+  label,
+  tone = "title",
   className,
 }: {
-  nextLabel: string;
-  onToggle: () => void;
+  lang: Lang;
+  onChange: (l: Lang) => void;
+  label: string;
+  tone?: "title" | "modal";
   className?: string;
 }) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const r = btn.current?.getBoundingClientRect();
+      if (!r) return;
+      setPos({ top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) });
+    };
+    place();
+    const close = (e: PointerEvent) => {
+      if (root.current && !root.current.contains(e.target as Node)) setOpen(false);
+    };
+    window.addEventListener("pointerdown", close, true);
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("pointerdown", close, true);
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open]);
+
+  const dark = tone === "title";
+
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className={cn(
-        "pointer-events-auto rounded-full border border-surface/30 bg-ink/70 px-3 py-1 text-xs font-semibold tracking-wide text-[#fff3c4] backdrop-blur-sm hover:bg-ink/90",
-        className,
-      )}
-      aria-label={`Switch language (next: ${nextLabel})`}
+    <div
+      ref={root}
+      className={cn("relative pointer-events-auto", className)}
+      onPointerDown={(e) => e.stopPropagation()}
     >
-      {nextLabel}
-    </button>
+      <button
+        ref={btn}
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        className={cn(
+          "inline-flex items-center justify-center gap-1.5 rounded-full border text-xs font-semibold backdrop-blur-sm",
+          dark
+            ? "size-11 border-surface/30 bg-ink/70 text-[#fff3c4] hover:bg-ink/90 sm:size-9"
+            : "h-11 w-full border-ink/15 bg-ink/5 px-3 text-ink hover:bg-ink/10",
+        )}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={label}
+      >
+        <Globe className={dark ? "size-4" : "size-4"} />
+        {!dark && <span>{LANGS.find((l) => l.id === lang)?.label ?? "English"}</span>}
+      </button>
+      {open && (
+        <ul
+          role="listbox"
+          style={
+            dark && pos
+              ? { position: "fixed", top: pos.top, right: pos.right }
+              : undefined
+          }
+          className={cn(
+            "z-50 min-w-40 overflow-y-auto rounded-xl border py-1 shadow-xl",
+            "max-h-[min(70dvh,20rem)]",
+            !dark && "absolute left-0 right-0 mt-1",
+            dark
+              ? "border-surface/20 bg-ink/95 text-[#fff3c4]"
+              : "border-ink/10 bg-surface text-ink",
+          )}
+        >
+          {LANGS.map((opt) => (
+            <li key={opt.id}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={opt.id === lang}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChange(opt.id);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "flex min-h-11 w-full items-center px-3 py-2.5 text-left text-sm",
+                  opt.id === lang
+                    ? dark
+                      ? "bg-surface/15 font-semibold"
+                      : "bg-ink/10 font-semibold"
+                    : dark
+                      ? "hover:bg-surface/10"
+                      : "hover:bg-ink/5",
+                )}
+              >
+                {opt.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

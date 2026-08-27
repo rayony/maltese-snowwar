@@ -1,4 +1,5 @@
 import { readdirSync } from "node:fs";
+import { execSync } from "node:child_process";
 import { join } from "node:path";
 import type { Plugin } from "vite";
 import { defineConfig } from "vite";
@@ -13,6 +14,22 @@ import { appEnvPlugin } from "./scripts/app-env-plugin.mjs";
 import { isMigrationFile } from "./scripts/migration-plan.mjs";
 
 /** The files `src/lib/db.ts` globs — same directory, same non-recursive scope. */
+function gitInfo() {
+  const run = (cmd: string) => {
+    try {
+      return execSync(cmd, { encoding: "utf8" }).trim();
+    } catch {
+      return "";
+    }
+  };
+  let branch = process.env.VERCEL_GIT_COMMIT_REF || run("git rev-parse --abbrev-ref HEAD") || "beta";
+  let sha = process.env.VERCEL_GIT_COMMIT_SHA || run("git rev-parse --short=7 HEAD");
+  if (branch === "HEAD" || branch === "detached") branch = process.env.VERCEL_GIT_COMMIT_REF || "beta";
+  const channel = branch === "main" || branch === "master" ? "main" : "beta";
+  sha = sha.slice(0, 7);
+  return { branch: channel, sha };
+}
+
 function hasGlobbedMigrations(root: string): boolean {
   try {
     return readdirSync(join(root, "migrations")).some(isMigrationFile);
@@ -145,7 +162,9 @@ function authPopupPlugin(): Plugin {
 // `0.0.0.0:8080` is the live-preview contract — don't change host/port.
 // The dev server starts once `src/router.tsx` and `src/routes/` exist — see
 // AGENTS.md § "First scaffold".
-export default defineConfig(({ command, isPreview }) => ({
+export default defineConfig(({ command, isPreview }) => {
+  const git = gitInfo();
+  return {
   server: {
     host: "0.0.0.0",
     port: 8080,
@@ -157,6 +176,12 @@ export default defineConfig(({ command, isPreview }) => ({
     strictPort: true,
   },
   resolve: { tsconfigPaths: true },
+  define: {
+    __APP_BRANCH__: JSON.stringify(git.branch),
+    __APP_SHA__: JSON.stringify(git.sha),
+    "import.meta.env.VITE_GIT_BRANCH": JSON.stringify(git.branch),
+    "import.meta.env.VITE_GIT_SHA": JSON.stringify(git.sha),
+  },
   plugins: [
     pgliteBootstrapPlugin(),
     // Before tanstackStart so /auth/popup never falls through to the SPA.
@@ -180,4 +205,5 @@ export default defineConfig(({ command, isPreview }) => ({
       : []),
     viteReact(),
   ],
-}));
+};
+});

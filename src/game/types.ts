@@ -12,6 +12,8 @@ export interface AiBrain {
   destX: number;
   destY: number;
   charge: number;
+  coverT: number;
+  awayT: number;
 }
 
 export interface Kid {
@@ -36,6 +38,8 @@ export interface Kid {
   fidgetWait: number;
   moving: boolean;
   ai: AiBrain | null;
+  viewX?: number;
+  viewY?: number;
 }
 
 export interface Snowball {
@@ -53,6 +57,8 @@ export interface Snowball {
   traveled: number;
   local?: boolean;
   ghost?: boolean;
+  born?: number;
+  big?: boolean;
 }
 
 export interface Fort {
@@ -76,6 +82,20 @@ export interface Particle {
   kind: "flake" | "puff" | "spark" | "note";
 }
 
+export interface Pickup {
+  x: number;
+  y: number;
+  kind: "big";
+  life: number;
+  maxLife: number;
+}
+
+export interface TeamBuff {
+  kind: "big";
+  shots: number;
+  t: number;
+}
+
 export interface Footprint {
   x: number;
   y: number;
@@ -91,6 +111,8 @@ export interface Grab {
   vx: number;
   vy: number;
   packLeft: number;
+  originX: number;
+  originY: number;
 }
 
 export interface GameState {
@@ -108,6 +130,11 @@ export interface GameState {
   time: number;
   trauma: number;
   hard: boolean;
+  pvp: boolean;
+  godSpeed: boolean;
+  pickup: Pickup | null;
+  pickupCd: number;
+  buffs: { red: TeamBuff | null; green: TeamBuff | null };
 }
 
 export type NetRole = "solo" | "host" | "guest";
@@ -130,6 +157,10 @@ export interface UiSnapshot {
   screen: Screen;
   level: number;
   best: number;
+  clearEasyMs: number | null;
+  clearHardMs: number | null;
+  clearEasyStar: boolean;
+  clearHardStar: boolean;
   redAlive: number;
   greenAlive: number;
   greenTotal: number;
@@ -139,8 +170,17 @@ export interface UiSnapshot {
   loadTotal: number;
   allyMode: AllyMode;
   difficulty: Difficulty;
+  godSpeed: boolean;
   net: NetUi;
   fps: number;
+  pickup: {
+    field: boolean;
+    held: boolean;
+    life: number;
+    maxLife: number;
+    shots: number;
+    maxShots: number;
+  } | null;
 }
 
 export interface View {
@@ -155,4 +195,5 @@ export interface View {
   ballSize: number;
   mirror: boolean;
   pvp: boolean;
+  godSpeed: boolean;
 }

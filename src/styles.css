@@ -1,5 +1,20 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: "Caveat";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/Caveat-script.woff2") format("woff2");
+}
+@font-face {
+  font-family: "ChenYuluoyan";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/ChenYuluoyan-title.woff2") format("woff2");
+}
+
 @theme {
   --color-bg: #d7e4ee;
   --color-surface: #f4f7fa;
@@ -13,8 +28,12 @@
   --color-tan: #c4965a;
   --color-ice: #8fb4cc;
   --color-letterbox: #9bb4c6;
-  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Fraunces", ui-serif, Georgia, "Times New Roman", serif;
+  --font-sans: "Outfit", "PingFang TC", "Hiragino Sans", "Hiragino Sans GB", "Apple SD Gothic Neo", "Noto Sans TC", "Noto Sans SC", "Noto Sans JP", "Noto Sans KR", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", "PingFang TC", "Songti TC", "Hiragino Mincho ProN", "Apple SD Gothic Neo", "Noto Serif TC", "Microsoft JhengHei", ui-serif, Georgia, serif;
+  /* Default = English hand only. CJK faces are swapped in per :lang() so 雪 cannot pick 落雁. */
+  --font-script: "Caveat", cursive;
+  --font-title-script: "Caveat", cursive;
+  --font-motto-script: "Caveat", cursive;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
@@ -24,10 +43,118 @@
   --motion-fast: 250ms;
 }
 
+/* Unlayered so it beats Tailwind's .font-title-script utility.
+   雪 (U+96EA) exists in both 落雁 and Klee One — mixed stacks always stole 雪. */
+:lang(zh-Hant),
+html[lang="zh-Hant"] {
+  --font-title-script: "ChenYuluoyan", "PingFang TC", cursive;
+  --font-motto-script: "ChenYuluoyan", "PingFang TC", cursive;
+  --font-script: "ChenYuluoyan", "PingFang TC", cursive;
+}
+:lang(zh-Hans),
+html[lang="zh-Hans"] {
+  --font-title-script: "Ma Shan Zheng", "Noto Sans SC", sans-serif;
+  --font-motto-script: "Ma Shan Zheng", "Noto Sans SC", sans-serif;
+  --font-script: "Ma Shan Zheng", "Noto Sans SC", sans-serif;
+}
+:lang(ja),
+html[lang="ja"] {
+  --font-title-script: "Klee One", "YuKyokasho", "Yu Kyokasho", sans-serif;
+  --font-motto-script: "Klee One", "YuKyokasho", "Yu Kyokasho", sans-serif;
+  --font-script: "Klee One", "YuKyokasho", sans-serif;
+}
+:lang(ko),
+html[lang="ko"] {
+  --font-title-script: "Gaegu", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --font-motto-script: "Gaegu", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --font-script: "Gaegu", "Apple SD Gothic Neo", sans-serif;
+}
+
+.font-title-script:lang(zh-Hans),
+.font-motto-script:lang(zh-Hans) {
+  font-family: "Ma Shan Zheng", "Noto Sans SC", sans-serif;
+  font-weight: 400;
+  -webkit-text-stroke: 0;
+  font-synthesis: none;
+}
+
 @layer base {
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
+  }
+
+  .font-script,
+  .font-title-script,
+  .font-motto-script {
+    /* 落雁 official file is Thin only — fake a heavier hand. */
+    font-synthesis: weight;
+    font-weight: 700;
+    -webkit-text-stroke: 0.55px currentColor;
+    paint-order: stroke fill;
+  }
+  .font-title-script {
+    -webkit-text-stroke: 0.75px currentColor;
+  }
+
+  /* CJK wrap + stroke: variables already chose the face. */
+  html[lang="zh-Hant"] .font-title-script,
+  html[lang="zh-Hant"] .font-motto-script,
+  .font-title-script:lang(zh-Hant),
+  .font-motto-script:lang(zh-Hant) {
+    -webkit-text-stroke: 0.45px currentColor;
+    letter-spacing: 0.02em;
+    word-break: keep-all;
+    line-break: strict;
+    overflow-wrap: anywhere;
+  }
+
+  html[lang="zh-Hans"] .font-title-script,
+  html[lang="zh-Hans"] .font-motto-script,
+  .font-title-script:lang(zh-Hans),
+  .font-motto-script:lang(zh-Hans) {
+    font-weight: 400;
+    font-synthesis: none;
+    -webkit-text-stroke: 0;
+    paint-order: normal;
+    letter-spacing: 0.04em;
+    word-break: keep-all;
+    line-break: strict;
+    overflow-wrap: anywhere;
+  }
+
+  html[lang="ja"] .font-title-script,
+  html[lang="ja"] .font-motto-script,
+  .font-title-script:lang(ja),
+  .font-motto-script:lang(ja) {
+    font-weight: 600;
+    font-synthesis: none;
+    -webkit-text-stroke: 0;
+    paint-order: normal;
+    letter-spacing: 0.04em;
+    line-height: 1.35;
+    word-break: keep-all;
+    line-break: strict;
+    overflow-wrap: anywhere;
+  }
+  html[lang="ja"] .font-motto-script,
+  .font-motto-script:lang(ja) {
+    font-weight: 400;
+  }
+
+  html[lang="ko"] .font-title-script,
+  html[lang="ko"] .font-motto-script,
+  .font-title-script:lang(ko),
+  .font-motto-script:lang(ko) {
+    font-weight: 700;
+    font-synthesis: none;
+    -webkit-text-stroke: 0;
+    paint-order: normal;
+    letter-spacing: 0.02em;
+    line-height: 1.3;
+    word-break: keep-all;
+    line-break: strict;
+    overflow-wrap: anywhere;
   }
 
   html,
@@ -44,6 +171,59 @@
     font-family: var(--font-sans);
     overflow: hidden;
   }
+
+  .game-shell {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  .game-shell input,
+  .game-shell textarea {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+}
+
+@keyframes modal-veil {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes modal-pop {
+  from { opacity: 0; transform: translateY(14px) scale(0.94); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.modal-veil {
+  animation: modal-veil 420ms var(--ease-out) both;
+}
+.modal-pop {
+  animation: modal-pop 520ms var(--ease-out) both;
+}
+
+@keyframes pickup-glow {
+  0%, 100% {
+    text-shadow:
+      0 0 8px var(--color-tan),
+      0 0 16px var(--color-tan);
+  }
+  50% {
+    text-shadow:
+      0 0 14px #fff3c4,
+      0 0 26px var(--color-tan);
+  }
+}
+
+.pickup-notice {
+  color: #fff8d0;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  -webkit-text-stroke: 2px var(--color-ink);
+  paint-order: stroke fill;
+  text-shadow:
+    0 0 8px var(--color-tan),
+    0 0 16px var(--color-tan);
+  animation: pickup-glow 1s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

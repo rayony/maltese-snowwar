@@ -1,6 +1,7 @@
-import { holdPower, isCompactPlay, PACK_TIME, throwRange, WORLD_H, WORLD_W } from "./constants";
+import { BALL_RADIUS, holdPower, isCompactPlay, MARGIN, PACK_TIME, PVP_RANGE, STAR_PACK_TIME, throwRange, WORLD_H, WORLD_W } from "./constants";
+import { readLang, tr } from "./i18n";
 import type { Assets } from "./assets";
-import { aimFromKid, inFort, isOut } from "./sim";
+import { aimFromKid, clamp, inFort, isOut } from "./sim";
 import type { Fort, GameState, Grab, Kid, Snowball, View } from "./types";
 
 let field: HTMLCanvasElement | null = null;
@@ -42,13 +43,17 @@ export function playLayout(
   mirror = false,
   compact = false,
 ) {
-  let scale = Math.min(cssW / WORLD_W, cssH / WORLD_H);
-  if (compact) scale *= 1.12;
+  const landscapePhone = compact && cssW > cssH && cssH < 520;
+  const topHud = landscapePhone ? 56 : 0;
+  const botHud = landscapePhone ? 8 : 0;
+  const innerH = Math.max(96, cssH - topHud - botHud);
+  let scale = Math.min(cssW / WORLD_W, innerH / WORLD_H);
+  if (compact && !landscapePhone) scale *= 1.12;
   const worldWcss = WORLD_W * scale;
   const worldHcss = WORLD_H * scale;
   let ox = (cssW - worldWcss) / 2;
-  let oy = (cssH - worldHcss) / 2;
-  if (compact && worldWcss > cssW + 1) {
+  const oy = topHud + (innerH - worldHcss) / 2;
+  if (compact && !landscapePhone && worldWcss > cssW + 1) {
     const minOx = cssW - worldWcss;
     ox = minOx * 0.84;
   }
@@ -79,7 +84,7 @@ function frameOf(frames: HTMLImageElement[], t: number, fps = 7) {
   return frames[i] ?? frames[0]!;
 }
 
-function kidFrame(kid: Kid, assets: Assets) {
+function kidFrame(kid: Kid, assets: Assets, star = false) {
   const set = kid.team === "red" ? assets.red : assets.green;
   const idle = set.idle[0] ?? null;
   if (kid.state === "buried") return set.buried ?? idle;
@@ -95,7 +100,8 @@ function kidFrame(kid: Kid, assets: Assets) {
     return frameOf(set.walk, kid.animT, 8) ?? idle;
   }
   if ((kid.state === "pack" || kid.packT > 0) && set.pack.length) {
-    const u = 1 - kid.packT / PACK_TIME;
+    const packMax = star && kid.team === "red" ? STAR_PACK_TIME : PACK_TIME;
+    const u = 1 - kid.packT / packMax;
     const i = Math.min(3, Math.max(0, Math.floor(u * 4)));
     return set.pack[i] ?? set.pack[0] ?? idle;
   }
@@ -236,19 +242,53 @@ export function render(
     });
   }
   for (const kid of state.kids) {
+    const y = kid.viewY ?? kid.y;
     layers.push({
-      y: kid.y,
+      y,
       draw: () => drawKid(ctx, kid, assets, view, state.forts),
     });
   }
   layers.sort((a, b) => a.y - b.y);
   for (const layer of layers) layer.draw();
 
+  if (state.pickup) {
+    const pulse = 1 + 0.18 * Math.sin(state.time * 7);
+    const s = 46 * pulse;
+    ctx.save();
+    ctx.globalAlpha = 0.4 + 0.25 * Math.sin(state.time * 5);
+    ctx.fillStyle = "#ffe28a";
+    ctx.beginPath();
+    ctx.arc(state.pickup.x, state.pickup.y, s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = "#fff8d0";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(state.pickup.x, state.pickup.y, s * 0.72, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(state.pickup.x, state.pickup.y - 6, s * 0.48, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  for (const kid of state.kids) {
+    const buff = state.buffs[kid.team];
+    if (!buff || isOut(kid)) continue;
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,226,138,0.95)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(kid.x, kid.y - 18, 30, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   if (assets) {
     for (const ball of state.balls) {
       const img = frameOf(assets.ball, ball.spin, 8);
       const hop = ballHop(ball);
-      const s = view.ballSize;
+      const s = view.ballSize * (ball.r / BALL_RADIUS);
       ctx.save();
       ctx.translate(ball.x, ball.y - hop);
       ctx.rotate(ball.spin * 0.4);
@@ -265,7 +305,7 @@ export function render(
     ctx.fillStyle = "#fff";
     for (const ball of state.balls) {
       ctx.beginPath();
-      ctx.arc(ball.x, ball.y - ballHop(ball), view.ballSize * 0.38, 0, Math.PI * 2);
+      ctx.arc(ball.x, ball.y - ballHop(ball), view.ballSize * (ball.r / BALL_RADIUS) * 0.38, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -296,29 +336,146 @@ export function render(
   if (view.grab && state.phase === "fight") {
     const kid = state.kids.find((k) => k.id === view.grab!.id);
     if (kid && !isOut(kid)) {
-      drawThrowPreview(ctx, kid, view.grab, state.kids);
+      drawThrowPreview(ctx, kid, view.grab, state.kids, view.pvp, view.godSpeed);
     }
   }
+
+  drawOffscreenArrows(ctx, state, view, cssW, cssH, scale, ox, oy);
 
   ctx.restore();
 
   if (state.phase === "intro") {
     const n = Math.max(1, Math.ceil(state.introT));
-    drawCountdown(ctx, view.pvp ? "PVP mode" : `Level ${state.level}`, String(n));
+    const lang = readLang();
+    drawCountdown(ctx, view.pvp ? tr(lang, "pvpMode") : tr(lang, "level", { n: state.level }), String(n));
   }
 }
 
+function visibleWorld(
+  cssW: number,
+  cssH: number,
+  scale: number,
+  ox: number,
+  oy: number,
+  mirror: boolean,
+) {
+  const y0 = -oy / scale;
+  const y1 = (cssH - oy) / scale;
+  if (!mirror) {
+    return { x0: -ox / scale, x1: (cssW - ox) / scale, y0, y1 };
+  }
+  const a = WORLD_W + ox / scale;
+  const b = WORLD_W - (cssW - ox) / scale;
+  return { x0: Math.min(a, b), x1: Math.max(a, b), y0, y1 };
+}
+
+export function clampWorldToView(
+  x: number,
+  y: number,
+  cssW: number,
+  cssH: number,
+  mirror: boolean,
+  pad = 28,
+) {
+  const compact = isCompactPlay(cssW);
+  const { scale, ox, oy } = playLayout(cssW, cssH, mirror, compact);
+  const vis = visibleWorld(cssW, cssH, scale, ox, oy, mirror);
+  const x0 = Math.max(MARGIN, vis.x0 + pad);
+  const x1 = Math.min(WORLD_W - MARGIN, vis.x1 - pad);
+  const y0 = Math.max(MARGIN, vis.y0 + pad);
+  const y1 = Math.min(WORLD_H - MARGIN, vis.y1 - pad);
+  if (x1 <= x0 || y1 <= y0) {
+    return { x: clamp(x, MARGIN, WORLD_W - MARGIN), y: clamp(y, MARGIN, WORLD_H - MARGIN) };
+  }
+  return { x: clamp(x, x0, x1), y: clamp(y, y0, y1) };
+}
+
+function drawOffscreenArrows(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  view: View,
+  cssW: number,
+  cssH: number,
+  scale: number,
+  ox: number,
+  oy: number,
+) {
+  const mine = view.mirror ? "green" : "red";
+  const vis = visibleWorld(cssW, cssH, scale, ox, oy, view.mirror);
+  const pad = 28;
+  const x0 = vis.x0 + pad;
+  const x1 = vis.x1 - pad;
+  const y0 = vis.y0 + pad;
+  const y1 = vis.y1 - pad;
+  if (x1 - x0 < 40 || y1 - y0 < 40) return;
+  for (const kid of state.kids) {
+    if (kid.team === mine || isOut(kid)) continue;
+    const x = kid.viewX ?? kid.x;
+    const y = kid.viewY ?? kid.y;
+    if (x >= x0 && x <= x1 && y >= y0 && y <= y1) continue;
+    const cx = clamp(x, x0, x1);
+    const cy = clamp(y, y0, y1);
+    const ang = Math.atan2(y - cy, x - cx);
+    drawEdgeArrow(ctx, cx, cy, ang, kid.team === "green" ? "#c4965a" : "#c43b3b");
+  }
+}
+
+function drawEdgeArrow(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  ang: number,
+  fill: string,
+) {
+  const len = 16;
+  const w = 11;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(ang);
+  ctx.beginPath();
+  ctx.moveTo(len, 0);
+  ctx.lineTo(-len * 0.45, w);
+  ctx.lineTo(-len * 0.18, 0);
+  ctx.lineTo(-len * 0.45, -w);
+  ctx.closePath();
+  ctx.fillStyle = fill;
+  ctx.strokeStyle = "rgba(255,248,240,0.95)";
+  ctx.lineWidth = 2;
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
 function drawCountdown(ctx: CanvasRenderingContext2D, kicker: string, n: string) {
+  const lang = readLang();
+  const kickerFont = lang === "ja"
+    ? '600 22px "Klee One","YuKyokasho","Yu Kyokasho",sans-serif'
+    : lang === "ko"
+      ? '700 22px "Gaegu","Apple SD Gothic Neo","Noto Sans KR",sans-serif'
+      : lang === "zh-CN"
+        ? '400 22px "Ma Shan Zheng","Noto Sans SC",sans-serif'
+        : lang === "zh"
+          ? '600 22px "ChenYuluoyan","PingFang TC",sans-serif'
+        : "600 22px Fraunces, Georgia, serif";
+  const numFont = lang === "ja"
+    ? '600 96px "Klee One","YuKyokasho","Yu Kyokasho",sans-serif'
+    : lang === "ko"
+      ? '700 96px "Gaegu","Apple SD Gothic Neo",sans-serif'
+      : lang === "zh-CN"
+        ? '400 96px "Ma Shan Zheng","Noto Sans SC",sans-serif'
+        : lang === "zh"
+          ? '700 96px "ChenYuluoyan","PingFang TC",sans-serif'
+        : "700 96px Fraunces, Georgia, serif";
   ctx.save();
   ctx.fillStyle = "rgba(21,32,43,0.4)";
   ctx.fillRect(0, WORLD_H / 2 - 88, WORLD_W, 176);
   ctx.fillStyle = "rgba(244,247,250,0.85)";
-  ctx.font = "600 22px Fraunces, Georgia, serif";
+  ctx.font = kickerFont;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(kicker, WORLD_W / 2, WORLD_H / 2 - 52);
   ctx.fillStyle = "#f4f7fa";
-  ctx.font = "700 96px Fraunces, Georgia, serif";
+  ctx.font = numFont;
   ctx.fillText(n, WORLD_W / 2, WORLD_H / 2 + 18);
   ctx.restore();
 }
@@ -332,17 +489,19 @@ function drawKid(
 ) {
   const lifted = kid.state === "grabbed" ? 8 : 0;
   const buried = kid.state === "buried";
-  const cover = !buried && !!inFort(kid.x, kid.y, forts);
+  const px = kid.viewX ?? kid.x;
+  const py = kid.viewY ?? kid.y;
+  const cover = !buried && !!inFort(px, py, forts);
   const duck = cover ? 11 : 0;
   const size = buried ? view.buriedSize : view.drawSize;
   ctx.save();
-  ctx.translate(kid.x, kid.y + duck);
+  ctx.translate(px, py + duck);
   ctx.fillStyle = "rgba(40,60,80,0.22)";
   ctx.beginPath();
   ctx.ellipse(0, 16, buried ? size * 0.42 : lifted ? size * 0.18 : size * 0.24, buried ? 8 : 6, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  const img = assets ? kidFrame(kid, assets) : null;
+  const img = assets ? kidFrame(kid, assets, view.godSpeed) : null;
   if (img) {
     ctx.save();
     ctx.translate(0, -lifted);
@@ -354,11 +513,18 @@ function drawKid(
   }
 
   if (!isOut(kid)) drawPips(ctx, kid, cover);
-  if (kid.packT > 0 && !isOut(kid) && kid.state !== "throw") drawPackMeter(ctx, kid.packT);
+  if (kid.packT > 0 && !isOut(kid) && kid.state !== "throw") {
+    const packMax = view.godSpeed && kid.team === "red" ? STAR_PACK_TIME : PACK_TIME;
+    drawPackMeter(ctx, kid.packT, packMax);
+  }
 
   const hovered = view.hoverId === kid.id || view.grab?.id === kid.id;
   if (hovered && kid.team === "red" && !isOut(kid)) {
-    const power = view.grab?.id === kid.id ? holdPower((performance.now() - view.grab.startedAt) / 1000) : 0;
+    const power = view.pvp
+      ? 0.7
+      : view.grab?.id === kid.id
+        ? holdPower((performance.now() - view.grab.startedAt) / 1000, view.godSpeed)
+        : 0;
     drawBullseye(ctx, power, view.pickRadius);
   }
   ctx.restore();
@@ -426,8 +592,9 @@ function drawFortLayer(
 function drawPips(ctx: CanvasRenderingContext2D, kid: Kid, cover: boolean) {
   const n = kid.maxHp;
   const y = 22;
-  const w = 8;
-  const gap = 4;
+  const compact = n > 4;
+  const w = compact ? 5 : 8;
+  const gap = compact ? 2 : 4;
   const total = n * w + (n - 1) * gap;
   for (let i = 0; i < n; i++) {
     ctx.fillStyle = i < kid.hp ? (kid.team === "red" ? "#c43b3b" : "#c4965a") : "rgba(21,32,43,0.18)";
@@ -446,8 +613,8 @@ function drawPips(ctx: CanvasRenderingContext2D, kid: Kid, cover: boolean) {
   }
 }
 
-function drawPackMeter(ctx: CanvasRenderingContext2D, packT: number) {
-  const u = 1 - packT / PACK_TIME;
+function drawPackMeter(ctx: CanvasRenderingContext2D, packT: number, packMax = PACK_TIME) {
+  const u = 1 - packT / Math.max(0.05, packMax);
   ctx.save();
   ctx.translate(0, -48);
   ctx.strokeStyle = "rgba(21,32,43,0.28)";
@@ -487,23 +654,34 @@ function drawBullseye(ctx: CanvasRenderingContext2D, power: number, pick: number
   ctx.restore();
 }
 
-function drawThrowPreview(ctx: CanvasRenderingContext2D, kid: Kid, grab: Grab, kids: Kid[]) {
+function drawThrowPreview(
+  ctx: CanvasRenderingContext2D,
+  kid: Kid,
+  grab: Grab,
+  kids: Kid[],
+  pvp: boolean,
+  godSpeed = false,
+) {
   const packing = kid.packT > 0;
   const seconds = packing ? 0 : Math.max(0, (performance.now() - grab.startedAt) / 1000 - grab.packLeft);
-  const power = holdPower(seconds);
-  const range = throwRange(power);
-  const dir = aimFromKid(kid, kids);
+  const power = pvp ? 1 : holdPower(seconds, godSpeed && kid.team === "red");
+  const range = packing ? 0 : pvp ? PVP_RANGE : throwRange(power);
+  const extraX = kid.x - grab.originX + grab.vx;
+  const extraY = kid.y - grab.originY + grab.vy;
+  const dir = aimFromKid(kid, kids, extraX, extraY, false, godSpeed && kid.team === "red");
   const len = Math.hypot(dir.dx, dir.dy) || 1;
   const nx = dir.dx / len;
   const ny = dir.dy / len;
-  const ex = kid.x + nx * range;
-  const ey = kid.y + ny * range;
+  const px = kid.viewX ?? kid.x;
+  const py = kid.viewY ?? kid.y;
+  const ex = px + nx * range;
+  const ey = py + ny * range;
   ctx.save();
   ctx.strokeStyle = "rgba(21,32,43,0.45)";
   ctx.setLineDash([7, 7]);
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(kid.x + nx * 26, kid.y + ny * 8);
+  ctx.moveTo(px + nx * 26, py + ny * 8);
   ctx.lineTo(ex, ey);
   ctx.stroke();
   ctx.setLineDash([]);
