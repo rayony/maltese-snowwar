@@ -319,10 +319,7 @@ export function SnowCraft() {
           <div className="pointer-events-none absolute inset-0 bg-ink/45" />
           <div className="relative z-10 flex h-full max-h-[min(92dvh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-surface/15 bg-ink/80 shadow-xl pb-[env(safe-area-inset-bottom)]">
             <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-8">
-              <div className="flex items-start justify-between gap-3">
-                <p className="min-w-0 text-[10px] font-medium uppercase tracking-[0.22em] text-ice sm:text-xs">
-                  {t("greet")}
-                </p>
+              <div className="flex items-start justify-end gap-3">
                 <div className="flex shrink-0 items-center gap-1.5">
                     <button
                       type="button"
