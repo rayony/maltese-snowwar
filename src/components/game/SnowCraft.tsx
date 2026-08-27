@@ -362,24 +362,7 @@ export function SnowCraft() {
             )}
           >
             <div className={cn("shrink-0", landscapePhone ? "px-4 pb-1 pt-3" : "px-5 pt-5 sm:px-8 sm:pt-8")}>
-              <div className="flex items-start justify-end gap-3">
-                <div className="flex shrink-0 items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        gameRef.current?.armTitleAudio();
-                        gameRef.current?.toggleMute();
-                      }}
-                      className="pointer-events-auto inline-flex size-11 items-center justify-center rounded-full border border-surface/30 bg-ink/70 text-[#fff3c4] backdrop-blur-sm hover:bg-ink/90 sm:size-9"
-                      aria-label={ui.muted ? t("unmute") : t("mute")}
-                    >
-                      {ui.muted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
-                    </button>
-                    <LangMenu lang={lang} onChange={setLang} label={t("language")} tone="title" />
-                </div>
-              </div>
-              <div className={cn("flex items-start justify-between gap-3", landscapePhone ? "mt-0.5" : "mt-2")}>
+              <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <h1
                     lang={htmlLang(lang)}
@@ -404,9 +387,26 @@ export function SnowCraft() {
                     {t("slogan")}
                   </p>
                 </div>
-                <div className="flex shrink-0 -space-x-2 pt-1" aria-hidden>
-                  <DogHead src="/sprites/red/idle-1.png" alt="" kind="maltese" className="z-10" />
-                  <DogHead src="/sprites/green/idle-1.png" alt="" kind="retriever" />
+                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        gameRef.current?.armTitleAudio();
+                        gameRef.current?.toggleMute();
+                      }}
+                      className="pointer-events-auto inline-flex size-9 items-center justify-center rounded-full border border-surface/30 bg-ink/70 text-[#fff3c4] backdrop-blur-sm hover:bg-ink/90"
+                      aria-label={ui.muted ? t("unmute") : t("mute")}
+                    >
+                      {ui.muted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
+                    </button>
+                    <LangMenu lang={lang} onChange={setLang} label={t("language")} tone="title" />
+                  </div>
+                  <div className="flex -space-x-2" aria-hidden>
+                    <DogHead src="/sprites/red/idle-1.png" alt="" kind="maltese" className="z-10" />
+                    <DogHead src="/sprites/green/idle-1.png" alt="" kind="retriever" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1073,7 +1073,7 @@ function LangMenu({
         className={cn(
           "inline-flex items-center justify-center gap-1.5 rounded-full border text-xs font-semibold backdrop-blur-sm",
           dark
-            ? "size-11 border-surface/30 bg-ink/70 text-[#fff3c4] hover:bg-ink/90 sm:size-9"
+            ? "size-9 border-surface/30 bg-ink/70 text-[#fff3c4] hover:bg-ink/90"
             : "h-11 w-full border-ink/15 bg-ink/5 px-3 text-ink hover:bg-ink/10",
         )}
         aria-haspopup="listbox"
