@@ -48,44 +48,35 @@ Landing boot: spinner + English title assets, then Play vs AI / Friend. Action s
 
 ## Character skins
 
-**This GitHub repo ships the Christmas pups** (white 小白, gold 小金毛). Snowballs / forts / impacts stay shared.
+Two casts:
+
+| Pack | Path | Who uses it |
+|---|---|---|
+| **Line Puppy** (default on grok.me) | `public/sprites/` | Title dogs, in-game, until you switch |
+| **Christmas pups** 小白 / 小金毛 | `public/skins/xmas/sprites/` | Tap the title heads to switch |
+
+Snowballs / forts / impacts stay shared in `public/sprites/fx/` (except `buried-*.png`, which follows the skin).
 
 ### In the running game
 
-On the title card, tap the **two round dog heads** (top-right, under mute / language).
+On the title card, tap the **two round dog heads** (top-right, under mute / language). That toggles Line Puppy ⇄ Christmas. The choice is stored as `localStorage.msw-skin-v2`.
 
-| Build | What happens |
-|---|---|
-| [grok.me](https://maltese-snowwar.grok.me/) | Starts on Line Puppy. Tap heads ⇄ Christmas pups. Choice is remembered in `localStorage` (`msw-skin`). |
-| Clone of this repo | Only Christmas pups are in git, so the heads stay on that set unless you add a second pack (below). |
+[grok.me](https://maltese-snowwar.grok.me/) always **starts on Line Puppy**.
 
-### Swap the default dogs yourself
+### Swap or add dogs yourself
 
-Replace files under `public/sprites/` with the **same names**. PNG, ~128×128, transparent, character facing **left** (the game mirrors). Keep `idle-1.png` as the title portrait.
+PNG, ~128×128, **transparent background**, character facing **left** (the game mirrors). Keep `idle-1.png` as the title portrait.
 
 ```
-public/sprites/
-  red/     idle throw hurt walk pack wave dance   × 1–4.png   ← your “Maltese” / right team
-  green/   idle throw hurt walk pack wave dance   × 1–4.png   ← your “retrievers” / left team
-  fx/      buried-red.png  buried-green.png
-           fort.png  projectile-1..4.png  impact-1..4.png     ← leave these unless you want new FX
+red/     idle throw hurt walk pack wave dance   × 1–4.png   ← right team
+green/   idle throw hurt walk pack wave dance   × 1–4.png   ← left team
+fx/      buried-red.png  buried-green.png
 ```
 
-Then refresh (bump `SKIN_VER` in `src/game/assets.ts` if the browser caches old PNGs).
+- Replace the default cast in `public/sprites/`
+- Or drop a second cast in `public/skins/xmas/sprites/` so the title heads can toggle it
 
-### Optional second pack (title-head toggle)
-
-The live Grok build keeps Line Puppy **out of git** and loads it only if this folder exists:
-
-```
-public/skins/line-puppy/sprites/red/idle-1.png
-public/skins/line-puppy/sprites/green/idle-1.png
-…same pose files as public/sprites/…
-```
-
-If that idle file is reachable, the title heads toggle `classic` ⇄ `xmas`. Copy any extra cast into `public/skins/line-puppy/sprites/` using the same layout; do not commit art you cannot publish.
-
-`public/skins/line-puppy/` is gitignored on purpose.
+Bump `SKIN_VER` in `src/game/assets.ts` if the browser caches old PNGs.
 
 ## Local development
 

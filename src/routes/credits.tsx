@@ -104,8 +104,8 @@ function CreditsPage() {
             </Link>
           </Button>
           <div className="flex shrink-0 -space-x-2" aria-hidden>
-            <DogHead src="/sprites/red/idle-1.png?v=7" kind="maltese" />
-            <DogHead src="/sprites/green/idle-1.png?v=7" kind="retriever" />
+            <DogHead src="/sprites/red/idle-1.png?v=8" kind="maltese" />
+            <DogHead src="/sprites/green/idle-1.png?v=8" kind="retriever" />
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-8">
