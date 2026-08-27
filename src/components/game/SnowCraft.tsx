@@ -18,7 +18,7 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { SnowCraftGame } from "@/game/game";
@@ -386,30 +386,12 @@ export function SnowCraft() {
           >
             <div className={cn("shrink-0", landscapePhone ? "px-4 pb-1 pt-3" : "px-5 pt-5 sm:px-8 sm:pt-8")}>
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <h1
-                    lang={htmlLang(lang)}
-                    className={cn(
-                      "font-title-script leading-snug tracking-tight text-surface",
-                      landscapePhone
-                        ? "text-[clamp(1.35rem,5.4vw,2.1rem)]"
-                        : "text-[clamp(1.7rem,7.2vw,3rem)] sm:text-5xl",
-                    )}
-                  >
-                    {t("gameTitle")}
-                  </h1>
-                  <p
-                    lang={htmlLang(lang)}
-                    className={cn(
-                      "font-motto-script leading-snug text-[#fff3c4]",
-                      landscapePhone
-                        ? "mt-0.5 text-[clamp(0.9rem,3.6vw,1.2rem)]"
-                        : "mt-1.5 text-[clamp(1.05rem,4.6vw,1.5rem)] sm:text-2xl",
-                    )}
-                  >
-                    {t("slogan")}
-                  </p>
-                </div>
+                <FitTitleBlock
+                  lang={lang}
+                  title={t("gameTitle")}
+                  motto={t("slogan")}
+                  landscape={landscapePhone}
+                />
                 <div className="flex shrink-0 flex-col items-end gap-1.5">
                   <div className="flex items-center gap-1.5">
                     <button
@@ -886,6 +868,113 @@ export function SnowCraft() {
 }
 
 type TFn = (key: I18nKey, vars?: Record<string, string | number>) => string;
+
+const TITLE_FACE: Partial<Record<Lang, string>> = {
+  en: "Caveat",
+  zh: "ChenYuluoyan",
+  ko: "Gaegu",
+};
+
+function FitTitleBlock({
+  lang,
+  title,
+  motto,
+  landscape,
+}: {
+  lang: Lang;
+  title: string;
+  motto: string;
+  landscape: boolean;
+}) {
+  const box = useRef<HTMLDivElement>(null);
+  const hRef = useRef<HTMLHeadingElement>(null);
+  const pRef = useRef<HTMLParagraphElement>(null);
+
+  useLayoutEffect(() => {
+    const boxEl = box.current;
+    const h = hRef.current;
+    const p = pRef.current;
+    if (!boxEl || !h || !p) return;
+    let dead = false;
+
+    const face = TITLE_FACE[lang];
+    const titleMax = landscape ? 38 : 58;
+    const titleMin = landscape ? 18 : 22;
+    const mottoMin = landscape ? 12 : 14;
+
+    const fit = (el: HTMLElement, max: number, min: number) => {
+      const avail = boxEl.clientWidth;
+      if (avail <= 0) return min;
+      let lo = min;
+      let hi = max;
+      let best = min;
+      el.style.whiteSpace = "nowrap";
+      for (let i = 0; i < 14; i++) {
+        const mid = (lo + hi) / 2;
+        el.style.fontSize = `${mid}px`;
+        if (el.scrollWidth <= avail + 0.5) {
+          best = mid;
+          lo = mid;
+        } else {
+          hi = mid;
+        }
+      }
+      el.style.fontSize = `${best}px`;
+      return best;
+    };
+
+    const run = async () => {
+      if (face && document.fonts?.load) {
+        try {
+          await document.fonts.load(`700 ${titleMax}px "${face}"`);
+        } catch {
+          /* still fit with fallback */
+        }
+      }
+      if (dead) return;
+      const loaded = !face || (document.fonts?.check?.(`700 24px "${face}"`) ?? true);
+      const maxT = loaded && face ? titleMax : landscape ? 28 : 36;
+      const tPx = fit(h, maxT, titleMin);
+      const mottoMax = Math.max(mottoMin, Math.min(tPx * 0.68, tPx - 8));
+      fit(p, mottoMax, mottoMin);
+    };
+
+    void run();
+    const ro = new ResizeObserver(() => {
+      void run();
+    });
+    ro.observe(boxEl);
+    const onFonts = () => void run();
+    document.fonts?.addEventListener("loadingdone", onFonts);
+    return () => {
+      dead = true;
+      ro.disconnect();
+      document.fonts?.removeEventListener("loadingdone", onFonts);
+    };
+  }, [lang, title, motto, landscape]);
+
+  return (
+    <div ref={box} className="min-w-0 flex-1 overflow-hidden">
+      <h1
+        ref={hRef}
+        lang={htmlLang(lang)}
+        className="font-title-script leading-none tracking-tight text-surface whitespace-nowrap"
+      >
+        {title}
+      </h1>
+      <p
+        ref={pRef}
+        lang={htmlLang(lang)}
+        className={cn(
+          "font-motto-script leading-none text-[#fff3c4] whitespace-nowrap",
+          landscape ? "mt-0.5" : "mt-1",
+        )}
+      >
+        {motto}
+      </p>
+    </div>
+  );
+}
 
 function TitleBoot({
   t,
