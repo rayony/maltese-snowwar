@@ -106,7 +106,7 @@ const dict: Record<I18nKey, string> = {
   loseGuest: "マルチーズに埋められた。再戦は双方の承諾が必要。",
   loseHost: "レトリバーに埋められた。再戦は双方の承諾が必要。",
   loseSolo: "レベル {n} で埋められた。最高 {best}。",
-  pickupBig: "大きな雪玉が落ちている",
+  pickupBig: "大きな雪玉が落ちている！",
   pickupHold: "大雪玉 · 残り{n}球 · {s}秒",
 };
 

@@ -313,8 +313,8 @@ export function SnowCraft() {
             {ui.pickup?.field && (
               <p
                 className={cn(
-                  "rounded-xl border border-tan/40 bg-ink/80 font-semibold tracking-wide text-tan shadow-md backdrop-blur-sm",
-                  landscapePhone ? "px-2 py-1 text-xs" : "px-3 py-2 text-sm",
+                  "pickup-notice text-center",
+                  landscapePhone ? "text-sm" : "text-lg sm:text-xl",
                 )}
               >
                 {t("pickupBig")}

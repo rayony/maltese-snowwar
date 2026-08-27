@@ -201,6 +201,31 @@ html[lang="ko"] {
   animation: modal-pop 520ms var(--ease-out) both;
 }
 
+@keyframes pickup-glow {
+  0%, 100% {
+    text-shadow:
+      0 0 8px var(--color-tan),
+      0 0 16px var(--color-tan);
+  }
+  50% {
+    text-shadow:
+      0 0 14px #fff3c4,
+      0 0 26px var(--color-tan);
+  }
+}
+
+.pickup-notice {
+  color: #fff8d0;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  -webkit-text-stroke: 2px var(--color-ink);
+  paint-order: stroke fill;
+  text-shadow:
+    0 0 8px var(--color-tan),
+    0 0 16px var(--color-tan);
+  animation: pickup-glow 1s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
