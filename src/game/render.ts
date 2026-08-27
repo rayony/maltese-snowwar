@@ -249,25 +249,7 @@ export function render(
   for (const layer of layers) layer.draw();
 
   if (state.pickup) {
-    const pulse = 1 + 0.18 * Math.sin(state.time * 7);
-    const s = 46 * pulse;
-    ctx.save();
-    ctx.globalAlpha = 0.4 + 0.25 * Math.sin(state.time * 5);
-    ctx.fillStyle = "#ffe28a";
-    ctx.beginPath();
-    ctx.arc(state.pickup.x, state.pickup.y, s, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-    ctx.strokeStyle = "#fff8d0";
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.arc(state.pickup.x, state.pickup.y, s * 0.72, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.fillStyle = "#ffffff";
-    ctx.beginPath();
-    ctx.arc(state.pickup.x, state.pickup.y - 6, s * 0.48, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+    drawGoldOrb(ctx, state.pickup.x, state.pickup.y, 26, state.time, state.time * 1.2);
   }
   for (const kid of state.kids) {
     const buff = state.buffs[kid.team];
@@ -283,9 +265,14 @@ export function render(
 
   if (assets) {
     for (const ball of state.balls) {
-      const img = frameOf(assets.ball, ball.spin, 8);
       const hop = ballHop(ball);
-      const s = view.ballSize * (ball.r / BALL_RADIUS);
+      if (ball.big) {
+        const rad = view.ballSize * (ball.r / BALL_RADIUS) * 0.48;
+        drawGoldOrb(ctx, ball.x, ball.y - hop, rad, state.time, ball.spin);
+        continue;
+      }
+      const img = frameOf(assets.ball, ball.spin, 8);
+      const s = view.ballSize;
       ctx.save();
       ctx.translate(ball.x, ball.y - hop);
       ctx.rotate(ball.spin * 0.4);
@@ -301,8 +288,13 @@ export function render(
   } else {
     ctx.fillStyle = "#fff";
     for (const ball of state.balls) {
+      if (ball.big) {
+        const rad = view.ballSize * (ball.r / BALL_RADIUS) * 0.48;
+        drawGoldOrb(ctx, ball.x, ball.y - ballHop(ball), rad, state.time, ball.spin);
+        continue;
+      }
       ctx.beginPath();
-      ctx.arc(ball.x, ball.y - ballHop(ball), view.ballSize * (ball.r / BALL_RADIUS) * 0.38, 0, Math.PI * 2);
+      ctx.arc(ball.x, ball.y - ballHop(ball), view.ballSize * 0.38, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -694,6 +686,45 @@ function drawThrowPreview(
 function ballHop(ball: Snowball) {
   const u = Math.max(0, Math.min(1, ball.traveled / Math.max(1, ball.range)));
   return Math.sin(u * Math.PI) * (10 + ball.range * 0.03);
+}
+
+/** Gold pulse snowball — field pickup and thrown big balls. Not a scaled face sprite. */
+function drawGoldOrb(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  radius: number,
+  time: number,
+  spin = 0,
+) {
+  const pulse = 0.92 + 0.08 * Math.sin(time * 6);
+  const r = radius * pulse;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.globalAlpha = 0.32 + 0.18 * Math.sin(time * 5);
+  ctx.fillStyle = "#ffe28a";
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 1.42, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.rotate(spin * 0.25);
+  const g = ctx.createRadialGradient(-r * 0.28, -r * 0.34, r * 0.06, 0, 0, r);
+  g.addColorStop(0, "#ffffff");
+  g.addColorStop(0.28, "#fff8e8");
+  g.addColorStop(0.68, "#f3d98a");
+  g.addColorStop(1, "#c9963a");
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255, 248, 210, 0.95)";
+  ctx.lineWidth = Math.max(2, r * 0.07);
+  ctx.stroke();
+  ctx.fillStyle = "rgba(255,255,255,0.72)";
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.28, -r * 0.34, r * 0.28, r * 0.16, -0.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
 }
 
 const NOTE_COLORS = ["#f5a3c7", "#8fd4e8", "#f0c14b", "#9dcea8"];
