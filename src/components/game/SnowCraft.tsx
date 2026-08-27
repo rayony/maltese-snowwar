@@ -192,8 +192,8 @@ export function SnowCraft() {
         {playing && (
           <header
             className={cn(
-              "pointer-events-none relative grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start pt-[max(0.5rem,env(safe-area-inset-top))]",
-              landscapePhone ? "gap-1 px-2 pb-1" : "gap-2 p-3 sm:p-4",
+              "pointer-events-none flex items-start justify-between gap-2 pt-[max(0.5rem,env(safe-area-inset-top))]",
+              landscapePhone ? "px-2 pb-1" : "gap-3 p-3 sm:p-4",
             )}
           >
             <div
@@ -243,36 +243,16 @@ export function SnowCraft() {
               </p>
               )}
             </div>
-            <div className="flex justify-center self-start">
-              {ui.pickup?.held ? (
-                <BigBuffHud
-                  shots={ui.pickup.shots}
-                  maxShots={ui.pickup.maxShots}
-                  life={ui.pickup.life}
-                  maxLife={ui.pickup.maxLife}
-                  compact={landscapePhone}
-                  label={t("pickupHold", {
-                    n: ui.pickup.shots,
-                    s: Math.max(0, Math.ceil(ui.pickup.life)),
-                  })}
-                />
-              ) : ui.pickup ? (
-                <p
-                  className={cn(
-                    "rounded-xl border border-tan/40 bg-ink/80 font-semibold tracking-wide text-tan shadow-md backdrop-blur-sm",
-                    landscapePhone ? "px-2 py-1 text-xs" : "px-3 py-2 text-sm",
-                  )}
-                >
-                  {t("pickupBig")}
-                </p>
-              ) : null}
-            </div>
             <div className="flex items-start justify-end gap-2">
             <div
               className={cn(
-                "flex items-center gap-2 rounded-xl bg-ink/70 text-sm tabular-nums backdrop-blur-sm",
+                "pointer-events-auto flex cursor-pointer select-none items-center gap-2 rounded-xl bg-ink/70 text-sm tabular-nums backdrop-blur-sm",
                 landscapePhone ? "px-2 py-1" : "px-3 py-2",
               )}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                g?.tapScoreHud();
+              }}
             >
               <span className="font-medium text-primary">{ui.redAlive}</span>
               <span className="text-ice">vs</span>
@@ -308,21 +288,52 @@ export function SnowCraft() {
           </header>
         )}
 
-        {playing && portraitPhone && (
-          <div className="mt-auto flex justify-center px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-            <p className="flex items-center gap-2 rounded-full bg-ink/75 px-3.5 py-2 text-xs text-surface shadow-md backdrop-blur-sm sm:text-sm">
-              <Smartphone className="size-4 rotate-90" aria-hidden />
-              {t("rotate")}
-            </p>
+        {playing && (
+          <div
+            className={cn(
+              "mt-auto flex flex-col items-center gap-2",
+              landscapePhone
+                ? "px-2 pb-[max(0.35rem,env(safe-area-inset-bottom))]"
+                : "px-4 pb-[max(1rem,env(safe-area-inset-bottom))]",
+            )}
+          >
+            {ui.pickup?.held && (
+              <BigBuffHud
+                shots={ui.pickup.shots}
+                maxShots={ui.pickup.maxShots}
+                life={ui.pickup.life}
+                maxLife={ui.pickup.maxLife}
+                compact={landscapePhone}
+                label={t("pickupHold", {
+                  n: ui.pickup.shots,
+                  s: Math.max(0, Math.ceil(ui.pickup.life)),
+                })}
+              />
+            )}
+            {ui.pickup?.field && (
+              <p
+                className={cn(
+                  "rounded-xl border border-tan/40 bg-ink/80 font-semibold tracking-wide text-tan shadow-md backdrop-blur-sm",
+                  landscapePhone ? "px-2 py-1 text-xs" : "px-3 py-2 text-sm",
+                )}
+              >
+                {t("pickupBig")}
+              </p>
+            )}
+            {portraitPhone && (
+              <p className="flex items-center gap-2 rounded-full bg-ink/75 px-3.5 py-2 text-xs text-surface shadow-md backdrop-blur-sm sm:text-sm">
+                <Smartphone className="size-4 rotate-90" aria-hidden />
+                {t("rotate")}
+              </p>
+            )}
+            {!portraitPhone && !landscapePhone && (
+              <p className="text-center font-sans text-xs text-ink/80 sm:text-sm">
+                {versus
+                  ? t("hintPvp", { dog: t(myTeam === "green" ? "retriever" : "maltese") })
+                  : t("hintAi", { dog: t(myTeam === "green" ? "retriever" : "maltese") })}
+              </p>
+            )}
           </div>
-        )}
-
-        {playing && !portraitPhone && !landscapePhone && (
-          <p className="mt-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center font-sans text-xs text-ink/80 sm:text-sm">
-            {versus
-              ? t("hintPvp", { dog: t(myTeam === "green" ? "retriever" : "maltese") })
-              : t("hintAi", { dog: t(myTeam === "green" ? "retriever" : "maltese") })}
-          </p>
         )}
       </div>
 

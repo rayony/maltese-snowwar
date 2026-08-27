@@ -37,7 +37,7 @@ npm run build
 - **Release** to throw (auto-aims nearest foe in PvP)
 - Pack snow between shots
 - **Star mode**: tap Level HUD 5× (solo) — faster pack/charge, stronger HP
-- **Big snowball**: glowing orb drops mid-fight; your next **3 player throws** (any dog, 10s) deal 2 HP. AI throws do not use it. Tap Level / VS HUD 5× to spawn one (host/solo, for testing)
+- **Big snowball**: glowing orb drops mid-fight; any dog (player or AI) can collect it. That team gets **3 player throws / 10s** (2 HP). Picking another orb refills to 3 / 10s. Double-tap the **X vs Y** score HUD (host/solo) to spawn one for testing
 - **M** or landing mute button — mute
 
 ## Network model (short)

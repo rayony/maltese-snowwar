@@ -142,4 +142,18 @@ describe("big snowball pickup", () => {
     stepSim(s, 1 / 60, () => {});
     assert.ok(green.hp <= 0);
   });
+
+  it("any living dog can collect, and a second pickup refills 3 shots / 10s", () => {
+    const s = createState(1, true);
+    s.phase = "fight";
+    s.buffs.green = { kind: "big", shots: 1, t: 2 };
+    s.pickup = { x: 500, y: 280, kind: "big", life: 10, maxLife: 10 };
+    const green = s.kids.find((k) => k.team === "green")!;
+    green.x = 500;
+    green.y = 280;
+    stepPickups(s, 0.05, true);
+    assert.equal(s.buffs.green?.shots, 3);
+    assert.ok((s.buffs.green?.t ?? 0) > 9.5);
+    assert.equal(s.pickup, null);
+  });
 });

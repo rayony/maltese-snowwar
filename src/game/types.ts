@@ -173,7 +173,14 @@ export interface UiSnapshot {
   godSpeed: boolean;
   net: NetUi;
   fps: number;
-  pickup: { kind: "big"; life: number; maxLife: number; shots: number; maxShots: number; held: boolean } | null;
+  pickup: {
+    field: boolean;
+    held: boolean;
+    life: number;
+    maxLife: number;
+    shots: number;
+    maxShots: number;
+  } | null;
 }
 
 export interface View {

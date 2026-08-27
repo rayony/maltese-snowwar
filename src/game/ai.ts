@@ -171,6 +171,14 @@ function pickDest(state: GameState, kid: Kid, stance: "defend" | "attack" | "ene
     pickAwayFromFort(state, kid);
     return;
   }
+  if (state.pickup && kid.ai) {
+    const d = Math.hypot(kid.x - state.pickup.x, kid.y - state.pickup.y);
+    if (d < 240 && Math.random() < 0.7) {
+      kid.ai.destX = state.pickup.x + rand(-6, 6);
+      kid.ai.destY = state.pickup.y + rand(-6, 6);
+      return;
+    }
+  }
   const foes = living(state.kids).filter((k) => k.team !== kid.team);
   const target =
     scatter && foes.length && Math.random() < 0.72

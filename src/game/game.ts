@@ -114,6 +114,7 @@ export class SnowCraftGame {
   private hitTierHoldUntil = 0;
   private godSpeed = false;
   private levelTaps: number[] = [];
+  private scoreTaps: number[] = [];
 
   private titleArm: (() => void) | null = null;
 
@@ -227,6 +228,7 @@ export class SnowCraftGame {
     this.versus = false;
     this.godSpeed = false;
     this.levelTaps = [];
+    this.scoreTaps = [];
     this.difficulty = difficulty;
     this.pendingDifficulty = difficulty;
     this.audio.unlock();
@@ -359,6 +361,7 @@ export class SnowCraftGame {
     this.versus = false;
     this.godSpeed = false;
     this.levelTaps = [];
+    this.scoreTaps = [];
     this.screen = "title";
     this.audio.startMenuMusic();
     this.emit();
@@ -452,16 +455,27 @@ export class SnowCraftGame {
     this.levelTaps.push(now);
     if (this.levelTaps.length < 5) return;
     this.levelTaps = [];
+    if (this.godSpeed || this.versus) return;
+    this.audio.unlock();
+    this.audio.ding();
+    this.godSpeed = true;
+    this.state.godSpeed = true;
+    this.applyStarHp();
+    this.emit();
+  }
+
+  tapScoreHud() {
+    if (this.screen !== "playing" || this.netRole === "guest") return;
+    const now = performance.now();
+    this.scoreTaps = this.scoreTaps.filter((t) => now - t < 900);
+    this.scoreTaps.push(now);
+    if (this.scoreTaps.length < 2) return;
+    this.scoreTaps = [];
     this.audio.unlock();
     this.audio.ding();
     const orb = placePickup(this.state);
     if (this.netRole === "host" && this.versus) {
       this.sendNet({ t: "loot", x: orb.x, y: orb.y, life: orb.life });
-    }
-    if (!this.godSpeed && !this.versus) {
-      this.godSpeed = true;
-      this.state.godSpeed = true;
-      this.applyStarHp();
     }
     this.emit();
   }
@@ -1566,7 +1580,7 @@ export class SnowCraftGame {
       this.fpsFrames = 0;
       this.fpsAcc = 0;
     }
-    if (this.state.buffs.red || this.state.buffs.green) {
+    if (this.state.buffs.red || this.state.buffs.green || this.state.pickup) {
       this.buffHudAcc += dt;
       if (this.buffHudAcc >= 0.08) {
         this.buffHudAcc = 0;
@@ -1969,26 +1983,16 @@ export class SnowCraftGame {
 
   private pickupUi() {
     const mine = this.state.buffs[this.myTeam()];
-    if (mine && mine.shots > 0 && mine.t > 0) {
-      return {
-        kind: "big" as const,
-        life: mine.t,
-        maxLife: BIG_HELD_TIME,
-        shots: mine.shots,
-        maxShots: BIG_SHOTS,
-        held: true,
-      };
-    }
-    if (this.state.pickup) {
-      return {
-        kind: "big" as const,
-        life: this.state.pickup.life,
-        maxLife: this.state.pickup.maxLife,
-        shots: 0,
-        maxShots: BIG_SHOTS,
-        held: false,
-      };
-    }
-    return null;
+    const held = !!(mine && mine.shots > 0 && mine.t > 0);
+    const field = !!this.state.pickup;
+    if (!held && !field) return null;
+    return {
+      field,
+      held,
+      life: held ? mine!.t : this.state.pickup!.life,
+      maxLife: held ? BIG_HELD_TIME : this.state.pickup!.maxLife,
+      shots: held ? mine!.shots : 0,
+      maxShots: BIG_SHOTS,
+    };
   }
 }
