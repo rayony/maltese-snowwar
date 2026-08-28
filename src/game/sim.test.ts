@@ -21,7 +21,7 @@ import {
   tickHideFuel,
 } from "./sim";
 import { holdPower, MAX_CHARGE, BIG_CHARGE, BIG_SPEED, throwSpeed } from "./constants";
-import { aiThrowAim, bigBallRoles, fortCoverSpot, shouldHideInPile, stepAi, teamReactsToBig, throwAimForStance } from "./ai";
+import { aiThrowAim, bigBallRoles, fortCoverSpot, mateThrewRecently, shouldHideInPile, stepAi, surroundLast, teamJob, teamReactsToBig, teamSurging, throwAimForStance } from "./ai";
 import type { Kid } from "./types";
 
 function kid(partial: Partial<Kid> & Pick<Kid, "id" | "team" | "x" | "y">): Kid {
@@ -783,5 +783,76 @@ describe("resume after buff / last stand / no pile shots", () => {
       }
       assert.equal(hit, false);
     }
+  });
+});
+
+describe("ai rhythm", () => {
+  it("staggers if a teammate just threw", () => {
+    const s = createState(1);
+    s.phase = "fight";
+    s.time = 4;
+    const greens = s.kids.filter((k) => k.team === "green");
+    greens[0]!.ai!.lastThrowAt = 3.8;
+    assert.equal(mateThrewRecently(s, greens[1]!), true);
+    assert.equal(mateThrewRecently(s, greens[0]!), false);
+  });
+
+  it("hard jobs split press / wrap / loot", () => {
+    const s = createState(1, false, { hard: true });
+    s.time = 0;
+    const greens = s.kids.filter((k) => k.team === "green").sort((a, b) => a.y - b.y || a.id - b.id);
+    const jobs = new Set(greens.map((g) => teamJob(s, g)));
+    assert.equal(jobs.size, 3);
+  });
+
+  it("gold pickup surges for 0.8s", () => {
+    const s = createState(1);
+    s.buffs.red = { kind: "big", shots: 3, t: 10 };
+    assert.equal(teamSurging(s, "red"), true);
+    s.buffs.red!.t = 8;
+    assert.equal(teamSurging(s, "red"), false);
+  });
+
+  it("hunt blocker sits between the last foe and a pile", () => {
+    const s = createState(1);
+    const greens = s.kids.filter((k) => k.team === "green");
+    greens.forEach((g, i) => {
+      if (i > 0) {
+        g.hp = 0;
+        g.state = "buried";
+      } else {
+        g.x = 200;
+        g.y = 168;
+      }
+    });
+    const reds = s.kids.filter((k) => k.team === "red").sort((a, b) => a.y - b.y || a.id - b.id);
+    surroundLast(s, reds[0]!);
+    const pile = s.forts[0]!;
+    const foe = greens[0]!;
+    const onPath = Math.abs((reds[0]!.ai!.destY - foe.y) * (pile.x - foe.x) - (reds[0]!.ai!.destX - foe.x) * (pile.y - foe.y)) < 4000;
+    const between = Math.hypot(reds[0]!.ai!.destX - foe.x, reds[0]!.ai!.destY - foe.y) < Math.hypot(pile.x - foe.x, pile.y - foe.y);
+    assert.equal(onPath && between, true);
+  });
+
+  it("attack / hard can cancel a windup as a fake", () => {
+    const s = createState(1, false, { hard: true });
+    s.phase = "fight";
+    s.forts = [];
+    const g = s.kids.find((k) => k.team === "green")!;
+    g.x = 140;
+    g.y = 120;
+    g.packT = 0;
+    g.cooldown = 0;
+    g.stun = 0;
+    g.state = "idle";
+    stepAi(s, 0, () => {}, "off", "enemy", false, true);
+    g.ai!.phase = "windup";
+    g.ai!.t = 0.5;
+    g.ai!.charge = 0.22;
+    g.ai!.fake = true;
+    g.ai!.destX = g.x;
+    g.ai!.destY = g.y;
+    stepAi(s, 0.05, () => {}, "off", "enemy", false, true);
+    assert.equal(String(g.ai!.phase), "dodge");
   });
 });

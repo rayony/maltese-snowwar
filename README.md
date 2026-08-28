@@ -95,6 +95,8 @@ While an ally or enemy bot is **holding a charged throw**, they can still walk t
 
 Hide stamina (tiny bar over the dog): **3 s** in a pile (**1 s** if last dog). It drains in cover, refills in **3 s** out of cover, and must be **full** before they can enter again. AI that stands in one spot for **3 s** is forced to move.
 
+Rhythm: teammates stagger throws (~0.4 s), punish a foe who just threw / packed / dodged, Attack/Hard may cancel a windup as a fake, and Defend ducks back into the pile after a peek-throw. Hard retrievers split jobs (press / wrap pile / loot) and only run ~1.45×, not 3×. Picking up the gold orb surges the team forward for 0.8 s.
+
 **Cover:** they will not run *through* the pack to a pile behind the enemies. Same geometry for retrievers (vs AI / PvP guest) and Maltese allies.
 
 | Who | When they hide |

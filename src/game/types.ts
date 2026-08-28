@@ -17,6 +17,8 @@ export interface AiBrain {
   campX?: number;
   campY?: number;
   campT?: number;
+  fake?: boolean;
+  lastThrowAt?: number;
 }
 
 export interface Kid {
