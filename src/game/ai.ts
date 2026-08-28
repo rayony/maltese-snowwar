@@ -1,11 +1,74 @@
-import { aiInterval, aiMoveSpeed, MARGIN, MAX_CHARGE, PACK_TIME, WORLD_H, WORLD_W } from "./constants";
+import { aiInterval, aiMoveSpeed, MARGIN, MAX_CHARGE, PACK_TIME, throwSpeed, WORLD_H, WORLD_W } from "./constants";
 import { aimFromKid, closestEnemy, ensureAi, inFort, isOut, living, rand, throwSnowball } from "./sim";
-import type { AllyMode, Fort, GameState, Kid } from "./types";
+import type { AllyMode, Fort, GameState, Kid, Snowball, Team } from "./types";
 
 export type GreenControl = "enemy" | AllyMode;
 
 const FORT_STAY = 5;
 const FORT_LEAVE = 5;
+const EMPTY_ROLES = { holdFire: new Set<number>(), intercept: new Set<number>() };
+
+function foeTeam(team: Team): Team {
+  return team === "red" ? "green" : "red";
+}
+
+function foeHasBigBuff(state: GameState, team: Team): boolean {
+  const buff = state.buffs[foeTeam(team)];
+  return !!(buff && buff.shots > 0 && buff.t > 0);
+}
+
+function foeBigBalls(state: GameState, team: Team): Snowball[] {
+  return state.balls.filter((b) => b.alive && b.big && b.team !== team);
+}
+
+/** Hard retrievers, or both sides in PvP. */
+export function teamReactsToBig(team: Team, hard: boolean, state: GameState): boolean {
+  if (state.pvp) return true;
+  return team === "green" && (hard || state.hard);
+}
+
+/** At least two (or all remaining) hold fire while the foe has a big-ball buff; two intercept a flying big ball. */
+export function bigBallRoles(state: GameState, team: Team): { holdFire: Set<number>; intercept: Set<number> } {
+  const mates = livingMates(state, team);
+  const holdN = Math.min(2, mates.length);
+  const holdFire = new Set(mates.slice(0, holdN).map((k) => k.id));
+  if (!foeHasBigBuff(state, team)) holdFire.clear();
+
+  const balls = foeBigBalls(state, team);
+  const intercept = new Set<number>();
+  if (balls.length && mates.length) {
+    const threat = balls.reduce((best, b) => {
+      const mid = mates.reduce((s, k) => s + Math.hypot(k.x - b.x, k.y - b.y), 0);
+      const prev = mates.reduce((s, k) => s + Math.hypot(k.x - best.x, k.y - best.y), 0);
+      return mid < prev ? b : best;
+    });
+    const ranked = mates.slice().sort((a, b) => {
+      const da = Math.hypot(a.x - threat.x, a.y - threat.y) + (a.packT > 0 || a.stun > 0 ? 80 : 0);
+      const db = Math.hypot(b.x - threat.x, b.y - threat.y) + (b.packT > 0 || b.stun > 0 ? 80 : 0);
+      return da - db || a.id - b.id;
+    });
+    for (const k of ranked.slice(0, Math.min(2, ranked.length))) intercept.add(k.id);
+  }
+  return { holdFire, intercept };
+}
+
+function aimAtBigBall(kid: Kid, state: GameState): { dx: number; dy: number } | null {
+  const balls = foeBigBalls(state, kid.team);
+  if (!balls.length) return null;
+  const ball = balls.reduce((best, b) => {
+    const d = Math.hypot(b.x - kid.x, b.y - kid.y);
+    const bd = Math.hypot(best.x - kid.x, best.y - kid.y);
+    return d < bd ? b : best;
+  });
+  const speed = throwSpeed(0.35);
+  let t = 0.22;
+  for (let i = 0; i < 5; i++) {
+    const px = ball.x + ball.vx * t;
+    const py = ball.y + ball.vy * t;
+    t = Math.hypot(px - kid.x, py - kid.y) / Math.max(80, speed);
+  }
+  return { dx: ball.x + ball.vx * t - kid.x, dy: ball.y + ball.vy * t - kid.y };
+}
 
 export function stepAi(
   state: GameState,
@@ -18,6 +81,10 @@ export function stepAi(
 ) {
   if (state.phase !== "fight" || state.freeze > 0) return;
   const level = state.level;
+  const roles = {
+    red: teamReactsToBig("red", hard, state) ? bigBallRoles(state, "red") : EMPTY_ROLES,
+    green: teamReactsToBig("green", hard, state) ? bigBallRoles(state, "green") : EMPTY_ROLES,
+  };
 
   for (const kid of state.kids) {
     if (isOut(kid)) continue;
@@ -46,7 +113,11 @@ export function stepAi(
     const forbidFort = tickFortRoam(state, kid, dt, stance === "enemy");
 
     const incoming = incomingBall(state, kid, hard && stance === "enemy" ? 210 : stance === "defend" ? 150 : 95, hard && stance === "enemy");
-    if (incoming && kid.ai.phase !== "dodge" && kid.stun <= 0) {
+    const teamRoles = kid.team === "red" ? roles.red : roles.green;
+    const intercepting = teamRoles.intercept.has(kid.id);
+    const holding = teamRoles.holdFire.has(kid.id) && !intercepting;
+
+    if (incoming && !intercepting && kid.ai.phase !== "dodge" && kid.stun <= 0) {
       kid.ai.phase = "dodge";
       kid.ai.t = hard && stance === "enemy" ? 0.5 : stance === "defend" ? 0.55 : 0.34;
       const px = -(incoming.y - kid.y);
@@ -62,6 +133,18 @@ export function stepAi(
           kid.ai.destY = clamp(fort.y + rand(-14, 14), MARGIN, WORLD_H - MARGIN);
         }
       }
+    }
+
+    if (
+      intercepting &&
+      kid.packT <= 0 &&
+      kid.stun <= 0 &&
+      kid.cooldown <= 0 &&
+      kid.ai.phase !== "windup"
+    ) {
+      kid.ai.phase = "windup";
+      kid.ai.t = 0.12;
+      kid.ai.charge = 0.62;
     }
 
     kid.ai.t -= dt;
@@ -93,26 +176,38 @@ export function stepAi(
     if (kid.packT > 0 || kid.stun > 0) continue;
 
     if (kid.ai.phase === "windup") {
+      if (holding) {
+        kid.ai.phase = "idle";
+        kid.ai.t = rand(0.15, 0.35);
+        kid.ai.charge = 0;
+        continue;
+      }
       kid.ai.charge = Math.min(1, kid.ai.charge + dt / (stance === "defend" ? 1.15 : 0.85));
       if (kid.cooldown > 0 || kid.packT > 0) {
         if (kid.ai.t <= 0) kid.ai.phase = "idle";
         continue;
       }
       if (kid.ai.t <= 0) {
-        const aim = throwAimForStance(kid, state, stance, hard);
+        const aim = intercepting
+          ? aimAtBigBall(kid, state)
+          : throwAimForStance(kid, state, stance, hard);
         if (!aim) {
           kid.ai.phase = "idle";
           kid.ai.t = rand(0.12, 0.3);
           continue;
         }
-        if (stance === "attack" && shotHitsFort(kid, aim.dx, aim.dy, state.forts)) {
+        if (!intercepting && stance === "attack" && shotHitsFort(kid, aim.dx, aim.dy, state.forts)) {
           kid.ai.phase = "move";
           kid.ai.t = rand(0.28, 0.5);
           pickDest(state, kid, stance, false, false);
           continue;
         }
         const { dx, dy } = aim;
-        const holdScale = stance === "defend" ? 0.42 + 0.35 * kid.ai.charge : 0.58 + 0.42 * kid.ai.charge;
+        const holdScale = intercepting
+          ? 0.28 + 0.22 * kid.ai.charge
+          : stance === "defend"
+            ? 0.42 + 0.35 * kid.ai.charge
+            : 0.58 + 0.42 * kid.ai.charge;
         const hold = MAX_CHARGE * holdScale;
         const power = throwSnowball(state, kid, hold, dx, dy, localBalls);
         onThrow(power, kid, hold, dx, dy);
@@ -135,6 +230,7 @@ export function stepAi(
         if (blocked) throwChance = 0;
         else throwChance = punish ? 0.92 : 0.16;
       }
+      if (holding) throwChance = 0;
       if (Math.random() < throwChance && !(forbidFort && cover)) {
         kid.ai.phase = "windup";
         kid.ai.t = rand(0.2, stance === "attack" ? 0.48 : 0.7);

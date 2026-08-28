@@ -19,7 +19,7 @@ import {
   throwSnowball,
 } from "./sim";
 import { holdPower, MAX_CHARGE, BIG_CHARGE, BIG_SPEED, throwSpeed } from "./constants";
-import { aiThrowAim } from "./ai";
+import { aiThrowAim, bigBallRoles, teamReactsToBig } from "./ai";
 import type { Kid } from "./types";
 
 function kid(partial: Partial<Kid> & Pick<Kid, "id" | "team" | "x" | "y">): Kid {
@@ -329,5 +329,65 @@ describe("big snowball pickup", () => {
     }
     stepSim(s, 1 / 60, () => {});
     assert.equal(s.balls.length, 0);
+  });
+});
+
+describe("big-ball AI roles", () => {
+  it("reacts for hard retrievers and both PvP teams, not easy maltese", () => {
+    const solo = createState(1, false, { hard: false });
+    const hard = createState(1, false, { hard: true });
+    const pvp = createState(1, true);
+    assert.equal(teamReactsToBig("green", false, solo), false);
+    assert.equal(teamReactsToBig("red", true, hard), false);
+    assert.equal(teamReactsToBig("green", true, hard), true);
+    assert.equal(teamReactsToBig("red", false, pvp), true);
+    assert.equal(teamReactsToBig("green", false, pvp), true);
+  });
+
+  it("holds fire on two dogs while the foe has the buff", () => {
+    const s = createState(1, true);
+    s.phase = "fight";
+    s.buffs.red = { kind: "big", shots: 3, t: 8 };
+    const roles = bigBallRoles(s, "green");
+    assert.equal(roles.holdFire.size, 2);
+    assert.equal(roles.intercept.size, 0);
+  });
+
+  it("holds fire on all remaining if fewer than two", () => {
+    const s = createState(1, true);
+    s.phase = "fight";
+    s.buffs.red = { kind: "big", shots: 2, t: 5 };
+    for (const k of s.kids) {
+      if (k.team === "green" && k.id !== s.kids.find((x) => x.team === "green")!.id) {
+        k.hp = 0;
+        k.state = "buried";
+      }
+    }
+    const roles = bigBallRoles(s, "green");
+    assert.equal(roles.holdFire.size, 1);
+  });
+
+  it("assigns two interceptors at a flying big ball", () => {
+    const s = createState(1, true);
+    s.phase = "fight";
+    s.buffs.red = { kind: "big", shots: 1, t: 4 };
+    s.balls.push({
+      x: 400,
+      y: 270,
+      vx: -200,
+      vy: 0,
+      team: "red",
+      r: 36,
+      fromId: 1,
+      grace: 0,
+      spin: 0,
+      alive: true,
+      range: 800,
+      traveled: 0,
+      big: true,
+    });
+    const roles = bigBallRoles(s, "green");
+    assert.equal(roles.intercept.size, 2);
+    assert.equal(roles.holdFire.size, 2);
   });
 });
