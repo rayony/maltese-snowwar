@@ -137,6 +137,7 @@ export function stepAi(
 
     const charging = kid.ai.phase === "windup" && !lastStand;
     const prey = living(state.kids).find((k) => k.team !== kid.team && k.state === "grabbed") ?? null;
+    const mate = draggedMate(state, kid);
     if (incoming && kid.stun <= 0 && kid.ai.phase !== "dodge" && (charging || !intercepting)) {
       const dist = charging ? 72 : longDodge ? 118 : stance === "defend" ? 88 : 64;
       const step = dodgeDest(state, kid, incoming, dist, mayCross);
@@ -187,6 +188,34 @@ export function stepAi(
         kid.ai.phase = "windup";
         kid.ai.t = rand(0.12, 0.22);
         kid.ai.charge = 0.35;
+        kid.ai.fake = false;
+      }
+    }
+
+    if (
+      stance === "defend" &&
+      mate &&
+      !lastStand &&
+      !intercepting &&
+      !holding &&
+      kid.stun <= 0 &&
+      kid.packT <= 0 &&
+      kid.cooldown <= 0 &&
+      kid.ai.phase !== "dodge" &&
+      kid.ai.phase !== "windup"
+    ) {
+      if (inFort(kid.x, kid.y, state.forts)) {
+        const fort = inFort(kid.x, kid.y, state.forts)!;
+        const next = peekSpot(kid, fort, state);
+        kid.ai.phase = "move";
+        kid.ai.t = 0.28;
+        kid.ai.destX = next.x;
+        kid.ai.destY = next.y;
+        kid.ai.charge = 0;
+      } else if (throwAimForStance(kid, state, stance, hard)) {
+        kid.ai.phase = "windup";
+        kid.ai.t = rand(0.1, 0.2);
+        kid.ai.charge = 0.4;
         kid.ai.fake = false;
       }
     }
@@ -339,7 +368,7 @@ export function stepAi(
           kid.ai.t = rand(0.12, 0.3);
           continue;
         }
-        if (!intercepting && shotHitsFort(kid, aim.dx, aim.dy, state.forts, fortOfGrabbed(state, kid))) {
+        if (!intercepting && stance !== "defend" && shotHitsFort(kid, aim.dx, aim.dy, state.forts, fortOfGrabbed(state, kid))) {
           kid.ai.phase = "move";
           kid.ai.t = rand(0.28, 0.5);
           pickDest(state, kid, stance, false, mayCross);
@@ -359,7 +388,7 @@ export function stepAi(
         onThrow(power, kid, hold, dx, dy);
         kid.ai.lastThrowAt = state.time;
         kid.ai.fake = false;
-        if (stance === "defend" && !intercepting) {
+        if (stance === "defend" && !intercepting && !draggedMate(state, kid)) {
           const fort = fortForKid(state, kid) ?? nearestFort(state, kid);
           kid.ai.phase = "move";
           kid.ai.t = 0.52;
@@ -393,7 +422,7 @@ export function stepAi(
       } else if (panic) {
         throwChance = 0;
       } else if (stance === "defend") {
-        throwChance = nearFortRim(kid, state) ? 0.72 : 0.1;
+        throwChance = draggedMate(state, kid) ? 0.84 : nearFortRim(kid, state) ? 0.78 : 0.42;
       } else if (stance === "attack") {
         const foe = living(state.kids).find((k) => k.team !== kid.team && k.state === "grabbed") ?? assignedFoe(state, kid);
         const punish = foeIsOpen(foe);
@@ -407,7 +436,7 @@ export function stepAi(
         throwChance = !foe ? 0 : foeIsOpen(foe) ? 0.9 : 0.48;
       }
       if (holding) throwChance = 0;
-      else if (!hunting && !intercepting && mateThrewRecently(state, kid)) throwChance = Math.min(throwChance, 0.1);
+      else if (!hunting && !intercepting && !draggedMate(state, kid) && mateThrewRecently(state, kid)) throwChance = Math.min(throwChance, 0.1);
       if (Math.random() < throwChance && !(forbidFort && cover)) {
         kid.ai.phase = "windup";
         kid.ai.t = rand(0.2, stance === "attack" ? 0.48 : 0.7);
@@ -566,6 +595,15 @@ function pickDest(state: GameState, kid: Kid, stance: "defend" | "attack" | "ene
   const fort = nearestFort(state, kid);
 
   if (stance === "defend") {
+    const mate = draggedMate(state, kid);
+    if (mate) {
+      const foe = closestEnemy(mate, state.kids) ?? closestEnemy(kid, state.kids);
+      const y = foe ? clearShotY(kid, foe, state.forts) : mate.y;
+      kid.ai!.destX = clampSide(mate.x + (kid.team === "red" ? 70 : -70), kid.team, cross);
+      kid.ai!.destY = clamp(y + laneOffset(state, kid, 14), MARGIN, WORLD_H - MARGIN);
+      bumpDestOutOfFort(state, kid);
+      return;
+    }
     const fort = fortForKid(state, kid);
     if (fort) {
       const peek = peekSpot(kid, fort, state);
@@ -637,6 +675,16 @@ function nearestFort(state: GameState, kid: Kid) {
 
 function livingMates(state: GameState, team: Kid["team"]) {
   return living(state.kids).filter((k) => k.team === team).sort((a, b) => a.y - b.y || a.id - b.id);
+}
+
+export function draggedMate(state: GameState, kid: Kid) {
+  return living(state.kids).find((k) => k.team === kid.team && k.id !== kid.id && k.state === "grabbed") ?? null;
+}
+
+function focusFoe(state: GameState, kid: Kid) {
+  const mate = draggedMate(state, kid);
+  if (mate) return closestEnemy(mate, state.kids) ?? closestEnemy(kid, state.kids);
+  return assignedFoe(state, kid) ?? closestEnemy(kid, state.kids);
 }
 
 function assignedFoe(state: GameState, kid: Kid): Kid | null {
@@ -874,9 +922,18 @@ export function throwAimForStance(kid: Kid, state: GameState, stance: "defend" |
     const dy = dragged.y - kid.y;
     if (!(kid.team === "green" && !hard && dx < 1 && !lastFoe)) return { dx, dy };
   }
+  if (stance === "defend") {
+    const foe = focusFoe(state, kid);
+    if (!foe) return null;
+    const dx = foe.x - kid.x;
+    const miss = ((kid.id % 5) - 2) * 14;
+    const dy = foe.y - kid.y + miss;
+    if (kid.team === "green" && !hard && dx < 1 && !lastFoe) return null;
+    return { dx, dy };
+  }
   const clear = closestHittableEnemy(kid, state.kids, state.forts);
   let foe = clear;
-  if (stance === "attack" || stance === "defend") {
+  if (stance === "attack") {
     const assigned = assignedFoe(state, kid);
     const ignore = fortOfGrabbed(state, kid);
     if (
