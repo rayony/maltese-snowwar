@@ -124,7 +124,8 @@ export function stepAi(
 
     const lastStand = living(state.kids, kid.team).length <= 1;
     const hunting = !lastStand && living(state.kids, kid.team === "red" ? "green" : "red").length <= 1;
-    const mayCross = stance === "enemy" && (hard || hunting);
+    const huntPress = hunting && stance === "enemy" ? huntPressers(state, kid.team, hard) : null;
+    const mayCross = stance === "enemy" && (hard || !!(huntPress && huntPress.has(kid.id)));
     const longDodge = (hard && stance === "enemy") || (stance === "attack" && kid.team === "green") || lastStand;
 
     const forbidFort = tickFortRoam(state, kid, dt, stance, lastStand, hunting);
@@ -461,7 +462,7 @@ export function stepAi(
             kid.ai.destY = hide.y;
           } else pickDest(state, kid, stance, mayCross, mayCross);
         } else if (hunting) {
-          surroundLast(state, kid);
+          surroundLast(state, kid, hard);
         } else if (panic) {
           const pile = shouldHideInPile(state, kid, stance, hard)!;
           const hide = hideSpot(kid, pile, state);
@@ -564,7 +565,7 @@ function pickDest(state: GameState, kid: Kid, stance: "defend" | "attack" | "ene
     }
   }
   if (living(state.kids, kid.team).length > 1 && living(state.kids, kid.team === "red" ? "green" : "red").length <= 1) {
-    surroundLast(state, kid);
+    surroundLast(state, kid, state.hard || state.pvp);
     return;
   }
   if (teamSurging(state, kid.team)) {
@@ -751,16 +752,35 @@ function pressDest(state: GameState, kid: Kid, cross: boolean) {
   bumpDestOutOfFort(state, kid);
 }
 
-export function surroundLast(state: GameState, kid: Kid) {
+export function huntPressers(state: GameState, team: Kid["team"], hard: boolean) {
+  const mates = livingMates(state, team);
+  if (hard || state.pvp || mates.length <= 2) return new Set(mates.map((k) => k.id));
+  const foe = living(state.kids).find((k) => k.team !== team) ?? null;
+  const ranked = [...mates].sort((a, b) => {
+    const da = foe ? Math.hypot(a.x - foe.x, a.y - foe.y) : a.y;
+    const db = foe ? Math.hypot(b.x - foe.x, b.y - foe.y) : b.y;
+    return da - db || a.id - b.id;
+  });
+  return new Set(ranked.slice(0, 2).map((k) => k.id));
+}
+
+export function surroundLast(state: GameState, kid: Kid, hard = false) {
   const foe = closestEnemy(kid, state.kids);
   if (!foe || !kid.ai) {
     pickAwayFromFort(state, kid);
     return;
   }
+  const press = huntPressers(state, kid.team, hard);
+  if (!press.has(kid.id)) {
+    kid.ai.destX = clamp(WORLD_W * 0.4 + rand(-18, 18), MARGIN, WORLD_W * 0.48);
+    kid.ai.destY = clamp(clearShotY(kid, foe, state.forts) + laneOffset(state, kid, 16), MARGIN, WORLD_H - MARGIN);
+    bumpDestOutOfFort(state, kid);
+    return;
+  }
   const mates = livingMates(state, kid.team);
   const i = Math.max(0, mates.findIndex((k) => k.id === kid.id));
   const n = Math.max(1, mates.length);
-  const blocker = mates[0];
+  const blocker = [...press].map((id) => mates.find((k) => k.id === id)!).filter(Boolean)[0];
   const pile = nearestFort(state, foe);
   if (blocker && kid.id === blocker.id && pile) {
     const dx = pile.x - foe.x;

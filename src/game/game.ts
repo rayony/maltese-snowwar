@@ -1906,6 +1906,10 @@ export class SnowCraftGame {
       {
         onClash: () => this.audio.clash(),
         onFort: () => this.audio.fort(),
+        onCatch: () => {
+          this.audio.clash();
+          this.audio.splat();
+        },
       },
     );
     this.syncLoot(hadPickup, hadBuff);

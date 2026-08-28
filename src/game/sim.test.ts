@@ -17,13 +17,15 @@ import {
   foeHittable,
   isOut,
   living,
+  playerComeback,
   stepPickups,
   stepSim,
   throwSnowball,
   tickHideFuel,
+  tryGrabCatch,
 } from "./sim";
 import { holdPower, MAX_CHARGE, BIG_CHARGE, BIG_SPEED, pickupRadius, throwSpeed, WORLD_W } from "./constants";
-import { aiThrowAim, bigBallRoles, draggedMate, fortCoverSpot, mateThrewRecently, shouldHideInPile, stepAi, surroundLast, teamJob, teamReactsToBig, teamSurging, throwAimForStance } from "./ai";
+import { aiThrowAim, bigBallRoles, draggedMate, fortCoverSpot, huntPressers, mateThrewRecently, shouldHideInPile, stepAi, surroundLast, teamJob, teamReactsToBig, teamSurging, throwAimForStance } from "./ai";
 import type { Kid } from "./types";
 
 function kid(partial: Partial<Kid> & Pick<Kid, "id" | "team" | "x" | "y">): Kid {
@@ -144,8 +146,11 @@ describe("aimFromKid", () => {
     const green = s.kids.find((k) => k.team === "green")!;
     red.x = 390;
     red.y = 168;
+    red.lastX = 390;
+    red.lastY = 168;
     red.state = "grabbed";
     red.hp = 2;
+    red.moving = false;
     green.x = 200;
     green.y = 168;
     assert.equal(foeHittable(green, red, s.forts), true);
@@ -873,7 +878,7 @@ describe("ai rhythm", () => {
       }
     });
     const reds = s.kids.filter((k) => k.team === "red").sort((a, b) => a.y - b.y || a.id - b.id);
-    surroundLast(s, reds[0]!);
+    surroundLast(s, reds[0]!, true);
     const pile = s.forts[0]!;
     const foe = greens[0]!;
     const onPath = Math.abs((reds[0]!.ai!.destY - foe.y) * (pile.x - foe.x) - (reds[0]!.ai!.destX - foe.x) * (pile.y - foe.y)) < 4000;
@@ -948,6 +953,7 @@ describe("ai rhythm", () => {
       return g.ai!.destX;
     });
     assert.ok(Math.max(...xs) > WORLD_W * 0.48);
+    assert.ok(xs.filter((x) => x > WORLD_W * 0.48).length <= 2);
     const ys = greens.map((g) => g.ai!.destY);
     assert.ok(Math.max(...ys) - Math.min(...ys) > 40);
   });
@@ -975,5 +981,50 @@ describe("ai rhythm", () => {
     ally.ai!.t = 2;
     stepAi(s, 0.05, () => {}, "defend", "enemy", false, false);
     assert.equal(String(ally.ai!.phase), "windup");
+  });
+
+  it("a grabbed dog catches an incoming snowball", () => {
+    const s = createState(1);
+    s.phase = "fight";
+    s.forts = [];
+    const red = s.kids.find((k) => k.team === "red")!;
+    const green = s.kids.find((k) => k.team === "green")!;
+    red.x = 500;
+    red.y = 270;
+    red.state = "grabbed";
+    red.packT = 0.5;
+    red.hp = 2;
+    red.lastX = red.x - 12;
+    red.lastY = red.y;
+    green.x = 200;
+    green.y = 270;
+    throwSnowball(s, green, 1, 1, 0, false, false);
+    const ball = s.balls.at(-1)!;
+    ball.x = red.x;
+    ball.y = red.y - 10;
+    ball.grace = 0;
+    stepSim(s, 1 / 60, () => {});
+    assert.equal(red.hp, 2);
+    assert.equal(red.packT, 0);
+    assert.equal(red.state, "grabbed");
+    assert.equal(s.balls.some((b) => b.alive && b.team === "green"), false);
+  });
+
+  it("comeback gold heals one pip and spawns on the player side", () => {
+    const s = createState(1, false);
+    s.phase = "fight";
+    const reds = s.kids.filter((k) => k.team === "red");
+    reds[1]!.hp = 0;
+    reds[1]!.state = "buried";
+    reds[2]!.hp = 0;
+    reds[2]!.state = "buried";
+    reds[0]!.hp = 1;
+    assert.equal(playerComeback(s), true);
+    s.pickup = { x: 480, y: 270, kind: "big", life: 10, maxLife: 10 };
+    assert.equal(claimPickup(s, "red"), true);
+    assert.equal(reds[0]!.hp, 2);
+    s.pickupCd = 0;
+    stepPickups(s, 0.05, true);
+    assert.ok(s.pickup && s.pickup.x > 540);
   });
 });
