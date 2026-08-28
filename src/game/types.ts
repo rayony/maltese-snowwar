@@ -66,6 +66,7 @@ export interface Snowball {
   ghost?: boolean;
   born?: number;
   big?: boolean;
+  sweet?: boolean;
 }
 
 export interface Fort {

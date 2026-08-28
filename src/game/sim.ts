@@ -4,6 +4,7 @@ import {
   BIG_HELD_TIME,
   BIG_SHOTS,
   BIG_SPEED,
+  COMEBACK_WAIT,
   enemyCountForLevel,
   holdPower,
   HP,
@@ -19,6 +20,9 @@ import {
   PVP_RANGE,
   PVP_SPEED,
   playFeel,
+  SWEET_RANGE,
+  SWEET_SPEED,
+  sweetCharge,
   THROW_COOLDOWN,
   throwRange,
   throwSpeed,
@@ -353,9 +357,11 @@ export function throwSnowball(
   }
   const nx = dirX / len;
   const ny = dirY / len;
+  const sweet = user && sweetCharge(charge, star, wantBig);
   let speed = state.pvp ? PVP_SPEED : throwSpeed(power) * (state.hard ? 2 : 1);
   if (star) speed *= 3;
-  const range = state.pvp ? PVP_RANGE : throwRange(power);
+  if (sweet) speed *= SWEET_SPEED;
+  const range = (state.pvp ? PVP_RANGE : throwRange(power)) * (sweet ? SWEET_RANGE : 1);
   const cover = inFort(kid.x, kid.y, state.forts);
   const big = user && takeBigBuff(state, kid.team, consume);
   const ball: Snowball = {
@@ -374,8 +380,10 @@ export function throwSnowball(
     local,
     born: typeof performance !== "undefined" ? performance.now() : 0,
     big,
+    sweet,
   };
   state.balls.push(ball);
+  if (sweet) burst(state, kid.x, kid.y, 0, 10, "spark");
   kid.state = "throw";
   kid.stateT = 0.38;
   kid.cooldown = THROW_COOLDOWN;
@@ -614,13 +622,17 @@ function hitKid(
   state.trauma = Math.min(1, state.trauma + (kid.hp <= 0 ? 0.55 : 0.32));
   state.freeze = kid.hp <= 0 ? 0.07 : 0.045;
   onHit(kid.hp <= 0);
+  if (kid.hp <= 0 && kid.team === "red") maybeArmComeback(state);
 }
 
 export function playerComeback(state: GameState) {
   if (state.pvp) return false;
-  const reds = living(state.kids, "red").length;
-  const greens = living(state.kids, "green").length;
-  return reds > 0 && (reds <= 1 || reds < greens);
+  return living(state.kids, "red").length === 1;
+}
+
+export function maybeArmComeback(state: GameState) {
+  if (!playerComeback(state) || state.pickup) return;
+  state.pickupCd = Math.max(state.pickupCd, COMEBACK_WAIT + Math.random() * 1.5);
 }
 
 function healComeback(state: GameState, team: Team) {
@@ -900,9 +912,7 @@ export function stepPickups(state: GameState, dt: number, spawn: boolean) {
     state.pickup.life -= dt;
     if (state.pickup.life <= 0) {
       state.pickup = null;
-      if (spawn) state.pickupCd = playerComeback(state)
-        ? 1.4
-        : PICKUP_CD_MIN + Math.random() * (PICKUP_CD_MAX - PICKUP_CD_MIN);
+      if (spawn) state.pickupCd = PICKUP_CD_MIN + Math.random() * (PICKUP_CD_MAX - PICKUP_CD_MIN);
     } else if (spawn) {
       for (const kid of state.kids) {
         if (isOut(kid)) continue;
@@ -915,7 +925,6 @@ export function stepPickups(state: GameState, dt: number, spawn: boolean) {
     return;
   }
   if (!spawn || state.phase !== "fight") return;
-  if (playerComeback(state)) state.pickupCd = Math.min(state.pickupCd, 1.8);
   state.pickupCd -= dt;
   if (state.pickupCd <= 0) spawnPickup(state);
 }

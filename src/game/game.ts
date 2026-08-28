@@ -683,10 +683,12 @@ export class SnowCraftGame {
     }
     if (!ghost) {
       this.audio.throw(power);
+      if (ball?.sweet) this.audio.sweet();
       this.broadcastThrow(kid);
       this.emit();
     } else {
       this.audio.throw(power * 0.85);
+      if (ball?.sweet) this.audio.sweet();
     }
     return power;
   }
