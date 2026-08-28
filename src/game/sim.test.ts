@@ -556,6 +556,25 @@ describe("shouldHideInPile", () => {
     const near = shouldHideInPile(s, red, "attack", false);
     assert.ok(near);
   });
+
+  it("the side with numbers does not hide when one foe is left", () => {
+    const s = createState(1);
+    const red = s.kids.find((k) => k.team === "red")!;
+    red.x = 500;
+    red.y = 200;
+    const greens = s.kids.filter((k) => k.team === "green");
+    greens.forEach((g, i) => {
+      if (i > 0) {
+        g.hp = 0;
+        g.state = "buried";
+      } else {
+        g.x = 430;
+        g.y = 190;
+      }
+    });
+    assert.equal(shouldHideInPile(s, red, "attack", false), null);
+    assert.equal(shouldHideInPile(s, red, "defend", false), null);
+  });
 });
 describe("fortCoverSpot", () => {
   const fort = { x: 390, y: 200, rx: 90, ry: 40, hitFlash: 0, hp: 0, maxHp: 0 };
