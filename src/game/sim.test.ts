@@ -574,3 +574,31 @@ describe("fortCoverSpot", () => {
     assert.ok(p.y < fort.y - fort.ry * 0.5);
   });
 });
+
+describe("last stand", () => {
+  it("the last AI dog runs to a pile instead of winding up a shot", () => {
+    const s = createState(1, false, { hard: true });
+    s.phase = "fight";
+    const greens = s.kids.filter((k) => k.team === "green");
+    greens.forEach((g, i) => {
+      if (i > 0) {
+        g.hp = 0;
+        g.state = "buried";
+      } else {
+        g.x = 120;
+        g.y = 80;
+        g.packT = 0;
+        g.cooldown = 0;
+        g.stun = 0;
+        g.state = "idle";
+      }
+    });
+    const g = greens[0]!;
+    for (let i = 0; i < 90; i++) stepAi(s, 1 / 60, () => {}, "off", "enemy", false, true);
+    assert.ok(g.ai);
+    const near = (x: number, y: number) =>
+      Math.min(Math.hypot(x - 390, y - 168), Math.hypot(x - 545, y - 372));
+    assert.ok(near(g.ai.destX, g.ai.destY) < 160 || near(g.x, g.y) < 160, "should be going to a snow pile");
+    assert.notEqual(g.ai.phase, "windup");
+  });
+});

@@ -98,13 +98,14 @@ export function stepAi(
           ? "defend"
           : "attack";
 
-    const longDodge = (hard && stance === "enemy") || (stance === "attack" && kid.team === "green");
+    const lastStand = living(state.kids, kid.team).length <= 1;
+    const longDodge = (hard && stance === "enemy") || (stance === "attack" && kid.team === "green") || lastStand;
 
     const forbidFort = tickFortRoam(state, kid, dt, stance);
 
-    const incoming = incomingBall(state, kid, longDodge ? 210 : stance === "defend" ? 150 : 95, hard && stance === "enemy");
+    const incoming = incomingBall(state, kid, lastStand ? 240 : longDodge ? 210 : stance === "defend" ? 150 : 95, hard && stance === "enemy" || lastStand);
     const teamRoles = kid.team === "red" ? roles.red : roles.green;
-    const intercepting = teamRoles.intercept.has(kid.id);
+    const intercepting = !lastStand && teamRoles.intercept.has(kid.id);
     const holding = teamRoles.holdFire.has(kid.id) && !intercepting;
 
     if (incoming && !intercepting && kid.ai.phase !== "dodge" && kid.stun <= 0) {
@@ -116,8 +117,8 @@ export function stepAi(
       const dist = longDodge ? 118 : stance === "defend" ? 88 : 64;
       kid.ai.destX = clampSide(kid.x + (px / len) * dist, kid.team, hard && stance === "enemy");
       kid.ai.destY = clamp(kid.y + (py / len) * dist, MARGIN, WORLD_H - MARGIN);
-      if (stance === "defend" && (kid.ai.awayT ?? 0) <= 0) {
-        const fort = fortForKid(state, kid);
+      if ((lastStand || stance === "defend") && (kid.ai.awayT ?? 0) <= 0) {
+        const fort = lastStand ? lastStandPile(state, kid) : fortForKid(state, kid);
         if (fort) {
           const hide = hideSpot(kid, fort, state);
           kid.ai.destX = hide.x;
@@ -180,7 +181,7 @@ export function stepAi(
           kid.ai.destY = next.y;
         } else if (inFort(kid.x, kid.y, state.forts)) {
           kid.ai.phase = "idle";
-        } else if (stance === "defend") {
+        } else if (lastStand || stance === "defend") {
           kid.ai.phase = "idle";
         } else {
           kid.ai.phase = "windup";
@@ -201,6 +202,18 @@ export function stepAi(
         kid.ai.phase = "idle";
         kid.ai.t = rand(0.15, 0.35);
         kid.ai.charge = 0;
+        continue;
+      }
+      if (lastStand && !inFort(kid.x, kid.y, state.forts) && !nearFortRim(kid, state)) {
+        const pile = lastStandPile(state, kid);
+        kid.ai.phase = "move";
+        kid.ai.t = 0.55;
+        kid.ai.charge = 0;
+        if (pile) {
+          const hide = hideSpot(kid, pile, state);
+          kid.ai.destX = hide.x;
+          kid.ai.destY = hide.y;
+        }
         continue;
       }
       kid.ai.charge = Math.min(1, kid.ai.charge + dt / (stance === "defend" ? 1.15 : 0.85));
@@ -267,6 +280,8 @@ export function stepAi(
       let throwChance = 0.55;
       if (cover) {
         throwChance = 0;
+      } else if (lastStand) {
+        throwChance = 0;
       } else if (panic) {
         throwChance = 0;
       } else if (stance === "defend") {
@@ -294,6 +309,13 @@ export function stepAi(
         } else if (cover && !forbidFort) {
           kid.ai.phase = "idle";
           kid.ai.t = 0.22;
+        } else if (lastStand) {
+          const pile = lastStandPile(state, kid);
+          if (pile) {
+            const hide = hideSpot(kid, pile, state);
+            kid.ai.destX = hide.x;
+            kid.ai.destY = hide.y;
+          } else pickDest(state, kid, stance, hard && stance === "enemy", hard && stance === "enemy");
         } else if (panic) {
           const pile = shouldHideInPile(state, kid, stance, hard)!;
           const hide = hideSpot(kid, pile, state);
@@ -368,6 +390,15 @@ function pickDest(state: GameState, kid: Kid, stance: "defend" | "attack" | "ene
   if (kid.ai && kid.ai.awayT > 0) {
     pickAwayFromFort(state, kid);
     return;
+  }
+  if (living(state.kids, kid.team).length <= 1 && (kid.ai?.awayT ?? 0) <= 0) {
+    const pile = lastStandPile(state, kid);
+    if (pile && !inFort(kid.x, kid.y, state.forts)) {
+      const hide = hideSpot(kid, pile, state);
+      kid.ai!.destX = hide.x;
+      kid.ai!.destY = hide.y;
+      return;
+    }
   }
   if (state.pickup && kid.ai && (stance !== "defend" || Math.random() < 0.32)) {
     const crowded = nearbyFoes(state, kid, 170).length >= 2;
@@ -500,6 +531,11 @@ function fortForKid(state: GameState, kid: Kid) {
     }
   }
   return best ?? nearestFort(state, kid);
+}
+
+function lastStandPile(state: GameState, kid: Kid): Fort | null {
+  if ((kid.ai?.awayT ?? 0) > 0) return null;
+  return safeHideFort(state, kid) ?? nearestFort(state, kid);
 }
 
 function nearbyFoes(state: GameState, kid: Kid, radius: number) {
