@@ -93,6 +93,9 @@ function kidFrame(kid: Kid, assets: Assets, star = false) {
     const i = Math.min(3, Math.floor((1 - kid.stateT / 0.42) * 4));
     return set.hurt[i] ?? set.hurt[0] ?? idle;
   }
+  if (kid.ai?.phase === "windup" && kid.ai.charge > 0.35 && set.throw[0]) {
+    return set.throw[0] ?? idle;
+  }
   if (kid.moving && set.walk.length) {
     return frameOf(set.walk, kid.animT, 8) ?? idle;
   }
@@ -190,7 +193,7 @@ function drawAlignedSprite(
     const head = Math.max(8, box.headW);
     const base = dest / refH;
     s = base * (refHead / head);
-    s = Math.max(base * 0.88, Math.min(base * 1.75, s));
+    s = Math.max(base * 0.72, Math.min(base * 2.35, s));
   }
   const dw = box.w * s;
   const dh = box.h * s;
@@ -528,7 +531,8 @@ function drawKid(
     if (kid.team === "red" ? kid.facing === -1 : kid.facing === 1) ctx.scale(-1, 1);
     if (kid.flash > 0) ctx.filter = "brightness(2.4)";
     const set = assets ? (kid.team === "red" ? assets.red : assets.green) : null;
-    const idleBox = !buried && set?.idle[0] ? contentBox(set.idle[0]) : null;
+    const sharedIdle = assets?.red.idle[0] ?? assets?.green.idle[0] ?? set?.idle[0];
+    const idleBox = !buried && sharedIdle ? contentBox(sharedIdle) : !buried && set?.idle[0] ? contentBox(set.idle[0]) : null;
     drawAlignedSprite(ctx, img, size, buried ? "width" : "height", idleBox);
     ctx.filter = "none";
     ctx.restore();

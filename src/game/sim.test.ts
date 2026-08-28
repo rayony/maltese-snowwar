@@ -19,7 +19,7 @@ import {
   throwSnowball,
 } from "./sim";
 import { holdPower, MAX_CHARGE, BIG_CHARGE, BIG_SPEED, throwSpeed } from "./constants";
-import { aiThrowAim, bigBallRoles, shouldHideInPile, teamReactsToBig } from "./ai";
+import { aiThrowAim, bigBallRoles, shouldHideInPile, stepAi, teamReactsToBig } from "./ai";
 import type { Kid } from "./types";
 
 function kid(partial: Partial<Kid> & Pick<Kid, "id" | "team" | "x" | "y">): Kid {
@@ -378,7 +378,8 @@ describe("big-ball AI roles", () => {
     s.buffs.red = { kind: "big", shots: 3, t: 8 };
     const roles = bigBallRoles(s, "green");
     assert.equal(roles.holdFire.size, 2);
-    assert.equal(roles.intercept.size, 0);
+    assert.equal(roles.intercept.size, 2);
+    for (const id of roles.intercept) assert.ok(roles.holdFire.has(id));
   });
 
   it("holds fire on all remaining if fewer than two", () => {
@@ -417,6 +418,47 @@ describe("big-ball AI roles", () => {
     const roles = bigBallRoles(s, "green");
     assert.equal(roles.intercept.size, 2);
     assert.equal(roles.holdFire.size, 2);
+  });
+
+  it("pre-charges a long shot and only fires after the big ball is thrown", () => {
+    const s = createState(1, true);
+    s.phase = "fight";
+    s.buffs.red = { kind: "big", shots: 3, t: 8 };
+    let y = 70;
+    for (const k of s.kids) {
+      k.packT = 0;
+      k.cooldown = 0;
+      k.stun = 0;
+      k.state = "idle";
+      if (k.team === "green") {
+        k.x = 90;
+        k.y = y;
+        y += 110;
+      }
+    }
+    for (let i = 0; i < 90; i++) stepAi(s, 1 / 60, () => {}, "off", "enemy", false, true);
+    const ids = [...bigBallRoles(s, "green").intercept];
+    const blockers = s.kids.filter((k) => ids.includes(k.id));
+    assert.equal(blockers.length, 2);
+    assert.ok(blockers.every((k) => (k.ai?.charge ?? 0) >= 0.85));
+    assert.equal(s.balls.filter((b) => b.team === "green").length, 0);
+    s.balls.push({
+      x: 400,
+      y: blockers[0]!.y,
+      vx: -180,
+      vy: 0,
+      team: "red",
+      r: 36,
+      fromId: 1,
+      grace: 0,
+      spin: 0,
+      alive: true,
+      range: 800,
+      traveled: 0,
+      big: true,
+    });
+    stepAi(s, 1 / 60, () => {}, "off", "enemy", false, true);
+    assert.ok(s.balls.filter((b) => b.team === "green").length >= 1);
   });
 });
 
