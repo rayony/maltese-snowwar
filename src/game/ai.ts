@@ -108,13 +108,12 @@ export function stepAi(
     const intercepting = !lastStand && teamRoles.intercept.has(kid.id);
     const holding = teamRoles.holdFire.has(kid.id) && !intercepting;
 
-    if (incoming && !intercepting && kid.ai.phase !== "dodge" && kid.stun <= 0) {
-      kid.ai.phase = "dodge";
-      kid.ai.t = longDodge ? 0.5 : stance === "defend" ? 0.55 : 0.34;
+    const charging = kid.ai.phase === "windup" && !lastStand;
+    if (incoming && kid.stun <= 0 && kid.ai.phase !== "dodge" && (charging || !intercepting)) {
       const px = -(incoming.y - kid.y);
       const py = incoming.x - kid.x;
       const len = Math.hypot(px, py) || 1;
-      const dist = longDodge ? 118 : stance === "defend" ? 88 : 64;
+      const dist = charging ? 72 : longDodge ? 118 : stance === "defend" ? 88 : 64;
       kid.ai.destX = clampSide(kid.x + (px / len) * dist, kid.team, hard && stance === "enemy");
       kid.ai.destY = clamp(kid.y + (py / len) * dist, MARGIN, WORLD_H - MARGIN);
       if ((lastStand || stance === "defend") && (kid.ai.awayT ?? 0) <= 0) {
@@ -124,7 +123,7 @@ export function stepAi(
           kid.ai.destX = hide.x;
           kid.ai.destY = hide.y;
         }
-      } else if (stance !== "defend") {
+      } else if (!charging && stance !== "defend") {
         const pile = shouldHideInPile(state, kid, stance, hard);
         if (pile) {
           const hide = hideSpot(kid, pile, state);
@@ -132,16 +131,22 @@ export function stepAi(
           kid.ai.destY = hide.y;
         }
       }
+      if (!charging) {
+        kid.ai.phase = "dodge";
+        kid.ai.t = longDodge ? 0.5 : stance === "defend" ? 0.55 : 0.34;
+      }
     }
 
     if (intercepting && inFort(kid.x, kid.y, state.forts)) {
       const fort = inFort(kid.x, kid.y, state.forts);
-      if (fort && kid.ai.phase !== "move") {
+      if (fort) {
         const peek = peekSpot(kid, fort, state);
-        kid.ai.phase = "move";
-        kid.ai.t = 0.45;
         kid.ai.destX = peek.x;
         kid.ai.destY = peek.y;
+        if (kid.ai.phase !== "windup" && kid.ai.phase !== "move") {
+          kid.ai.phase = "move";
+          kid.ai.t = 0.45;
+        }
       }
     } else if (
       intercepting &&
@@ -217,6 +222,10 @@ export function stepAi(
         continue;
       }
       kid.ai.charge = Math.min(1, kid.ai.charge + dt / (stance === "defend" ? 1.15 : 0.85));
+      const holdWalk = aiMoveSpeed(level) * (hard ? 3 : 1);
+      if (Math.hypot(kid.x - kid.ai.destX, kid.y - kid.ai.destY) > 8) {
+        moveToward(kid, kid.ai.destX, kid.ai.destY, holdWalk, dt);
+      }
       if (kid.cooldown > 0 || kid.packT > 0) {
         if (kid.ai.t <= 0) kid.ai.phase = "idle";
         continue;

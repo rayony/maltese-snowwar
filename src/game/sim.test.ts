@@ -602,3 +602,29 @@ describe("last stand", () => {
     assert.notEqual(g.ai.phase, "windup");
   });
 });
+
+describe("windup walk", () => {
+  it("keeps charging while walking at normal speed", () => {
+    const s = createState(1, false, { hard: false });
+    s.phase = "fight";
+    const g = s.kids.find((k) => k.team === "green")!;
+    g.x = 100;
+    g.y = 200;
+    g.packT = 0;
+    g.cooldown = 0;
+    g.stun = 0;
+    g.state = "idle";
+    stepAi(s, 0, () => {}, "off", "enemy", false, false);
+    g.ai!.phase = "windup";
+    g.ai!.t = 2;
+    g.ai!.charge = 0.4;
+    g.ai!.destX = 260;
+    g.ai!.destY = 200;
+    const x0 = g.x;
+    const c0 = g.ai!.charge;
+    for (let i = 0; i < 20; i++) stepAi(s, 1 / 60, () => {}, "off", "enemy", false, false);
+    assert.equal(g.ai!.phase, "windup");
+    assert.ok(g.ai!.charge > c0);
+    assert.ok(g.x > x0 + 4);
+  });
+});
