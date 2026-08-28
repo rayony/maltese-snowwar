@@ -538,6 +538,8 @@ function drawKid(
     ctx.restore();
   }
 
+  if (cover && !isOut(kid)) drawHideArrow(ctx, kid, size);
+
   if (!isOut(kid)) drawPips(ctx, kid, cover);
   if (!cover && kid.packT > 0 && !isOut(kid) && kid.state !== "throw") {
     const packMax = view.godSpeed && kid.team === "red" ? STAR_PACK_TIME : PACK_TIME;
@@ -613,6 +615,33 @@ function drawFortLayer(
     ctx.fillRect(x, y, w * (fort.hp / fort.maxHp), 5);
     ctx.restore();
   }
+}
+
+function drawHideArrow(ctx: CanvasRenderingContext2D, kid: Kid, size: number) {
+  const bounce = Math.sin(performance.now() / 160) * 3;
+  ctx.save();
+  ctx.translate(0, -size * 0.78 + bounce);
+  const fill = kid.team === "red" ? "#e24b3c" : "#2fb37a";
+  ctx.shadowColor = "rgba(21,32,43,0.35)";
+  ctx.shadowBlur = 4;
+  ctx.shadowOffsetY = 1;
+  ctx.fillStyle = fill;
+  ctx.strokeStyle = "rgba(255,255,255,0.95)";
+  ctx.lineWidth = 2;
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(0, 11);
+  ctx.lineTo(-9, -2);
+  ctx.lineTo(-4, -2);
+  ctx.lineTo(-4, -11);
+  ctx.lineTo(4, -11);
+  ctx.lineTo(4, -2);
+  ctx.lineTo(9, -2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.stroke();
+  ctx.restore();
 }
 
 function drawPips(ctx: CanvasRenderingContext2D, kid: Kid, cover: boolean) {
