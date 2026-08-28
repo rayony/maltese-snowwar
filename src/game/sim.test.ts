@@ -116,6 +116,21 @@ describe("aimFromKid", () => {
     assert.equal(aim.dx, 0);
     assert.equal(aim.dy, 0);
   });
+
+  it("cannot aim or throw while standing in a fort", () => {
+    const s = createState(1);
+    s.phase = "fight";
+    const me = s.kids.find((k) => k.team === "red")!;
+    me.x = 390;
+    me.y = 168;
+    me.packT = 0;
+    me.state = "idle";
+    const aim = aimFromKid(me, s.kids, 0, 0, false, false, s.forts);
+    assert.equal(aim.ok, false);
+    const before = s.balls.length;
+    assert.equal(throwSnowball(s, me, 0.6, -1, 0, false, true), 0);
+    assert.equal(s.balls.length, before);
+  });
 });
 
 describe("faceNearest", () => {

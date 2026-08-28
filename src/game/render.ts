@@ -505,7 +505,8 @@ function drawKid(
   const px = kid.viewX ?? kid.x;
   const py = kid.viewY ?? kid.y;
   const cover = !buried && !!inFort(px, py, forts);
-  const duck = cover ? 11 : 0;
+  const hideFort = cover ? inFort(px, py, forts) : null;
+  const duck = 0;
   const size = buried ? view.buriedSize : view.drawSize;
   ctx.save();
   ctx.translate(px, py + duck);
@@ -518,6 +519,12 @@ function drawKid(
   if (img) {
     ctx.save();
     ctx.translate(0, -lifted);
+    if (hideFort) {
+      const crest = Math.max(-size * 0.3, hideFort.y - py - hideFort.ry * 0.22);
+      ctx.beginPath();
+      ctx.rect(-size, -size * 1.4, size * 2, size * 1.4 + crest);
+      ctx.clip();
+    }
     if (kid.team === "red" ? kid.facing === -1 : kid.facing === 1) ctx.scale(-1, 1);
     if (kid.flash > 0) ctx.filter = "brightness(2.4)";
     const set = assets ? (kid.team === "red" ? assets.red : assets.green) : null;
@@ -528,13 +535,13 @@ function drawKid(
   }
 
   if (!isOut(kid)) drawPips(ctx, kid, cover);
-  if (kid.packT > 0 && !isOut(kid) && kid.state !== "throw") {
+  if (!cover && kid.packT > 0 && !isOut(kid) && kid.state !== "throw") {
     const packMax = view.godSpeed && kid.team === "red" ? STAR_PACK_TIME : PACK_TIME;
     drawPackMeter(ctx, kid.packT, packMax);
   }
 
   const hovered = view.hoverId === kid.id || view.grab?.id === kid.id;
-  if (hovered && kid.team === "red" && !isOut(kid)) {
+  if (!cover && hovered && kid.team === "red" && !isOut(kid)) {
     const power = view.pvp
       ? 0.7
       : view.grab?.id === kid.id
