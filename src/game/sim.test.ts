@@ -19,7 +19,7 @@ import {
   throwSnowball,
 } from "./sim";
 import { holdPower, MAX_CHARGE, BIG_CHARGE, BIG_SPEED, throwSpeed } from "./constants";
-import { aiThrowAim, bigBallRoles, teamReactsToBig } from "./ai";
+import { aiThrowAim, bigBallRoles, shouldHideInPile, teamReactsToBig } from "./ai";
 import type { Kid } from "./types";
 
 function kid(partial: Partial<Kid> & Pick<Kid, "id" | "team" | "x" | "y">): Kid {
@@ -417,5 +417,41 @@ describe("big-ball AI roles", () => {
     const roles = bigBallRoles(s, "green");
     assert.equal(roles.intercept.size, 2);
     assert.equal(roles.holdFire.size, 2);
+  });
+});
+
+describe("shouldHideInPile", () => {
+  it("hides when two foes are nearby and a pile is on our side", () => {
+    const s = createState(1, false, { hard: true });
+    const green = s.kids.find((k) => k.team === "green")!;
+    green.x = 500;
+    green.y = 200;
+    const reds = s.kids.filter((k) => k.team === "red");
+    reds[0]!.x = 580;
+    reds[0]!.y = 180;
+    reds[1]!.x = 575;
+    reds[1]!.y = 230;
+    const fort = shouldHideInPile(s, green, "enemy", true);
+    assert.ok(fort);
+    assert.ok(Math.abs(fort!.x - 390) < 80);
+  });
+
+  it("does not run through the pack to a pile behind the enemies", () => {
+    const s = createState(1);
+    const green = s.kids.find((k) => k.team === "green")!;
+    green.x = 180;
+    green.y = 270;
+    const reds = s.kids.filter((k) => k.team === "red");
+    reds.forEach((r, i) => {
+      if (i < 2) {
+        r.x = 250 + i * 30;
+        r.y = 270;
+      } else {
+        r.hp = 0;
+        r.state = "buried";
+      }
+    });
+    const fort = shouldHideInPile(s, green, "enemy", false);
+    assert.equal(fort, null);
   });
 });
