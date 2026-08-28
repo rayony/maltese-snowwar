@@ -24,6 +24,7 @@ import {
   throwSnowball,
   tickHideFuel,
   sweetReady,
+  incomingAt,
 } from "./sim";
 import { BIG_SPEED, MAX_RANGE, MAX_THROW_SPEED, pickupRadius, SWEET_WINDOW, WORLD_W } from "./constants";
 import { aiThrowAim, arenaBalls, arenaCanThrow, bigBallRoles, draggedMate, fortCoverSpot, grabShooters, huntPressers, mateThrewRecently, shouldHideInPile, stepAi, surroundLast, teamJob, teamReactsToBig, teamSurging, throwAimForStance } from "./ai";
@@ -309,6 +310,59 @@ describe("counter sweet", () => {
     assert.equal(sweetReady(s, red), false);
     throwSnowball(s, red, 0, -1, 0, false, true);
     assert.equal(!!s.balls.at(-1)!.sweet, false);
+  });
+
+  it("is sweet if a nearby foe's ball is flying at the held dog", () => {
+    const s = createState(1);
+    s.phase = "fight";
+    s.forts = [];
+    s.time = 2;
+    const reds = s.kids.filter((k) => k.team === "red");
+    const greens = s.kids.filter((k) => k.team === "green");
+    const red = reds[0]!;
+    const aim = greens[0]!;
+    const other = greens[1] ?? greens[0]!;
+    red.x = 700;
+    red.y = 200;
+    red.packT = 0;
+    aim.x = 180;
+    aim.y = 200;
+    aim.lastThrowAt = -99;
+    other.x = 200;
+    other.y = 248;
+    other.lastThrowAt = -99;
+    s.balls = [{
+      x: 560, y: 200, vx: 480, vy: 0, team: "green", r: 12, fromId: other.id, grace: 0, spin: 0,
+      alive: true, range: 800, traveled: 80, sweet: false, big: false,
+    }];
+    assert.equal(incomingAt(s, red), true);
+    assert.equal(sweetReady(s, red), true);
+    throwSnowball(s, red, 0, -1, 0, false, true);
+    assert.equal(s.balls.filter((b) => b.fromId === red.id).at(-1)!.sweet, true);
+  });
+
+  it("is not sweet for a ball flying away or a big ball", () => {
+    const s = createState(1);
+    s.phase = "fight";
+    s.forts = [];
+    const red = s.kids.find((k) => k.team === "red")!;
+    const green = s.kids.find((k) => k.team === "green")!;
+    red.x = 700;
+    red.y = 200;
+    green.x = 200;
+    green.y = 200;
+    green.lastThrowAt = -99;
+    s.balls = [{
+      x: 560, y: 200, vx: -480, vy: 0, team: "green", r: 12, fromId: green.id, grace: 0, spin: 0,
+      alive: true, range: 800, traveled: 80,
+    }];
+    assert.equal(incomingAt(s, red), false);
+    s.balls = [{
+      x: 560, y: 200, vx: 400, vy: 0, team: "green", r: 36, fromId: green.id, grace: 0, spin: 0,
+      alive: true, range: 800, traveled: 80, big: true,
+    }];
+    assert.equal(incomingAt(s, red), false);
+    assert.equal(sweetReady(s, red), false);
   });
 
   it("a sweet ball eats a normal foe ball and keeps flying", () => {

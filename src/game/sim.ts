@@ -8,6 +8,7 @@ import {
   enemyCountForLevel,
   HP,
   INTRO_TIME,
+  KID_RADIUS,
   MARGIN,
   MAX_RANGE,
   MAX_THROW_SPEED,
@@ -22,6 +23,8 @@ import {
   PVP_SPEED,
   playFeel,
   counterSweet,
+  SWEET_WINDOW,
+  SWEET_WINDOW_PVP,
   THROW_COOLDOWN,
   WORLD_H,
   WORLD_W,
@@ -333,7 +336,27 @@ export function closestEnemy(kid: Kid, kids: Kid[]) {
   return best;
 }
 
+export function incomingAt(state: GameState, kid: Kid) {
+  const other: Team = kid.team === "red" ? "green" : "red";
+  const win = state.pvp ? SWEET_WINDOW_PVP : SWEET_WINDOW;
+  for (const b of state.balls) {
+    if (!b.alive || b.ghost || b.team !== other || b.big) continue;
+    const dx = kid.x - b.x;
+    const dy = kid.y - b.y;
+    const sp2 = b.vx * b.vx + b.vy * b.vy;
+    if (sp2 < 1) continue;
+    const t = (dx * b.vx + dy * b.vy) / sp2;
+    if (t < 0 || t > win) continue;
+    const cx = dx - b.vx * t;
+    const cy = dy - b.vy * t;
+    const hit = KID_RADIUS + b.r + 18;
+    if (cx * cx + cy * cy <= hit * hit) return true;
+  }
+  return false;
+}
+
 export function sweetReady(state: GameState, kid: Kid) {
+  if (incomingAt(state, kid)) return true;
   const foe = closestHittableEnemy(kid, state.kids, state.forts);
   if (!foe) return false;
   const at = foe.lastThrowAt ?? foe.ai?.lastThrowAt ?? -99;
