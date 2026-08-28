@@ -37,7 +37,7 @@ Tap for a **short** toss. Keep holding to charge a **long** throw. After each sh
 <td>
 
 **Auto-aim**  
-While you hold, the dashed line always points at the **nearest** opponent. Move, or when another foe becomes closer, the aim swings to them.
+While you hold, the dashed line points at the **nearest hittable** opponent (not someone in or behind a snow pile). If nobody is in a clear shot, there is no line and release does not throw.
 
 </td>
 </tr>
