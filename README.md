@@ -12,24 +12,57 @@ A browser-based snowball fight: three Maltese vs golden retrievers. Fan tribute 
 
 ## How it plays
 
-| Hold / dodge | Throw |
-|:---:|:---:|
-| ![Hold to move](public/readme/hold-dodge.gif) | ![Release to throw](public/readme/throw.gif) |
-| **Pack snow** | **Brawl** |
-| ![Pack](public/readme/pack.gif) | ![Two-hit bury](public/readme/brawl.gif) |
-| **Big snowball** | **Victory** |
-| ![Big snowball](public/readme/big-snowball.gif) | ![Victory dance](public/readme/victory.gif) |
+<table>
+<tr>
+<td width="56%"><img src="public/readme/hold-dodge.gif" alt="Hold / dodge"></td>
+<td>
 
-- **Hold** a dog to move and dodge; **release** to throw (auto-aims the nearest foe)
-- Pack snow between shots — you cannot fire while packing
-- Two hits bury a dog; forts eat snowballs that pass through them
-- **Big snowball** can drop mid-fight. Hint: *A big snowball appeared! Grab it!*
-  - Collect by walking a dog onto the orb **or tapping it**
-  - That **team** gets **3 player throws / 10 s** (2 HP). AI throws stay normal. A second pickup refills
-  - Thrown big ball matches the field orb (white snow, gold glowing rim). **0.8×** fly speed; vs AI needs **1.2×** hold for max range
-  - Clash: big vs a normal ball shrinks the big one (then HP−1); two bigs shatter
-  - PvP: blinking red *Opponent has the big snowball!*
+**Hold / dodge**  
+Press and drag a Maltese (the finger) to move. Sidestep incoming snowballs before you throw.
 
+</td>
+</tr>
+<tr>
+<td><img src="public/readme/throw.gif" alt="Throw and pack"></td>
+<td>
+
+**Throw & pack**  
+Keep holding to charge — longer hold, farther throw. Release to auto-aim the nearest foe, then pack snow before the next shot.
+
+</td>
+</tr>
+<tr>
+<td><img src="public/readme/brawl.gif" alt="Hit and bury"></td>
+<td>
+
+**Hit / bury**  
+One snowball stuns (hurt). A second hit buries that dog. Forts eat balls that pass through them.
+
+</td>
+</tr>
+<tr>
+<td><img src="public/readme/big-snowball.gif" alt="Big snowball"></td>
+<td>
+
+**Big snowball**  
+When the gold-rim orb appears, walk onto it or tap it. Your team gets **3 player throws / 10 s** (2 HP). The bar and dots show time and shots left.
+
+</td>
+</tr>
+<tr>
+<td><img src="public/readme/victory.gif" alt="Victory"></td>
+<td>
+
+**Victory**  
+Clear the retrievers to win. Fight again, or back to the title.
+
+</td>
+</tr>
+</table>
+
+- Thrown big ball matches the field orb (white snow, gold rim). **0.8×** fly speed; vs AI needs **1.2×** hold for max range
+- Clash: big vs a normal ball shrinks the big one (then HP−1); two bigs shatter
+- PvP: blinking red *Opponent has the big snowball!* A second pickup refills 3 / 10 s. AI throws stay normal.
 > Cheats (test only)
 > - Solo **star mode**: tap the Level HUD 5× — faster pack/charge, more HP
 > - Host/solo **instant orb**: double-tap the **X vs Y** score HUD
