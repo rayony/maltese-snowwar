@@ -108,20 +108,22 @@ export function stepAi(
           ? "defend"
           : "attack";
 
+    const longDodge = (hard && stance === "enemy") || (stance === "attack" && kid.team === "green");
+
     const forbidFort = tickFortRoam(state, kid, dt, stance);
 
-    const incoming = incomingBall(state, kid, hard && stance === "enemy" ? 210 : stance === "defend" ? 150 : 95, hard && stance === "enemy");
+    const incoming = incomingBall(state, kid, longDodge ? 210 : stance === "defend" ? 150 : 95, hard && stance === "enemy");
     const teamRoles = kid.team === "red" ? roles.red : roles.green;
     const intercepting = teamRoles.intercept.has(kid.id);
     const holding = teamRoles.holdFire.has(kid.id) && !intercepting;
 
     if (incoming && !intercepting && kid.ai.phase !== "dodge" && kid.stun <= 0) {
       kid.ai.phase = "dodge";
-      kid.ai.t = hard && stance === "enemy" ? 0.5 : stance === "defend" ? 0.55 : 0.34;
+      kid.ai.t = longDodge ? 0.5 : stance === "defend" ? 0.55 : 0.34;
       const px = -(incoming.y - kid.y);
       const py = incoming.x - kid.x;
       const len = Math.hypot(px, py) || 1;
-      const dist = hard && stance === "enemy" ? 118 : stance === "defend" ? 88 : 64;
+      const dist = longDodge ? 118 : stance === "defend" ? 88 : 64;
       kid.ai.destX = clampSide(kid.x + (px / len) * dist, kid.team, hard && stance === "enemy");
       kid.ai.destY = clamp(kid.y + (py / len) * dist, MARGIN, WORLD_H - MARGIN);
       if (stance === "defend" && (kid.ai.awayT ?? 0) <= 0) {
@@ -167,7 +169,7 @@ export function stepAi(
       const spd =
         aiMoveSpeed(level) *
         (hard ? 3 : 1) *
-        (kid.ai.phase === "dodge" ? (hard ? 1.75 : 1.5) : stance === "attack" ? 1.12 : 0.9);
+        (kid.ai.phase === "dodge" ? (longDodge ? 1.75 : 1.5) : stance === "attack" ? 1.12 : 0.9);
       moveToward(kid, kid.ai.destX, kid.ai.destY, spd, dt);
       if (kid.ai.t <= 0 || Math.hypot(kid.x - kid.ai.destX, kid.y - kid.ai.destY) < 10) {
         if (kid.ai.phase === "dodge") {
@@ -550,7 +552,7 @@ export function shouldHideInPile(
   const dFoe = foe ? Math.hypot(foe.x - kid.x, foe.y - kid.y) : Infinity;
   const near = nearbyFoes(state, kid, stance === "defend" ? 200 : 170);
   if (near.length >= 2) {
-    if (stance === "enemy" && !hard) return dFort <= 200 ? fort : null;
+    if (stance === "attack" || (stance === "enemy" && !hard)) return dFort <= 200 ? fort : null;
     return fort;
   }
   if (stance === "defend" && dFoe < 155) return fort;

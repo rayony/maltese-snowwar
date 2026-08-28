@@ -490,4 +490,25 @@ describe("shouldHideInPile", () => {
     reds[1]!.y = 230;
     assert.equal(shouldHideInPile(s, green, "enemy", true), null);
   });
+
+  it("attack allies only hide if the pile is within 200px", () => {
+    const s = createState(1);
+    const red = s.kids.find((k) => k.team === "red")!;
+    red.x = 820;
+    red.y = 80;
+    const greens = s.kids.filter((k) => k.team === "green");
+    greens[0]!.x = 740;
+    greens[0]!.y = 70;
+    greens[1]!.x = 745;
+    greens[1]!.y = 110;
+    assert.equal(shouldHideInPile(s, red, "attack", false), null);
+    red.x = 500;
+    red.y = 200;
+    greens[0]!.x = 430;
+    greens[0]!.y = 180;
+    greens[1]!.x = 435;
+    greens[1]!.y = 220;
+    const near = shouldHideInPile(s, red, "attack", false);
+    assert.ok(near);
+  });
 });
