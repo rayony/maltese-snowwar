@@ -27,7 +27,16 @@ Press and drag a Maltese (the finger) to move. Sidestep incoming snowballs befor
 <td>
 
 **Throw & pack**  
-Keep holding to charge — longer hold, farther throw. Release to auto-aim the nearest foe, then pack snow before the next shot.
+Tap for a **short** toss. Keep holding to charge a **long** throw. After each shot the dog packs snow before it can throw again.
+
+</td>
+</tr>
+<tr>
+<td><img src="public/readme/auto-aim.gif" alt="Auto-aim nearest foe"></td>
+<td>
+
+**Auto-aim**  
+While you hold, the dashed line always points at the **nearest** opponent. Move, or when another foe becomes closer, the aim swings to them.
 
 </td>
 </tr>
@@ -36,7 +45,7 @@ Keep holding to charge — longer hold, farther throw. Release to auto-aim the n
 <td>
 
 **Hit / bury**  
-One snowball stuns (hurt). A second hit buries that dog. Forts eat balls that pass through them.
+One snowball **hits** (stun). A second hit **buries** that dog. Forts eat balls that pass through them.
 
 </td>
 </tr>
@@ -45,7 +54,7 @@ One snowball stuns (hurt). A second hit buries that dog. Forts eat balls that pa
 <td>
 
 **Big snowball**  
-When the gold-rim orb appears, walk onto it or tap it. Your team gets **3 player throws / 10 s** (2 HP). The bar and dots show time and shots left.
+When the gold-rim orb appears, walk onto it or tap it. Your team gets **3 player throws / 10 s** (2 HP) — the bar and dots show time and shots left. Thrown big balls match the orb (white snow, gold rim), fly at **0.8×** speed, and vs AI need **1.2×** hold for max range. A small ball **shrinks** a big one (then HP−1); two bigs shatter. PvP: blinking red *Opponent has the big snowball!* A second pickup refills 3 / 10 s. AI throws stay normal.
 
 </td>
 </tr>
@@ -59,10 +68,6 @@ Clear the retrievers to win. Fight again, or back to the title.
 </td>
 </tr>
 </table>
-
-- Thrown big ball matches the field orb (white snow, gold rim). **0.8×** fly speed; vs AI needs **1.2×** hold for max range
-- Clash: big vs a normal ball shrinks the big one (then HP−1); two bigs shatter
-- PvP: blinking red *Opponent has the big snowball!* A second pickup refills 3 / 10 s. AI throws stay normal.
 > Cheats (test only)
 > - Solo **star mode**: tap the Level HUD 5× — faster pack/charge, more HP
 > - Host/solo **instant orb**: double-tap the **X vs Y** score HUD
