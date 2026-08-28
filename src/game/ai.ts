@@ -25,27 +25,17 @@ export function teamReactsToBig(team: Team, hard: boolean, state: GameState): bo
   return team === "green" && (hard || state.hard);
 }
 
-/** At least two (or all remaining) hold fire while the foe has a big-ball buff; two intercept a flying big ball. */
+/** Two blockers hold a charged long shot while the foe has the buff; they fire only after the big ball is thrown. */
 export function bigBallRoles(state: GameState, team: Team): { holdFire: Set<number>; intercept: Set<number> } {
   const mates = livingMates(state, team);
-  const holdN = Math.min(2, mates.length);
-  const holdFire = new Set(mates.slice(0, holdN).map((k) => k.id));
-  if (!foeHasBigBuff(state, team)) holdFire.clear();
-
-  const balls = foeBigBalls(state, team);
   const intercept = new Set<number>();
-  if (balls.length && mates.length) {
-    const threat = balls.reduce((best, b) => {
-      const mid = mates.reduce((s, k) => s + Math.hypot(k.x - b.x, k.y - b.y), 0);
-      const prev = mates.reduce((s, k) => s + Math.hypot(k.x - best.x, k.y - best.y), 0);
-      return mid < prev ? b : best;
-    });
-    const ranked = mates.slice().sort((a, b) => {
-      const da = Math.hypot(a.x - threat.x, a.y - threat.y) + (a.packT > 0 || a.stun > 0 ? 80 : 0);
-      const db = Math.hypot(b.x - threat.x, b.y - threat.y) + (b.packT > 0 || b.stun > 0 ? 80 : 0);
-      return da - db || a.id - b.id;
-    });
-    for (const k of ranked.slice(0, Math.min(2, ranked.length))) intercept.add(k.id);
+  const holdFire = new Set<number>();
+  const primed = foeHasBigBuff(state, team) || foeBigBalls(state, team).length > 0;
+  if (primed && mates.length) {
+    for (const k of mates.slice(0, Math.min(2, mates.length))) intercept.add(k.id);
+    if (foeHasBigBuff(state, team)) {
+      for (const id of intercept) holdFire.add(id);
+    }
   }
   return { holdFire, intercept };
 }
@@ -160,8 +150,7 @@ export function stepAi(
       kid.ai.phase !== "windup"
     ) {
       kid.ai.phase = "windup";
-      kid.ai.t = 0.12;
-      kid.ai.charge = 0.62;
+      kid.ai.t = 9;
     }
 
     kid.ai.t -= dt;
@@ -219,7 +208,12 @@ export function stepAi(
         if (kid.ai.t <= 0) kid.ai.phase = "idle";
         continue;
       }
-      if (kid.ai.t <= 0) {
+      const flyingBig = intercepting && foeBigBalls(state, kid.team).length > 0;
+      if (intercepting && !flyingBig) {
+        kid.ai.t = 9;
+        continue;
+      }
+      if (kid.ai.t <= 0 || flyingBig) {
         if (inFort(kid.x, kid.y, state.forts)) {
           const fort = inFort(kid.x, kid.y, state.forts)!;
           kid.ai.phase = "move";
@@ -227,13 +221,17 @@ export function stepAi(
           const next = stance === "defend" ? peekSpot(kid, fort) : awayFromFort(kid, fort);
           kid.ai.destX = next.x;
           kid.ai.destY = next.y;
-          kid.ai.charge = 0;
+          kid.ai.charge = flyingBig ? kid.ai.charge : 0;
           continue;
         }
         const aim = intercepting
           ? aimAtBigBall(kid, state)
           : throwAimForStance(kid, state, stance, hard);
         if (!aim) {
+          if (intercepting) {
+            kid.ai.t = 9;
+            continue;
+          }
           kid.ai.phase = "idle";
           kid.ai.t = rand(0.12, 0.3);
           continue;
@@ -245,16 +243,14 @@ export function stepAi(
           continue;
         }
         const { dx, dy } = aim;
-        const holdScale = intercepting
-          ? 0.28 + 0.22 * kid.ai.charge
-          : stance === "defend"
-            ? 0.42 + 0.35 * kid.ai.charge
-            : 0.58 + 0.42 * kid.ai.charge;
-        const hold = MAX_CHARGE * holdScale;
+        const hold = intercepting
+          ? MAX_CHARGE * Math.max(0.9, kid.ai.charge)
+          : MAX_CHARGE *
+            (stance === "defend" ? 0.42 + 0.35 * kid.ai.charge : 0.58 + 0.42 * kid.ai.charge);
         const power = throwSnowball(state, kid, hold, dx, dy, localBalls);
         if (!power) {
-          kid.ai.phase = "idle";
-          kid.ai.t = 0.2;
+          kid.ai.phase = intercepting ? "windup" : "idle";
+          kid.ai.t = intercepting ? 9 : 0.2;
           continue;
         }
         onThrow(power, kid, hold, dx, dy);

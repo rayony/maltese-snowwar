@@ -110,7 +110,7 @@ Bots share one brain (`src/game/ai.ts`). They never throw from **inside** a pile
 | Dodge | Short sidestep | **Longer, faster dodge** |
 | Cover | Hide only if the pile is close (≤200 px) and not through you | Hide when crowded (2+ nearby) |
 | Cover timer | **5 s in / 5 s out** | **5 s in / 5 s out** |
-| Big snowball | No special reaction | Two hold fire while you have the buff; two shoot to shrink a flying big ball |
+| Big snowball | No special reaction | Two dogs **pre-charge a long shot** while you hold the buff, and release the instant the big ball is thrown |
 
 ### Allies (unselected dogs)
 
@@ -123,7 +123,7 @@ For unselected Maltese (vs AI and host during pvp) and Retrievers on your team (
 | Incoming | Dive into the pile, then peek | Sidestep; hide only if a pile is **≤200 px** and not through the pack | You dodge |
 | Dodge | Normal | Retriever Attack: **longer, faster dodge** (same as Hard). Maltese Attack: short sidestep | You dodge |
 | Cover timer | 8 s in / 3 s out | **5 s in / 5 s out** | You choose |
-| Big snowball | PvP: two hold, two intercept | Same | Your throws consume the 3 / 10 s buff |
+| Big snowball | PvP: two **pre-charge a long shot**, fire when the big ball leaves the hand | Same | Your throws consume the 3 / 10 s buff |
 
 Guest-side retrievers in PvP use the **Hard** column (both teams). If the guest drops, local AI takes over that team with the same rules.
 
