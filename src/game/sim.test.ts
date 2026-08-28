@@ -902,4 +902,31 @@ describe("ai rhythm", () => {
     stepAi(s, 0.05, () => {}, "off", "enemy", false, true);
     assert.equal(String(g.ai!.phase), "dodge");
   });
+
+  it("enemy AI winds up as soon as a foe is grabbed", () => {
+    const s = createState(1, false, { hard: false });
+    s.phase = "fight";
+    s.forts = [];
+    const red = s.kids.find((k) => k.team === "red")!;
+    red.x = 520;
+    red.y = 200;
+    red.state = "grabbed";
+    const g = s.kids.find((k) => k.team === "green")!;
+    g.x = 180;
+    g.y = 200;
+    g.packT = 0;
+    g.cooldown = 0;
+    g.stun = 0;
+    g.state = "idle";
+    stepAi(s, 0, () => {}, "off", "enemy", false, false);
+    g.ai!.phase = "move";
+    g.ai!.t = 2;
+    stepAi(s, 0.05, () => {}, "off", "enemy", false, false);
+    assert.equal(String(g.ai!.phase), "windup");
+    let throws = 0;
+    for (let i = 0; i < 40; i++) {
+      stepAi(s, 1 / 60, () => { throws += 1; }, "off", "enemy", false, false);
+    }
+    assert.ok(throws > 0);
+  });
 });
