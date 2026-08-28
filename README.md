@@ -88,12 +88,18 @@ Landing boot: spinner + English title assets, then Play vs AI / Friend. Action s
 
 Bots share one brain (`src/game/ai.ts`). They never throw from **inside** a pile (hide = immune, peek at the rim to fire). Auto-aim for you still skips foes in or behind snow.
 
-**Cover:** if two or more living foes are nearby and a pile is on *this* side of the pack, they dive in. They will not run *through* the pack to a pile behind the enemies. Same rule for retrievers (vs AI, left of you) and for Maltese allies (PvP / guest, retrievers pressing from the other side).
+**Cover:** they will not run *through* the pack to a pile behind the enemies. Same geometry for retrievers (vs AI / PvP guest) and Maltese allies.
+
+| Who | When they hide |
+|---|---|
+| Easy retrievers · Attack allies (Maltese **or** Retriever) | Only if the pile is **close (≤200 px)** and not through the pack |
+| Hard retrievers | When crowded (2+ nearby), pile up to ~250 px, still not through the pack |
+| Defend allies | Incoming ball, or a foe within ~155 px |
 
 | | Max hide in a pile | Must stay out before hiding again |
 |---|---|---|
-| Easy / Hard / Attack | 5 s | 5 s |
-| Defend | 8 s | 3 s |
+| Easy retrievers · Hard retrievers · Attack allies | **5 s** | **5 s** |
+| Defend allies | 8 s | 3 s |
 
 ### Retrievers (vs AI)
 
@@ -101,19 +107,23 @@ Bots share one brain (`src/game/ai.ts`). They never throw from **inside** a pile
 |---|---|---|
 | Field | Own half only | May cross midfield |
 | Aim | Forward only (never back / left toward their spawn) | May shoot backward at a Maltese behind them |
-| Dodge | Short sidestep | Longer, faster dodge |
+| Dodge | Short sidestep | **Longer, faster dodge** |
 | Cover | Hide only if the pile is close (≤200 px) and not through you | Hide when crowded (2+ nearby) |
+| Cover timer | **5 s in / 5 s out** | **5 s in / 5 s out** |
 | Big snowball | No special reaction | Two hold fire while you have the buff; two shoot to shrink a flying big ball |
 
-### Maltese allies (unselected dogs)
+### Allies (unselected dogs)
+
+Maltese on your team, or retrievers on the guest/AI side when that team is set to Attack / Defend.
 
 | | Defend | Attack | Manual |
 |---|---|---|---|
 | Post | Own half, hug the nearest pile | Press toward the assigned foe’s Y, ~midfield | You drag them |
 | Throw | Mostly from the **rim** of a pile (high rate once peeking) | Clear a lane around forts, then punish right after the foe throws or packs | Your hold / release |
-| Incoming | Dive into the pile, then peek | Sidestep; hide only if 2+ retrievers are on them | You dodge |
-| Cover timer | 8 s in / 3 s out | 5 s in / 5 s out | You choose |
-| Big snowball | Same as Hard retrievers in PvP: two hold, two intercept | Same | Your throws consume the 3 / 10 s buff |
+| Incoming | Dive into the pile, then peek | Sidestep; hide only if a pile is **≤200 px** and not through the pack | You dodge |
+| Dodge | Normal | Retriever Attack: **longer, faster dodge** (same as Hard). Maltese Attack: short sidestep | You dodge |
+| Cover timer | 8 s in / 3 s out | **5 s in / 5 s out** | You choose |
+| Big snowball | PvP: two hold, two intercept | Same | Your throws consume the 3 / 10 s buff |
 
 Guest-side retrievers in PvP use the **Hard** column (both teams). If the guest drops, local AI takes over that team with the same rules.
 
