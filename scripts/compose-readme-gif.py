@@ -7,7 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 OUT_W, OUT_H = 480, 270
 WORLD_W, WORLD_H = 960, 540
@@ -51,6 +51,22 @@ def stamp_finger(im: Image.Image, px: int, py: int) -> None:
     hand = hand.resize((44, 44), Image.Resampling.LANCZOS)
     # hang the hand below the contact point so the dog stays visible
     im.alpha_composite(hand, (px - 14, py + 6))
+
+
+def stamp_label(im: Image.Image, text: str, fill: tuple[int, int, int] = (255, 214, 96)) -> None:
+    d = ImageDraw.Draw(im)
+    try:
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 34)
+    except OSError:
+        font = ImageFont.load_default()
+    bbox = d.textbbox((0, 0), text, font=font)
+    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    x = (OUT_W - tw) // 2
+    y = OUT_H - th - 18
+    d.rounded_rectangle((x - 16, y - 8, x + tw + 16, y + th + 10), radius=12, fill=(18, 28, 38, 220))
+    for ox, oy in ((-2, 0), (2, 0), (0, -2), (0, 2), (-1, -1), (1, 1)):
+        d.text((x + ox, y + oy), text, font=font, fill=(255, 255, 255, 255))
+    d.text((x, y), text, font=font, fill=fill + (255,))
 
 
 def contain_on_canvas(src: Image.Image) -> Image.Image:
@@ -104,6 +120,9 @@ def main() -> None:
             if fr.get("finger"):
                 fx, fy = world_to_crop(fr.get("fx", fr["x"]), fr.get("fy", fr["y"]), fr["x"], fr["y"], fr.get("zoom", 1.3))
                 stamp_finger(framed, fx, fy)
+            if fr.get("label"):
+                color = tuple(fr["labelColor"]) if fr.get("labelColor") else (255, 214, 96)
+                stamp_label(framed, fr["label"], color)
         framed.convert("RGB").save(out_dir / f"{i:03d}.png")
     write_gif(out_dir, dest, fps)
     print("wrote", dest, "frames", len(meta["frames"]))

@@ -84,6 +84,8 @@ const greens = await page.evaluate(() =>
 );
 const rid = reds[1] ?? reds[0];
 const gid = greens[1] ?? greens[0];
+const gA = greens[0];
+const gB = greens[1] ?? greens[0];
 
 async function recordWorld(dir, n, delay, centerFn) {
   rmSync(dir, { recursive: true, force: true });
@@ -157,30 +159,144 @@ await page.evaluate(() => {
 });
 await page.waitForTimeout(200);
 
-// ---------- 2. throw + pack: long hold, then pack ----------
+// ---------- 2. throw + pack: short toss, then long throw ----------
 {
   await page.evaluate((id) => {
-    const k = window.__snow.state.kids.find((x) => x.id === id);
+    const g = window.__snow;
+    g.state.balls.length = 0;
+    const k = g.state.kids.find((x) => x.id === id);
     k.packT = 0;
     k.state = "idle";
     k.cooldown = 0;
+    k.stun = 0;
+    k.x = 680;
+    k.y = 280;
   }, rid);
-  const start = await kidWorld(rid);
-  const p = await cssOf(start.x, start.y);
-  const rec = recordWorld(join(TMP, "throw"), 24, 85, async (i) => {
+  await page.waitForTimeout(400);
+  const dir = join(TMP, "throw");
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  const frames = [];
+  const snap = async (finger) => {
     const k = await kidWorld(rid);
-    return { x: k.x - 70, y: k.y, zoom: 1.22, finger: i < 14, fx: k.x + 20, fy: k.y + 24 };
-  });
+    writePng(join(dir, `${String(frames.length + 1).padStart(3, "0")}.png`), await dumpCanvas(page));
+    frames.push({ x: k.x - 90, y: k.y, zoom: 1.12, finger, fx: k.x + 20, fy: k.y + 24 });
+  };
+  const p = await cssOf((await kidWorld(rid)).x, (await kidWorld(rid)).y);
   await page.mouse.move(p.x, p.y);
   await page.mouse.down();
-  await page.waitForTimeout(1150); // long hold → max range ring
-  await page.mouse.up();
-  await rec;
-  compose(join(TMP, "throw", "meta.json"), join(OUT, "throw.gif"), 12);
+  for (let i = 0; i < 4; i++) {
+    await snap(true);
+    await page.waitForTimeout(55);
+  }
+  await page.mouse.up(); // short toss
+  for (let i = 0; i < 8; i++) {
+    await snap(false);
+    await page.waitForTimeout(90);
+  }
+  await page.waitForFunction(
+    (id) => {
+      const k = window.__snow.state.kids.find((x) => x.id === id);
+      return k && k.packT <= 0.05 && k.cooldown <= 0;
+    },
+    rid,
+    { timeout: 2500 },
+  ).catch(() => {});
+  await page.evaluate((id) => {
+    const k = window.__snow.state.kids.find((x) => x.id === id);
+    k.packT = 0;
+    k.cooldown = 0;
+  }, rid);
+  const p2 = await cssOf((await kidWorld(rid)).x, (await kidWorld(rid)).y);
+  await page.mouse.move(p2.x, p2.y);
+  await page.mouse.down();
+  for (let i = 0; i < 12; i++) {
+    await snap(true);
+    await page.waitForTimeout(90);
+  }
+  await page.mouse.up(); // long throw
+  for (let i = 0; i < 6; i++) {
+    await snap(false);
+    await page.waitForTimeout(90);
+  }
+  writeFileSync(join(dir, "meta.json"), JSON.stringify({ dir, mode: "world", frames }));
+  compose(join(dir, "meta.json"), join(OUT, "throw.gif"), 11);
 }
 
 await page.evaluate(() => {
   window.__snow.state.balls.length = 0;
+});
+
+// ---------- 2b. auto-aim: nearest foe switches ----------
+{
+  await page.evaluate((ids) => {
+    const g = window.__snow;
+    g.state.balls.length = 0;
+    const red = g.state.kids.find((k) => k.id === ids.rid);
+    const a = g.state.kids.find((k) => k.id === ids.gA);
+    const b = g.state.kids.find((k) => k.id === ids.gB);
+    for (const k of g.state.kids) {
+      k.stun = 99;
+      k.cooldown = 99;
+      k.packT = 0;
+      if (k.id !== ids.rid && k.id !== ids.gA && k.id !== ids.gB) {
+        k.x = 40;
+        k.y = 40;
+      }
+    }
+    red.x = 700;
+    red.y = 270;
+    red.stun = 0;
+    red.cooldown = 0;
+    red.state = "idle";
+    a.x = 470;
+    a.y = 140;
+    a.stun = 99;
+    b.x = 30;
+    b.y = 30;
+    b.stun = 99;
+  }, { rid, gA, gB });
+  const dir = join(TMP, "aim");
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  const frames = [];
+  const snap = async () => {
+    const k = await kidWorld(rid);
+    writePng(join(dir, `${String(frames.length + 1).padStart(3, "0")}.png`), await dumpCanvas(page));
+    frames.push({ x: 540, y: 270, zoom: 1.05, finger: true, fx: k.x + 18, fy: k.y + 24 });
+  };
+  const p = await cssOf((await kidWorld(rid)).x, (await kidWorld(rid)).y);
+  await page.mouse.move(p.x, p.y);
+  await page.mouse.down();
+  for (let i = 0; i < 8; i++) {
+    await snap();
+    await page.waitForTimeout(90);
+  }
+  await page.evaluate((ids) => {
+    const a = window.__snow.state.kids.find((k) => k.id === ids.gA);
+    const b = window.__snow.state.kids.find((k) => k.id === ids.gB);
+    a.x = 30;
+    a.y = 30;
+    b.x = 480;
+    b.y = 410;
+  }, { gA, gB });
+  for (let i = 0; i < 10; i++) {
+    await snap();
+    await page.waitForTimeout(90);
+  }
+  await page.mouse.up();
+  writeFileSync(join(dir, "meta.json"), JSON.stringify({ dir, mode: "world", frames }));
+  compose(join(dir, "meta.json"), join(OUT, "auto-aim.gif"), 11);
+}
+
+await page.evaluate(() => {
+  window.__snow.state.balls.length = 0;
+  for (const k of window.__snow.state.kids) {
+    if (k.team === "green") {
+      k.stun = 99;
+      k.cooldown = 99;
+    }
+  }
 });
 
 // ---------- 3. brawl: first hit (hurt) then bury ----------
@@ -205,10 +321,18 @@ await page.evaluate(() => {
     red.state = "idle";
     red.hp = 2;
   }, { rid, gid });
-  const rec = recordWorld(join(TMP, "brawl"), 16, 90, async () => {
+  const rec = recordWorld(join(TMP, "brawl"), 16, 90, async (i) => {
     const a = await kidWorld(rid);
     const b = await kidWorld(gid);
-    return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, zoom: 1.4 };
+    const hurt = i >= 2 && i < 9;
+    const buried = i >= 9;
+    return {
+      x: (a.x + b.x) / 2,
+      y: (b.y + a.y) / 2,
+      zoom: 1.4,
+      label: buried ? "BURIED" : hurt ? "HIT" : "",
+      labelColor: buried ? [210, 232, 255] : [255, 196, 72],
+    };
   });
   await page.waitForTimeout(120);
   await page.evaluate((id) => {
