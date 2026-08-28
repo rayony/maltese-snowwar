@@ -26,7 +26,7 @@ import { dogUrl, buriedUrl, initSkin, loadBootAssets, toggleSkin, type SkinId } 
 import { normalizeCode } from "@/game/net";
 import { LANGS, htmlLang, useLang, formatClearTime, type I18nKey, type Lang } from "@/game/i18n";
 import { APP_COMMIT_URL, APP_VERSION } from "@/game/version";
-import type { AllyMode, Team, UiSnapshot } from "@/game/types";
+import type { AllyMode, Difficulty, Team, UiSnapshot } from "@/game/types";
 import { cn } from "@/lib/utils";
 
 const INITIAL: UiSnapshot = {
@@ -35,8 +35,10 @@ const INITIAL: UiSnapshot = {
   best: 0,
   clearEasyMs: null,
   clearHardMs: null,
+  clearNormalMs: null,
   clearEasyStar: false,
   clearHardStar: false,
+  clearNormalStar: false,
   redAlive: 3,
   greenAlive: 3,
   greenTotal: 3,
@@ -76,7 +78,7 @@ export function SnowCraft() {
   const [aiGate, setAiGate] = useState(false);
   const [qrData, setQrData] = useState<string | null>(null);
   const [qrOpen, setQrOpen] = useState(false);
-  const pendingPlay = useRef<"easy" | "hard" | null>(null);
+  const pendingPlay = useRef<Difficulty | null>(null);
   const [live, setLive] = useState(false);
   const [skin, setSkin] = useState<SkinId>("classic");
   const [bootDone, setBootDone] = useState(0);
@@ -234,7 +236,9 @@ export function SnowCraft() {
                     ? t("pvpMode")
                     : ui.difficulty === "hard"
                       ? t("levelHard", { n: ui.level })
-                      : t("level", { n: ui.level })}
+                      : ui.difficulty === "normal"
+                        ? t("levelNormal", { n: ui.level })
+                        : t("level", { n: ui.level })}
               </p>
               {ui.godSpeed && (
                 <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-tan whitespace-nowrap">
@@ -459,6 +463,8 @@ export function SnowCraft() {
                       <p className="mt-3 text-sm leading-relaxed text-surface/80">
                         {t("easyBlurb")}
                       </p>
+                      <p className="mt-2 text-sm font-medium text-surface/90">{t("normal")}</p>
+                      <p className="mt-1 text-sm leading-relaxed text-surface/75">{t("normalBlurb")}</p>
                       <p className="mt-2 text-sm font-medium text-surface/90">{t("hard")}</p>
                       <ul className="mt-1 list-disc space-y-0.5 pl-4 text-sm leading-relaxed text-surface/75">
                         <li>{t("hard1")}</li>
@@ -503,7 +509,7 @@ export function SnowCraft() {
                   <button
                     type="button"
                     data-testid="play-easy"
-                    className="inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-pine px-3 text-base font-medium text-white shadow-sm [touch-action:manipulation] hover:bg-pine/90"
+                    className="inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl bg-pine px-2 text-sm font-medium text-white shadow-sm [touch-action:manipulation] hover:bg-pine/90 sm:text-base"
                     onClick={() => {
                       const g = gameRef.current;
                       if (g) g.play("easy");
@@ -515,8 +521,21 @@ export function SnowCraft() {
                   </button>
                   <button
                     type="button"
+                    data-testid="play-normal"
+                    className="inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#3d8fd4] px-2 text-sm font-medium text-white shadow-sm [touch-action:manipulation] hover:bg-[#347ebd] sm:text-base"
+                    onClick={() => {
+                      const g = gameRef.current;
+                      if (g) g.play("normal");
+                      else pendingPlay.current = "normal";
+                    }}
+                  >
+                    <Swords className="size-4 shrink-0" />
+                    {t("normal")}
+                  </button>
+                  <button
+                    type="button"
                     data-testid="play-hard"
-                    className="inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-3 text-base font-medium text-primary-fg shadow-sm [touch-action:manipulation] hover:bg-primary/90"
+                    className="inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary px-2 text-sm font-medium text-primary-fg shadow-sm [touch-action:manipulation] hover:bg-primary/90 sm:text-base"
                     onClick={() => {
                       const g = gameRef.current;
                       if (g) g.play("hard");
@@ -560,12 +579,19 @@ export function SnowCraft() {
                   </button>
                   </div>
                   {ui.net.error && <p className="text-center text-xs text-primary">{ui.net.error}</p>}
-                  {ui.clearEasyMs || ui.clearHardMs ? (
+                  {ui.clearEasyMs || ui.clearNormalMs || ui.clearHardMs ? (
                     <div className="space-y-0.5 text-center text-xs text-ice">
                       {ui.clearEasyMs ? (
                         <p>
                           {t(ui.clearEasyStar ? "topEasyStar" : "topEasy", {
                             t: formatClearTime(ui.clearEasyMs, lang),
+                          })}
+                        </p>
+                      ) : null}
+                      {ui.clearNormalMs ? (
+                        <p>
+                          {t(ui.clearNormalStar ? "topNormalStar" : "topNormal", {
+                            t: formatClearTime(ui.clearNormalMs, lang),
                           })}
                         </p>
                       ) : null}
@@ -802,7 +828,11 @@ export function SnowCraft() {
         <Modal>
           <h2 className="font-display text-3xl font-semibold">{t("paused")}</h2>
           <p className="mt-2 text-sm text-muted">
-            {ui.difficulty === "hard" ? t("levelHard", { n: ui.level }) : t("level", { n: ui.level })}
+            {ui.difficulty === "hard"
+              ? t("levelHard", { n: ui.level })
+              : ui.difficulty === "normal"
+                ? t("levelNormal", { n: ui.level })
+                : t("level", { n: ui.level })}
           </p>
           <div className="mt-6 flex flex-col gap-2">
             <Button
