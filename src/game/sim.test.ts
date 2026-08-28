@@ -601,7 +601,35 @@ describe("hide fuel", () => {
     red.hideFuel = 1;
     assert.equal(canEnterFort(red), true);
   });
-});describe("fortCoverSpot", () => {
+});
+
+describe("camp", () => {
+  it("forces a standing AI dog to move after 3s", () => {
+    const s = createState(1, false, { hard: false });
+    s.phase = "fight";
+    s.forts = [];
+    const g = s.kids.find((k) => k.team === "green")!;
+    g.x = 120;
+    g.y = 90;
+    g.packT = 0;
+    g.cooldown = 0;
+    g.stun = 0;
+    g.state = "idle";
+    stepAi(s, 0, () => {}, "off", "enemy", false, false);
+    g.ai!.phase = "idle";
+    g.ai!.t = 9;
+    g.ai!.destX = g.x;
+    g.ai!.destY = g.y;
+    g.ai!.campX = g.x;
+    g.ai!.campY = g.y;
+    g.ai!.campT = 0;
+    for (let i = 0; i < 200; i++) stepAi(s, 1 / 60, () => {}, "off", "enemy", false, false);
+    assert.equal(String(g.ai!.phase), "move");
+    assert.ok(Math.hypot(g.ai!.destX - 120, g.ai!.destY - 90) > 80);
+  });
+});
+
+describe("fortCoverSpot", () => {
   const fort = { x: 390, y: 200, rx: 90, ry: 40, hitFlash: 0, hp: 0, maxHp: 0 };
 
   it("peeks to the right when the threat is on the left", () => {
