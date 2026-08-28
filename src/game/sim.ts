@@ -251,6 +251,7 @@ export function throwSnowball(
   consume = true,
 ) {
   if (kid.packT > 0 || kid.state === "pack") return 0;
+  if (inFort(kid.x, kid.y, state.forts)) return 0;
   const star = state.godSpeed && kid.team === "red";
   const wantBig = user && !!state.buffs[kid.team] && state.buffs[kid.team]!.shots > 0 && state.buffs[kid.team]!.t > 0;
   const power = state.pvp ? 1 : holdPower(charge, star, wantBig);
@@ -848,6 +849,7 @@ export function aimFromKid(
   forts?: Fort[],
 ): { dx: number; dy: number; ok: boolean } {
   const useCover = !!(forts && forts.length);
+  if (useCover && inFort(kid.x, kid.y, forts!)) return { dx: 0, dy: 0, ok: false };
   const foes = kids.filter((k) => k.team !== kid.team && !isOut(k));
   let target: Kid | null = null;
   if (scatter && foes.length) {

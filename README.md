@@ -46,7 +46,7 @@ While you hold, the dashed line points at the **nearest hittable** opponent (not
 <td>
 
 **Hit / bury**  
-One snowball **hits** (stun). A second hit **buries** that dog. Forts eat balls that pass through them.
+One snowball **hits** (stun). A second hit **buries** that dog. Forts eat balls that pass through them. Hide **in** a pile: you cannot throw or be hit (head peeks from the snow); step out to the rim to fire.
 
 </td>
 </tr>
