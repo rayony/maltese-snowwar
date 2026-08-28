@@ -24,7 +24,7 @@ import {
   tickHideFuel,
 } from "./sim";
 import { holdPower, MAX_CHARGE, BIG_CHARGE, BIG_SPEED, pickupRadius, throwSpeed, WORLD_W } from "./constants";
-import { aiThrowAim, bigBallRoles, draggedMate, fortCoverSpot, huntPressers, mateThrewRecently, shouldHideInPile, stepAi, surroundLast, teamJob, teamReactsToBig, teamSurging, throwAimForStance } from "./ai";
+import { aiThrowAim, arenaBalls, arenaCanThrow, bigBallRoles, draggedMate, fortCoverSpot, huntPressers, mateThrewRecently, shouldHideInPile, stepAi, surroundLast, teamJob, teamReactsToBig, teamSurging, throwAimForStance } from "./ai";
 import type { Kid } from "./types";
 
 function kid(partial: Partial<Kid> & Pick<Kid, "id" | "team" | "x" | "y">): Kid {
@@ -998,5 +998,67 @@ describe("ai rhythm", () => {
     s.pickupCd = 0;
     stepPickups(s, 0.05, true);
     assert.ok(s.pickup && s.pickup.x > 540);
+  });
+
+  it("AI does not throw a sixth ball when five are already flying", () => {
+    const s = createState(1);
+    s.phase = "fight";
+    s.forts = [];
+    for (let i = 0; i < 5; i++) {
+      s.balls.push({
+        x: 400,
+        y: 180 + i * 20,
+        vx: 90,
+        vy: 0,
+        team: "green",
+        r: 12,
+        fromId: -1,
+        grace: 0,
+        spin: 0,
+        alive: true,
+        range: 500,
+        traveled: 0,
+      });
+    }
+    assert.equal(arenaBalls(s), 5);
+    assert.equal(arenaCanThrow(s), false);
+    const g = s.kids.find((k) => k.team === "green")!;
+    g.x = 160;
+    g.y = 200;
+    g.packT = 0;
+    g.cooldown = 0;
+    g.stun = 0;
+    g.state = "idle";
+    let throws = 0;
+    for (let i = 0; i < 50; i++) {
+      stepAi(s, 1 / 60, () => {
+        throws += 1;
+      }, "off", "enemy", false, false);
+    }
+    assert.equal(throws, 0);
+    assert.ok(arenaBalls(s) <= 5);
+  });
+
+  it("AI throws when the arena is empty", () => {
+    const s = createState(1);
+    s.phase = "fight";
+    s.forts = [];
+    s.balls = [];
+    for (const k of s.kids) {
+      k.packT = 0;
+      k.cooldown = 0;
+      k.stun = 0;
+      if (k.team === "green") {
+        k.x = 160;
+        k.state = "idle";
+      }
+    }
+    let throws = 0;
+    for (let i = 0; i < 90; i++) {
+      stepAi(s, 1 / 60, () => {
+        throws += 1;
+      }, "off", "enemy", false, false);
+    }
+    assert.ok(throws > 0);
   });
 });
