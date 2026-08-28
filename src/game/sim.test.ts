@@ -19,7 +19,7 @@ import {
   throwSnowball,
 } from "./sim";
 import { holdPower, MAX_CHARGE, BIG_CHARGE, BIG_SPEED, throwSpeed } from "./constants";
-import { aiThrowAim, bigBallRoles, fortCoverSpot, shouldHideInPile, stepAi, teamReactsToBig } from "./ai";
+import { aiThrowAim, bigBallRoles, fortCoverSpot, shouldHideInPile, stepAi, teamReactsToBig, throwAimForStance } from "./ai";
 import type { Kid } from "./types";
 
 function kid(partial: Partial<Kid> & Pick<Kid, "id" | "team" | "x" | "y">): Kid {
@@ -423,6 +423,7 @@ describe("big-ball AI roles", () => {
   it("pre-charges a long shot and only fires after the big ball is thrown", () => {
     const s = createState(1, true);
     s.phase = "fight";
+    s.forts = [];
     s.buffs.red = { kind: "big", shots: 3, t: 8 };
     let y = 70;
     for (const k of s.kids) {
@@ -626,5 +627,87 @@ describe("windup walk", () => {
     assert.equal(g.ai!.phase, "windup");
     assert.ok(g.ai!.charge > c0);
     assert.ok(g.x > x0 + 4);
+  });
+});
+
+describe("resume after buff / last stand / no pile shots", () => {
+  it("dumps the held charge at a foe once the big-ball buff expires", () => {
+    const s = createState(1, true);
+    s.phase = "fight";
+    s.buffs.red = { kind: "big", shots: 0, t: 0 };
+    const g = s.kids.find((k) => k.team === "green")!;
+    g.x = 120;
+    g.y = 80;
+    g.packT = 0;
+    g.cooldown = 0;
+    g.stun = 0;
+    g.state = "idle";
+    stepAi(s, 0, () => {}, "off", "enemy", false, true);
+    g.ai!.phase = "windup";
+    g.ai!.t = 9;
+    g.ai!.charge = 1;
+    g.ai!.destX = g.x;
+    g.ai!.destY = g.y;
+    stepAi(s, 1 / 60, () => {}, "off", "enemy", false, true);
+    assert.ok(g.ai!.t < 1.5 || s.balls.some((b) => b.team === "green"));
+    assert.ok(!(g.ai!.t > 5 && String(g.ai!.phase) === "windup"));
+  });
+
+  it("the last dog may shoot after hide cooldown", () => {
+    const s = createState(1, false, { hard: true });
+    s.phase = "fight";
+    const greens = s.kids.filter((k) => k.team === "green");
+    greens.forEach((k, i) => {
+      if (i > 0) {
+        k.hp = 0;
+        k.state = "buried";
+      }
+    });
+    const g = greens[0]!;
+    g.x = 200;
+    g.y = 80;
+    g.packT = 0;
+    g.cooldown = 0;
+    g.stun = 0;
+    g.state = "idle";
+    s.forts = [];
+    stepAi(s, 0, () => {}, "off", "enemy", false, true);
+    g.ai!.awayT = 3;
+    g.ai!.coverT = 0;
+    g.ai!.phase = "idle";
+    g.ai!.t = 0;
+    g.ai!.charge = 0;
+    let wind = false;
+    for (let i = 0; i < 90; i++) {
+      g.ai!.awayT = Math.max(g.ai!.awayT, 2);
+      stepAi(s, 1 / 60, () => {}, "off", "enemy", false, true);
+      if (String(g.ai!.phase) === "windup" || s.balls.some((b) => b.fromId === g.id)) wind = true;
+    }
+    assert.ok(wind || s.balls.some((b) => b.fromId === g.id));
+  });
+
+  it("allies do not aim through a snow pile", () => {
+    const s = createState(1);
+    s.phase = "fight";
+    const red = s.kids.find((k) => k.team === "red")!;
+    red.x = 700;
+    red.y = 168;
+    for (const g of s.kids.filter((k) => k.team === "green")) {
+      g.x = 250;
+      g.y = 168;
+    }
+    const aim = throwAimForStance(red, s, "attack", false);
+    if (aim) {
+      const dist = Math.hypot(aim.dx, aim.dy) || 1;
+      const steps = Math.max(6, Math.ceil(dist / 18));
+      let hit = false;
+      for (let i = 1; i < steps; i++) {
+        const t = i / steps;
+        const x = red.x + aim.dx * t;
+        const y = red.y + aim.dy * t;
+        if (s.forts.some((f) => ((x - f.x) / f.rx) ** 2 + ((y - f.y) / f.ry) ** 2 <= 1)) hit = true;
+      }
+      assert.equal(hit, false);
+    }
   });
 });

@@ -89,9 +89,9 @@ Landing boot: spinner + English title assets, then Play vs AI / Friend. Action s
 
 Bots share one brain (`src/game/ai.ts`). They never throw from **inside** a pile (hide = immune, peek at the rim to fire). Auto-aim for you still skips foes in or behind snow.
 
-**Last dog:** if only one ally or enemy bot is left, they **run to a pile** (dodge / hide) instead of intercepting or shooting back. They only throw again from the rim once they are safe.
+While an ally or enemy bot is **holding a charged throw**, they can still walk toward a dest at **normal** move speed (no dodge burst, no slower defend shuffle). A ball flying in only sidesteps that dest — they keep the charge. If the foe’s big-ball **buff timer runs out**, those two dogs dump the charge and go back to normal shooting.
 
-While an ally or enemy bot is **holding a charged throw**, they can still walk toward a dest at **normal** move speed (no dodge burst, no slower defend shuffle). A ball flying in only sidesteps that dest — they keep the charge.
+**Last dog:** if only one ally or enemy bot is left, they **run to a pile** (dodge / hide) instead of intercepting or shooting back. After the 5 s hide cap they **must leave and try to throw**. They never throw a shot that would hit a snow pile first.
 
 **Cover:** they will not run *through* the pack to a pile behind the enemies. Same geometry for retrievers (vs AI / PvP guest) and Maltese allies.
 
