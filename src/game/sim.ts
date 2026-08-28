@@ -13,6 +13,7 @@ import {
   PICKUP_CD_MAX,
   PICKUP_CD_MIN,
   PICKUP_LIFE,
+  pickupRadius,
   STAR_PACK_TIME,
   PLAYER_COUNT,
   PVP_RANGE,
@@ -124,6 +125,7 @@ export function createState(
     godSpeed: false,
     pickup: null,
     pickupCd: 2.5,
+    lootPop: null,
     buffs: { red: null, green: null },
   };
 
@@ -191,6 +193,7 @@ export function lineHitsFort(
   y1: number,
   forts: Fort[],
   ignore: Fort | null = null,
+  ignore2: Fort | null = null,
 ) {
   const dist = Math.hypot(x1 - x0, y1 - y0);
   if (dist < 8) return false;
@@ -198,16 +201,17 @@ export function lineHitsFort(
   for (let i = 1; i < steps; i++) {
     const t = i / steps;
     const wall = inFort(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, forts);
-    if (wall && wall !== ignore) return true;
+    if (wall && wall !== ignore && wall !== ignore2) return true;
   }
   return false;
 }
 
 export function foeHittable(from: Kid, foe: Kid, forts: Fort[]): boolean {
   if (foe.team === from.team || isOut(foe)) return false;
-  if (inFort(foe.x, foe.y, forts)) return false;
+  const cover = inFort(foe.x, foe.y, forts);
+  if (cover && foe.state !== "grabbed") return false;
   const home = inFort(from.x, from.y, forts);
-  return !lineHitsFort(from.x, from.y, foe.x, foe.y, forts, home);
+  return !lineHitsFort(from.x, from.y, foe.x, foe.y, forts, home, foe.state === "grabbed" ? cover : null);
 }
 
 export function closestHittableEnemy(kid: Kid, kids: Kid[], forts: Fort[]): Kid | null {
@@ -247,6 +251,16 @@ export function hideRechargeTime(_state: GameState, _kid: Kid) {
 
 export function canEnterFort(kid: Kid) {
   return (kid.hideFuel ?? 1) >= 0.999;
+}
+
+function grabbedFoeInFort(state: GameState, ballTeam: Team, wall: Fort) {
+  return state.kids.some(
+    (k) =>
+      k.state === "grabbed" &&
+      !isOut(k) &&
+      k.team !== ballTeam &&
+      inFort(k.x, k.y, state.forts) === wall,
+  );
 }
 
 function ejectFromFort(kid: Kid, forts: Fort[]) {
@@ -379,7 +393,7 @@ export function burst(
   y: number,
   push: number,
   n: number,
-  kind: "puff" | "spark" = "puff",
+  kind: "puff" | "spark" | "gold" = "puff",
 ) {
   for (let i = 0; i < n; i++) {
     const a = Math.random() * Math.PI * 2;
@@ -544,7 +558,7 @@ function stepBalls(
     if (ball.ghost) continue;
     if (ball.grace <= 0) {
       const wall = inFort(ball.x, ball.y, state.forts);
-      if (wall) {
+      if (wall && !grabbedFoeInFort(state, ball.team, wall)) {
         ball.alive = false;
         wall.hitFlash = 0.28;
         if (wall.maxHp > 0 && wall.hp > 0) {
@@ -562,7 +576,7 @@ function stepBalls(
     for (const kid of state.kids) {
       if (isOut(kid) || kid.team === ball.team) continue;
       if (kid.id === ball.fromId && ball.grace > 0) continue;
-      if (inFort(kid.x, kid.y, state.forts)) continue;
+      if (inFort(kid.x, kid.y, state.forts) && kid.state !== "grabbed") continue;
       const dx = kid.x - ball.x;
       const dy = kid.y - 10 - ball.y;
       const hitR = playFeel().hit + ball.r;
@@ -584,8 +598,13 @@ function hitKid(
   kid.hp -= ball.big ? 2 : 1;
   kid.flash = 0.12;
   kid.stun = ball.big ? 0.5 : 0.35;
-  kid.state = kid.hp <= 0 ? "buried" : "hurt";
-  kid.stateT = kid.hp <= 0 ? 0 : 0.42;
+  if (kid.hp <= 0) {
+    kid.state = "buried";
+    kid.stateT = 0;
+  } else if (kid.state !== "grabbed") {
+    kid.state = "hurt";
+    kid.stateT = 0.42;
+  }
   kid.packT = 0;
   clearFidget(kid);
   kid.x += Math.sign(ball.vx) * 10;
@@ -623,20 +642,20 @@ export function stepOneBall(
     return;
   }
   if (ball.ghost) return;
-  if (ball.grace <= 0 && inFort(ball.x, ball.y, state.forts)) {
+  if (ball.grace <= 0) {
     const wall = inFort(ball.x, ball.y, state.forts);
-    ball.alive = false;
-    if (wall) {
+    if (wall && !grabbedFoeInFort(state, ball.team, wall)) {
+      ball.alive = false;
       wall.hitFlash = 0.28;
       burst(state, ball.x, ball.y, 0, 16, "puff");
+      return;
     }
-    return;
   }
   for (const kid of state.kids) {
     if (isOut(kid) || kid.team === ball.team) continue;
     if (kid.id === ball.fromId && ball.grace > 0) continue;
     const p = kidPos(kid.id) ?? kid;
-    if (inFort(p.x, p.y, state.forts)) continue;
+    if (inFort(p.x, p.y, state.forts) && kid.state !== "grabbed") continue;
     const dx = p.x - ball.x;
     const dy = p.y - 10 - ball.y;
     const hitR = playFeel().hit + ball.r;
@@ -772,11 +791,15 @@ function stepKids(state: GameState, dt: number) {
 
 function stepFx(state: GameState, dt: number) {
   state.trauma = Math.max(0, state.trauma - dt * 1.8);
+  if (state.lootPop) {
+    state.lootPop.t -= dt;
+    if (state.lootPop.t <= 0) state.lootPop = null;
+  }
   for (const f of state.forts) f.hitFlash = Math.max(0, f.hitFlash - dt);
   for (const p of state.particles) {
     p.x += p.vx * dt;
     p.y += p.vy * dt;
-    p.vy += (p.kind === "note" ? 12 : 40) * dt;
+    p.vy += (p.kind === "note" ? 12 : p.kind === "gold" ? -18 : 40) * dt;
     p.life -= dt;
   }
   state.particles = state.particles.filter((p) => p.life > 0);
@@ -799,10 +822,23 @@ export function grantBigBuff(state: GameState, team: Team): TeamBuff {
   return buff;
 }
 
+export function canTeamClaimPickup(state: GameState, team: Team) {
+  return state.pvp || team === "red";
+}
+
+export function burstLoot(state: GameState, x: number, y: number) {
+  burst(state, x, y, 0, 18, "puff");
+  burst(state, x, y, 0, 16, "spark");
+  burst(state, x, y, 0, 20, "gold");
+  state.lootPop = { x, y, t: 0.55 };
+  state.trauma = Math.min(1, state.trauma + 0.18);
+}
+
 export function claimPickup(state: GameState, team: Team): boolean {
   if (!state.pickup || (state.phase !== "fight" && state.phase !== "intro")) return false;
+  if (!canTeamClaimPickup(state, team)) return false;
   grantBigBuff(state, team);
-  burst(state, state.pickup.x, state.pickup.y, 0, 16, "spark");
+  burstLoot(state, state.pickup.x, state.pickup.y);
   state.pickup = null;
   state.pickupCd = PICKUP_CD_MIN + Math.random() * (PICKUP_CD_MAX - PICKUP_CD_MIN);
   return true;
@@ -852,7 +888,8 @@ export function stepPickups(state: GameState, dt: number, spawn: boolean) {
     } else if (spawn) {
       for (const kid of state.kids) {
         if (isOut(kid)) continue;
-        if (Math.hypot(kid.x - state.pickup.x, kid.y - state.pickup.y) > 42) continue;
+        if (!canTeamClaimPickup(state, kid.team)) continue;
+        if (Math.hypot(kid.x - state.pickup.x, kid.y - state.pickup.y) > pickupRadius()) continue;
         claimPickup(state, kid.team);
         break;
       }

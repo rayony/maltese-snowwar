@@ -1,5 +1,5 @@
 import { aiInterval, aiMoveSpeed, BIG_HELD_TIME, MARGIN, MAX_CHARGE, PACK_TIME, throwSpeed, WORLD_H, WORLD_W } from "./constants";
-import { aimFromKid, canEnterFort, closestEnemy, closestHittableEnemy, ensureAi, inFort, isOut, living, rand, throwSnowball } from "./sim";
+import { aimFromKid, canEnterFort, canTeamClaimPickup, closestEnemy, closestHittableEnemy, ensureAi, inFort, isOut, living, rand, throwSnowball } from "./sim";
 import type { AllyMode, Fort, GameState, Kid, Snowball, Team } from "./types";
 
 export type GreenControl = "enemy" | AllyMode;
@@ -517,7 +517,7 @@ function pickDest(state: GameState, kid: Kid, stance: "defend" | "attack" | "ene
     pressDest(state, kid, stance === "enemy" && cross);
     return;
   }
-  if (state.pickup && kid.ai && (stance !== "defend" || Math.random() < 0.32)) {
+  if (state.pickup && kid.ai && canTeamClaimPickup(state, kid.team) && (stance !== "defend" || Math.random() < 0.32)) {
     const crowded = nearbyFoes(state, kid, 170).length >= 2;
     const d = Math.hypot(kid.x - state.pickup.x, kid.y - state.pickup.y);
     if (!crowded && d < (stance === "attack" ? 280 : 240) && Math.random() < (stance === "attack" ? 0.85 : 0.7)) {
@@ -568,7 +568,7 @@ function pickDest(state: GameState, kid: Kid, stance: "defend" | "attack" | "ene
         kid.ai!.destY = peek.y;
         return;
       }
-    } else if (job === "loot" && state.pickup) {
+    } else if (job === "loot" && state.pickup && canTeamClaimPickup(state, kid.team)) {
       kid.ai!.destX = clamp(state.pickup.x + rand(-8, 8), MARGIN, WORLD_W - MARGIN);
       kid.ai!.destY = clamp(state.pickup.y + rand(-8, 8), MARGIN, WORLD_H - MARGIN);
       bumpDestOutOfFort(state, kid);

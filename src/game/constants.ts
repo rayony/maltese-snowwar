@@ -90,3 +90,10 @@ export function playFeel(cssW = 0): PlayFeel {
     ball: compact ? 36 : 32,
   };
 }
+
+/** Touch radius for the field gold orb (visual size + dog hitbox). */
+export function pickupRadius(cssW = 0) {
+  const feel = playFeel(cssW);
+  const orb = feel.ball * (BIG_BALL_RADIUS / BALL_RADIUS) * 0.48;
+  return orb + feel.hit * 0.9;
+}

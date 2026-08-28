@@ -86,7 +86,7 @@ export interface Particle {
   life: number;
   maxLife: number;
   size: number;
-  kind: "flake" | "puff" | "spark" | "note";
+  kind: "flake" | "puff" | "spark" | "note" | "gold";
 }
 
 export interface Pickup {
@@ -141,6 +141,7 @@ export interface GameState {
   godSpeed: boolean;
   pickup: Pickup | null;
   pickupCd: number;
+  lootPop: { x: number; y: number; t: number } | null;
   buffs: { red: TeamBuff | null; green: TeamBuff | null };
 }
 
