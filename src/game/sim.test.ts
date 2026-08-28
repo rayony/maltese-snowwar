@@ -232,6 +232,26 @@ describe("createState", () => {
     assert.ok(s.kids.some((k) => k.team === "green"));
     assert.equal(s.phase, "intro");
   });
+
+  it("hard doubles throw speed; normal/easy do not", () => {
+    const easy = createState(1);
+    easy.phase = "fight";
+    easy.forts = [];
+    easy.hard = false;
+    const red = easy.kids.find((k) => k.team === "red")!;
+    red.packT = 0;
+    throwSnowball(easy, red, 1.2, -1, 0, false, true);
+    const slow = Math.hypot(easy.balls.at(-1)!.vx, easy.balls.at(-1)!.vy);
+    const hard = createState(1);
+    hard.phase = "fight";
+    hard.forts = [];
+    hard.hard = true;
+    const h = hard.kids.find((k) => k.team === "red")!;
+    h.packT = 0;
+    throwSnowball(hard, h, 1.2, -1, 0, false, true);
+    const fast = Math.hypot(hard.balls.at(-1)!.vx, hard.balls.at(-1)!.vy);
+    assert.ok(Math.abs(fast - slow * 2) < 1e-4);
+  });
 });
 
 describe("sweet charge", () => {

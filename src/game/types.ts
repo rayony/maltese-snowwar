@@ -2,7 +2,7 @@ export type Team = "red" | "green";
 export type KidState = "idle" | "throw" | "hurt" | "grabbed" | "buried" | "pack";
 export type Fidget = "dance" | "wave" | null;
 export type AllyMode = "off" | "defend" | "attack";
-export type Difficulty = "easy" | "hard";
+export type Difficulty = "easy" | "normal" | "hard";
 export type Screen = "title" | "loading" | "playing" | "paused" | "gameover" | "lobby";
 export type FightPhase = "intro" | "fight" | "won" | "lost";
 
@@ -168,8 +168,10 @@ export interface UiSnapshot {
   best: number;
   clearEasyMs: number | null;
   clearHardMs: number | null;
+  clearNormalMs: number | null;
   clearEasyStar: boolean;
   clearHardStar: boolean;
+  clearNormalStar: boolean;
   redAlive: number;
   greenAlive: number;
   greenTotal: number;

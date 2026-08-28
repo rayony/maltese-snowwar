@@ -10,8 +10,8 @@ function foeTeam(team: Team): Team {
   return team === "red" ? "green" : "red";
 }
 
-function speedMul(hard: boolean) {
-  return hard ? 1.45 : 1;
+function speedMul(state: GameState) {
+  return state.hard ? 1.45 : 1;
 }
 
 export type AiJob = "press" | "wrap" | "loot";
@@ -282,7 +282,7 @@ export function stepAi(
     if (kid.ai.phase === "move" || kid.ai.phase === "dodge") {
       const spd =
         aiMoveSpeed(level) *
-        speedMul(hard) *
+        speedMul(state) *
         (kid.ai.phase === "dodge" ? (longDodge ? 1.75 : 1.5) : stance === "attack" || teamSurging(state, kid.team) ? 1.2 : 0.9);
       moveToward(kid, kid.ai.destX, kid.ai.destY, spd, dt);
       if (kid.ai.t <= 0 || Math.hypot(kid.x - kid.ai.destX, kid.y - kid.ai.destY) < 10) {
@@ -368,7 +368,7 @@ export function stepAi(
         kid.ai.destY = step.y;
         continue;
       }
-      const holdWalk = aiMoveSpeed(level) * speedMul(hard);
+      const holdWalk = aiMoveSpeed(level) * speedMul(state);
       if (Math.hypot(kid.x - kid.ai.destX, kid.y - kid.ai.destY) > 8) {
         moveToward(kid, kid.ai.destX, kid.ai.destY, holdWalk, dt);
       }

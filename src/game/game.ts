@@ -54,8 +54,10 @@ export class SnowCraftGame {
   private best = 0;
   private clearEasyMs: number | null = null;
   private clearHardMs: number | null = null;
+  private clearNormalMs: number | null = null;
   private clearEasyStar = false;
   private clearHardStar = false;
+  private clearNormalStar = false;
   private runMs = 0;
   private shakeEnabled = true;
   private reducedMotion = false;
@@ -132,14 +134,18 @@ export class SnowCraftGame {
           best?: number;
           clearEasyMs?: number;
           clearHardMs?: number;
+          clearNormalMs?: number;
           clearEasyStar?: boolean;
           clearHardStar?: boolean;
+          clearNormalStar?: boolean;
         };
         if (parsed.best) this.best = parsed.best;
         if (parsed.clearEasyMs && parsed.clearEasyMs > 0) this.clearEasyMs = parsed.clearEasyMs;
         if (parsed.clearHardMs && parsed.clearHardMs > 0) this.clearHardMs = parsed.clearHardMs;
+        if (parsed.clearNormalMs && parsed.clearNormalMs > 0) this.clearNormalMs = parsed.clearNormalMs;
         if (parsed.clearEasyStar) this.clearEasyStar = true;
         if (parsed.clearHardStar) this.clearHardStar = true;
+        if (parsed.clearNormalStar) this.clearNormalStar = true;
       }
     } catch {
       /* ignore */
@@ -548,8 +554,10 @@ export class SnowCraftGame {
           best: this.best,
           clearEasyMs: this.clearEasyMs,
           clearHardMs: this.clearHardMs,
+          clearNormalMs: this.clearNormalMs,
           clearEasyStar: this.clearEasyStar,
           clearHardStar: this.clearHardStar,
+          clearNormalStar: this.clearNormalStar,
         }),
       );
     } catch {
@@ -1893,7 +1901,7 @@ export class SnowCraftGame {
       redMode,
       this.greenControl(),
       false,
-      this.difficulty === "hard" && !this.versus,
+      this.difficulty !== "easy" && !this.versus,
     );
     const hpBefore = new Map(this.state.kids.map((k) => [k.id, k.hp]));
     const hadPickup = !!this.state.pickup;
@@ -1965,6 +1973,11 @@ export class SnowCraftGame {
       if (this.clearHardMs == null || ms < this.clearHardMs) {
         this.clearHardMs = ms;
         this.clearHardStar = this.godSpeed;
+      }
+    } else if (this.difficulty === "normal") {
+      if (this.clearNormalMs == null || ms < this.clearNormalMs) {
+        this.clearNormalMs = ms;
+        this.clearNormalStar = this.godSpeed;
       }
     } else if (this.clearEasyMs == null || ms < this.clearEasyMs) {
       this.clearEasyMs = ms;
@@ -2050,8 +2063,10 @@ export class SnowCraftGame {
       best: this.best,
       clearEasyMs: this.clearEasyMs,
       clearHardMs: this.clearHardMs,
+      clearNormalMs: this.clearNormalMs,
       clearEasyStar: this.clearEasyStar,
       clearHardStar: this.clearHardStar,
+      clearNormalStar: this.clearNormalStar,
       redAlive: living(this.state.kids, "red").length,
       greenAlive: living(this.state.kids, "green").length,
       greenTotal: this.state.kids.filter((k) => k.team === "green").length,
