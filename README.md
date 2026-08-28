@@ -101,7 +101,7 @@ Bots share one brain (`src/game/ai.ts`). They never throw from **inside** a pile
 | Easy retrievers · Hard retrievers · Attack allies | **5 s** | **5 s** |
 | Defend allies | 8 s | 3 s |
 
-### Retrievers (vs AI)
+### Retrievers (as enemy in vs AI)
 
 | | Easy | Hard |
 |---|---|---|
@@ -114,7 +114,7 @@ Bots share one brain (`src/game/ai.ts`). They never throw from **inside** a pile
 
 ### Allies (unselected dogs)
 
-Maltese on your team, or retrievers on the guest/AI side when that team is set to Attack / Defend.
+For unselected Maltese (vs AI and host during pvp) and Retrievers on your team (guest during pvp):
 
 | | Defend | Attack | Manual |
 |---|---|---|---|
