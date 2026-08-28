@@ -76,13 +76,46 @@ Clear the retrievers to win. Fight again, or back to the title.
 
 | | |
 |---|---|
-| **vs AI** | You are the Maltese (right, red hats). Retrievers on the left. Easy stays on their half and only throws forward. Hard can cross midfield, shoot backward, and dodge well |
+| **vs AI** | You are the Maltese (right, red hats). Retrievers on the left. Easy vs Hard changes how far they go and how they hide — see **AI** below |
 | **vs Friend** | Same URL on two devices. Host is always Maltese; guest is mirrored and plays Retrievers. Share the 6-letter code or QR |
-| **Allies** | Unselected Maltese: Manual / Defend (hold forts, peek-throw) / Attack (press in, shoot around forts, punish after the foe throws) |
+| **Allies** | Unselected Maltese: Manual / Defend / Attack — see **AI** below |
 
 Languages: English · 繁中 · 简体 · 日本語 · 한국어 (EN load first; others on select). Mute from the landing globe row or **M**.
 
 Landing boot: spinner + English title assets, then Play vs AI / Friend. Action sprites load **after** the mode is chosen (progress bar) — nothing streams in mid-match.
+
+## AI
+
+Bots share one brain (`src/game/ai.ts`). They never throw from **inside** a pile (hide = immune, peek at the rim to fire). Auto-aim for you still skips foes in or behind snow.
+
+**Cover:** if two or more living foes are nearby and a pile is on *this* side of the pack, they dive in. They will not run *through* the pack to a pile behind the enemies. Same rule for retrievers (vs AI, left of you) and for Maltese allies (PvP / guest, retrievers pressing from the other side).
+
+| | Max hide in a pile | Must stay out before hiding again |
+|---|---|---|
+| Easy / Hard / Attack | 5 s | 5 s |
+| Defend | 8 s | 3 s |
+
+### Retrievers (vs AI)
+
+| | Easy | Hard |
+|---|---|---|
+| Field | Own half only | May cross midfield |
+| Aim | Forward only (never back / left toward their spawn) | May shoot backward at a Maltese behind them |
+| Dodge | Short sidestep | Longer, faster dodge |
+| Cover | Hide only if the pile is close (≤200 px) and not through you | Hide when crowded (2+ nearby) |
+| Big snowball | No special reaction | Two hold fire while you have the buff; two shoot to shrink a flying big ball |
+
+### Maltese allies (unselected dogs)
+
+| | Defend | Attack | Manual |
+|---|---|---|---|
+| Post | Own half, hug the nearest pile | Press toward the assigned foe’s Y, ~midfield | You drag them |
+| Throw | Mostly from the **rim** of a pile (high rate once peeking) | Clear a lane around forts, then punish right after the foe throws or packs | Your hold / release |
+| Incoming | Dive into the pile, then peek | Sidestep; hide only if 2+ retrievers are on them | You dodge |
+| Cover timer | 8 s in / 3 s out | 5 s in / 5 s out | You choose |
+| Big snowball | Same as Hard retrievers in PvP: two hold, two intercept | Same | Your throws consume the 3 / 10 s buff |
+
+Guest-side retrievers in PvP use the **Hard** column (both teams). If the guest drops, local AI takes over that team with the same rules.
 
 ## Character skins
 
