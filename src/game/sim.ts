@@ -534,7 +534,7 @@ function stepBalls(
   state: GameState,
   dt: number,
   onHit: (heavy: boolean) => void,
-  extra?: { onClash?: () => void; onFort?: () => void },
+  extra?: { onClash?: () => void; onFort?: () => void; onCatch?: () => void },
 ) {
   clashBalls(state, extra?.onClash);
   for (const ball of state.balls) {
@@ -579,14 +579,67 @@ function stepBalls(
       if (inFort(kid.x, kid.y, state.forts) && kid.state !== "grabbed") continue;
       const dx = kid.x - ball.x;
       const dy = kid.y - 10 - ball.y;
-      const hitR = playFeel().hit + ball.r;
-      if (dx * dx + dy * dy > hitR * hitR) continue;
+      const catchR = playFeel().hit * 1.22 + ball.r;
+      if (dx * dx + dy * dy > catchR * catchR) continue;
+      if (tryGrabCatch(state, kid, ball)) {
+        extra?.onCatch?.();
+        break;
+      }
+      if (dx * dx + dy * dy > (playFeel().hit + ball.r) ** 2) continue;
       ball.alive = false;
       hitKid(state, kid, ball, onHit);
       break;
     }
   }
   state.balls = state.balls.filter((b) => b.alive);
+}
+
+export function tryGrabCatch(state: GameState, kid: Kid, ball: Snowball) {
+  if (kid.state !== "grabbed" || isOut(kid) || kid.team === ball.team) return false;
+  const moving = kid.moving || Math.hypot(kid.x - kid.lastX, kid.y - kid.lastY) > 1.15;
+  if (!moving) return false;
+  burst(state, kid.x, kid.y, 0, 14, "spark");
+  burst(state, kid.x, kid.y, 0, 8, "gold");
+  kid.flash = 0.2;
+  kid.stun = 0;
+  if (ball.big) addOneBigShot(state, kid.team);
+  if (kid.packT <= 0.02) {
+    parryBall(state, kid, ball);
+    return true;
+  }
+  kid.packT = 0;
+  ball.alive = false;
+  return true;
+}
+
+function addOneBigShot(state: GameState, team: Team) {
+  const buff = state.buffs[team];
+  if (!buff) {
+    state.buffs[team] = { kind: "big", shots: 1, t: 6 };
+    return;
+  }
+  buff.shots = Math.min(BIG_SHOTS, buff.shots + 1);
+  buff.t = Math.max(buff.t, 4);
+}
+
+function parryBall(state: GameState, kid: Kid, ball: Snowball) {
+  const foe = closestEnemy(kid, state.kids);
+  ball.team = kid.team;
+  ball.fromId = kid.id;
+  ball.big = false;
+  ball.r = BALL_RADIUS;
+  ball.grace = 0.12;
+  ball.ghost = false;
+  ball.traveled = 0;
+  ball.range = Math.max(ball.range, 480);
+  const dx = foe ? foe.x - kid.x : -Math.sign(ball.vx) || kid.facing;
+  const dy = foe ? foe.y - kid.y : -ball.vy;
+  const len = Math.hypot(dx, dy) || 1;
+  const spd = throwSpeed(0.72);
+  ball.vx = (dx / len) * spd;
+  ball.vy = (dy / len) * spd;
+  ball.x = kid.x + (dx / len) * 22;
+  ball.y = kid.y - 8;
 }
 
 function hitKid(
@@ -614,6 +667,20 @@ function hitKid(
   state.trauma = Math.min(1, state.trauma + (kid.hp <= 0 ? 0.55 : 0.32));
   state.freeze = kid.hp <= 0 ? 0.07 : 0.045;
   onHit(kid.hp <= 0);
+}
+
+export function playerComeback(state: GameState) {
+  if (state.pvp) return false;
+  const reds = living(state.kids, "red").length;
+  const greens = living(state.kids, "green").length;
+  return reds > 0 && (reds <= 1 || reds < greens);
+}
+
+function healComeback(state: GameState, team: Team) {
+  if (state.pvp || team !== "red") return;
+  const hurt = living(state.kids, "red").sort((a, b) => a.hp - b.hp || a.id - b.id);
+  const dog = hurt.find((k) => k.hp < (k.maxHp || HP));
+  if (dog) dog.hp += 1;
 }
 
 /** Fly one ball for catch-up, hitting kids at historical (or current) positions. */
@@ -658,8 +725,10 @@ export function stepOneBall(
     if (inFort(p.x, p.y, state.forts) && kid.state !== "grabbed") continue;
     const dx = p.x - ball.x;
     const dy = p.y - 10 - ball.y;
-    const hitR = playFeel().hit + ball.r;
-    if (dx * dx + dy * dy > hitR * hitR) continue;
+    const catchR = playFeel().hit * 1.22 + ball.r;
+    if (dx * dx + dy * dy > catchR * catchR) continue;
+    if (tryGrabCatch(state, kid, ball)) break;
+    if (dx * dx + dy * dy > (playFeel().hit + ball.r) ** 2) continue;
     ball.alive = false;
     const saved = { x: kid.x, y: kid.y };
     kid.x = p.x;
@@ -838,6 +907,7 @@ export function claimPickup(state: GameState, team: Team): boolean {
   if (!state.pickup || (state.phase !== "fight" && state.phase !== "intro")) return false;
   if (!canTeamClaimPickup(state, team)) return false;
   grantBigBuff(state, team);
+  healComeback(state, team);
   burstLoot(state, state.pickup.x, state.pickup.y);
   state.pickup = null;
   state.pickupCd = PICKUP_CD_MIN + Math.random() * (PICKUP_CD_MAX - PICKUP_CD_MIN);
@@ -863,13 +933,14 @@ export function placePickup(state: GameState, x = 480, y = 270): Pickup {
 }
 
 function spawnPickup(state: GameState): Pickup {
+  const comeback = playerComeback(state);
   for (let i = 0; i < 8; i++) {
-    const x = 480 + rand(-80, 80);
+    const x = comeback ? 620 + rand(-40, 80) : 480 + rand(-80, 80);
     const y = 270 + rand(-100, 100);
     if (inFort(x, y, state.forts)) continue;
     return placePickup(state, x, y);
   }
-  return placePickup(state);
+  return placePickup(state, comeback ? 640 : 480, 270);
 }
 
 /** spawn=true on host/solo. Guest only ticks buff timers and the visible orb. */
@@ -884,7 +955,9 @@ export function stepPickups(state: GameState, dt: number, spawn: boolean) {
     state.pickup.life -= dt;
     if (state.pickup.life <= 0) {
       state.pickup = null;
-      if (spawn) state.pickupCd = PICKUP_CD_MIN + Math.random() * (PICKUP_CD_MAX - PICKUP_CD_MIN);
+      if (spawn) state.pickupCd = playerComeback(state)
+        ? 1.4
+        : PICKUP_CD_MIN + Math.random() * (PICKUP_CD_MAX - PICKUP_CD_MIN);
     } else if (spawn) {
       for (const kid of state.kids) {
         if (isOut(kid)) continue;
@@ -897,6 +970,7 @@ export function stepPickups(state: GameState, dt: number, spawn: boolean) {
     return;
   }
   if (!spawn || state.phase !== "fight") return;
+  if (playerComeback(state)) state.pickupCd = Math.min(state.pickupCd, 1.8);
   state.pickupCd -= dt;
   if (state.pickupCd <= 0) spawnPickup(state);
 }
@@ -905,7 +979,7 @@ export function stepSim(
   state: GameState,
   dt: number,
   onHit: (heavy: boolean) => void,
-  extra?: { onClash?: () => void; onFort?: () => void },
+  extra?: { onClash?: () => void; onFort?: () => void; onCatch?: () => void },
 ) {
   state.time += dt;
   if (state.freeze > 0) {
