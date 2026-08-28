@@ -131,6 +131,13 @@ export function stepAi(
           kid.ai.destX = hide.x;
           kid.ai.destY = hide.y;
         }
+      } else {
+        const pile = shouldHideInPile(state, kid, stance, hard);
+        if (pile) {
+          const hide = hideSpot(kid, pile);
+          kid.ai.destX = hide.x;
+          kid.ai.destY = hide.y;
+        }
       }
     }
 
@@ -256,8 +263,11 @@ export function stepAi(
 
     if (kid.ai.t <= 0) {
       const cover = !!inFort(kid.x, kid.y, state.forts);
+      const panic = !cover && !intercepting && shouldHideInPile(state, kid, stance, hard);
       let throwChance = 0.55;
       if (cover) {
+        throwChance = 0;
+      } else if (panic) {
         throwChance = 0;
       } else if (stance === "defend") {
         throwChance = nearFortRim(kid, state) ? 0.72 : 0.1;
@@ -281,6 +291,11 @@ export function stepAi(
           const next = stance === "defend" ? peekSpot(kid, fort) : awayFromFort(kid, fort);
           kid.ai.destX = next.x;
           kid.ai.destY = next.y;
+        } else if (panic) {
+          const pile = shouldHideInPile(state, kid, stance, hard)!;
+          const hide = hideSpot(kid, pile);
+          kid.ai.destX = hide.x;
+          kid.ai.destY = hide.y;
         } else if (forbidFort) pickAwayFromFort(state, kid);
         else pickDest(state, kid, stance, hard && stance === "enemy", hard && stance === "enemy");
       }
@@ -329,12 +344,20 @@ function pickDest(state: GameState, kid: Kid, stance: "defend" | "attack" | "ene
     return;
   }
   if (state.pickup && kid.ai && (stance !== "defend" || Math.random() < 0.32)) {
+    const crowded = nearbyFoes(state, kid, 170).length >= 2;
     const d = Math.hypot(kid.x - state.pickup.x, kid.y - state.pickup.y);
-    if (d < (stance === "attack" ? 280 : 240) && Math.random() < (stance === "attack" ? 0.85 : 0.7)) {
+    if (!crowded && d < (stance === "attack" ? 280 : 240) && Math.random() < (stance === "attack" ? 0.85 : 0.7)) {
       kid.ai.destX = clampSide(state.pickup.x + rand(-6, 6), kid.team, cross);
       kid.ai.destY = state.pickup.y + rand(-6, 6);
       return;
     }
+  }
+  const panicFort = shouldHideInPile(state, kid, stance, cross);
+  if (panicFort) {
+    const hide = hideSpot(kid, panicFort);
+    kid.ai!.destX = hide.x;
+    kid.ai!.destY = hide.y;
+    return;
   }
   const foes = living(state.kids).filter((k) => k.team !== kid.team);
   const target =
@@ -451,6 +474,58 @@ function fortForKid(state: GameState, kid: Kid) {
     }
   }
   return best ?? nearestFort(state, kid);
+}
+
+function nearbyFoes(state: GameState, kid: Kid, radius: number) {
+  return living(state.kids).filter((k) => k.team !== kid.team && Math.hypot(k.x - kid.x, k.y - kid.y) <= radius);
+}
+
+/** Pile on our side of the fight — not behind the enemy pack. */
+function safeHideFort(state: GameState, kid: Kid): Fort | null {
+  const pack = nearbyFoes(state, kid, 220);
+  const foes = pack.length ? pack : living(state.kids).filter((k) => k.team !== kid.team);
+  if (!foes.length) return null;
+  const cx = foes.reduce((s, k) => s + k.x, 0) / foes.length;
+  let best: Fort | null = null;
+  let bestD = Infinity;
+  for (const f of state.forts) {
+    if (f.maxHp > 0 && f.hp <= 0) continue;
+    if (kid.team === "green" && f.x > Math.max(kid.x, cx) + 48) continue;
+    if (kid.team === "red" && f.x < Math.min(kid.x, cx) - 48) continue;
+    const d = Math.hypot(f.x - kid.x, f.y - kid.y);
+    if (d < bestD) {
+      bestD = d;
+      best = f;
+    }
+  }
+  return best;
+}
+
+/**
+ * Hide in a pile when the local fight is crowded and cover is closer than
+ * running through the pack. Easy only if the pile is strictly nearer.
+ */
+export function shouldHideInPile(
+  state: GameState,
+  kid: Kid,
+  stance: "defend" | "attack" | "enemy",
+  hard: boolean,
+): Fort | null {
+  if (inFort(kid.x, kid.y, state.forts)) return null;
+  const fort = safeHideFort(state, kid);
+  if (!fort) return null;
+  const dFort = Math.hypot(fort.x - kid.x, fort.y - kid.y);
+  if (dFort > 250) return null;
+  const foe = closestEnemy(kid, state.kids);
+  const dFoe = foe ? Math.hypot(foe.x - kid.x, foe.y - kid.y) : Infinity;
+  const near = nearbyFoes(state, kid, stance === "defend" ? 200 : 170);
+  if (near.length >= 2) {
+    if (stance === "enemy" && !hard) return dFort <= 200 ? fort : null;
+    return fort;
+  }
+  if (stance === "defend" && dFoe < 155) return fort;
+  if (near.length === 1 && dFoe < 108 && dFort <= dFoe + 48) return fort;
+  return null;
 }
 
 function hideSpot(kid: Kid, fort: Fort): { x: number; y: number } {
