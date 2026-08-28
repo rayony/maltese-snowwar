@@ -454,4 +454,40 @@ describe("shouldHideInPile", () => {
     const fort = shouldHideInPile(s, green, "enemy", false);
     assert.equal(fort, null);
   });
+
+  it("also hides for maltese AI when retrievers press from the left", () => {
+    const s = createState(1, true);
+    const red = s.kids.find((k) => k.team === "red")!;
+    red.x = 620;
+    red.y = 200;
+    const greens = s.kids.filter((k) => k.team === "green");
+    greens[0]!.x = 520;
+    greens[0]!.y = 180;
+    greens[1]!.x = 525;
+    greens[1]!.y = 220;
+    const fort = shouldHideInPile(s, red, "defend", false);
+    assert.ok(fort);
+  });
+
+  it("will not re-enter a pile during hide cooldown", () => {
+    const s = createState(1, false, { hard: true });
+    const green = s.kids.find((k) => k.team === "green")!;
+    green.x = 500;
+    green.y = 200;
+    green.ai = {
+      phase: "idle",
+      t: 0,
+      destX: green.x,
+      destY: green.y,
+      charge: 0,
+      coverT: 0,
+      awayT: 4,
+    };
+    const reds = s.kids.filter((k) => k.team === "red");
+    reds[0]!.x = 580;
+    reds[0]!.y = 180;
+    reds[1]!.x = 575;
+    reds[1]!.y = 230;
+    assert.equal(shouldHideInPile(s, green, "enemy", true), null);
+  });
 });
