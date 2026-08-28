@@ -12,6 +12,11 @@ import {
   createState,
   canEnterFort,
   canTeamClaimPickup,
+  claimKit,
+  maybeDropKit,
+  maybeComebackKit,
+  placeKit,
+  teamNeedsHeal,
   faceFromDir,
   faceNearest,
   foeHittable,
@@ -26,7 +31,7 @@ import {
   sweetReady,
   incomingAt,
 } from "./sim";
-import { BIG_SPEED, MAX_RANGE, MAX_THROW_SPEED, pickupRadius, SWEET_WINDOW, WORLD_W } from "./constants";
+import { BIG_SPEED, kitClickRadius, MAX_RANGE, MAX_THROW_SPEED, pickupRadius, SWEET_WINDOW, WORLD_W } from "./constants";
 import { aiThrowAim, arenaBalls, arenaCanThrow, bigBallRoles, draggedMate, fortCoverSpot, grabShooters, huntPressers, mateThrewRecently, shouldHideInPile, stepAi, surroundLast, teamJob, teamReactsToBig, teamSurging, throwAimForStance } from "./ai";
 import type { Kid } from "./types";
 
@@ -1212,7 +1217,7 @@ describe("ai rhythm", () => {
     assert.equal(String(ally.ai!.phase), "windup");
   });
 
-  it("comeback gold heals one pip and spawns on the player side", () => {
+  it("comeback gold does not heal; a kit heals one pip", () => {
     const s = createState(1, false);
     s.phase = "fight";
     const reds = s.kids.filter((k) => k.team === "red");
@@ -1227,7 +1232,11 @@ describe("ai rhythm", () => {
     assert.ok(s.pickupCd >= 6.5);
     s.pickup = { x: 480, y: 270, kind: "big", life: 10, maxLife: 10 };
     assert.equal(claimPickup(s, "red"), true);
+    assert.equal(reds[0]!.hp, 1);
+    placeKit(s, 640, 270);
+    assert.equal(claimKit(s, "red"), true);
     assert.equal(reds[0]!.hp, 2);
+    assert.equal(reds[0]!.hp <= (reds[0]!.maxHp || 2), true);
     s.pickupCd = 0;
     stepPickups(s, 0.05, true);
     assert.ok(s.pickup && s.pickup.x > 540);
@@ -1239,6 +1248,49 @@ describe("ai rhythm", () => {
     reds[2]!.hp = 0;
     reds[2]!.state = "buried";
     assert.equal(playerComeback(s), false);
+  });
+
+  it("medkit drops from level 3 if a teammate is hurt, and can sit next to gold", () => {
+    const early = createState(1, false);
+    early.phase = "fight";
+    early.kids.find((k) => k.team === "red")!.hp = 1;
+    assert.equal(maybeDropKit(early, 200, 200, "red", 1), null);
+    const s = createState(3, false);
+    s.phase = "fight";
+    const red = s.kids.find((k) => k.team === "red")!;
+    red.hp = 1;
+    s.pickup = { x: 480, y: 270, kind: "big", life: 10, maxLife: 10 };
+    const kit = maybeDropKit(s, 220, 200, "red", 1);
+    assert.ok(kit);
+    assert.equal(kit!.kind, "heal");
+    assert.ok(s.pickup);
+    assert.ok(kitClickRadius() > pickupRadius());
+  });
+
+  it("medkit does not drop when the killer's team is full", () => {
+    const s = createState(3, false);
+    s.phase = "fight";
+    assert.equal(teamNeedsHeal(s, "red"), false);
+    assert.equal(maybeDropKit(s, 220, 200, "red", 1), null);
+  });
+
+  it("vs AI greens cannot claim a kit; last maltese gets a comeback kit", () => {
+    const s = createState(3, false);
+    s.phase = "fight";
+    const reds = s.kids.filter((k) => k.team === "red");
+    reds[1]!.hp = 0;
+    reds[1]!.state = "buried";
+    reds[2]!.hp = 0;
+    reds[2]!.state = "buried";
+    reds[0]!.hp = 1;
+    maybeComebackKit(s);
+    assert.ok(s.kit);
+    const green = s.kids.find((k) => k.team === "green")!;
+    assert.equal(claimKit(s, "green"), false);
+    assert.ok(s.kit);
+    assert.equal(claimKit(s, "red"), true);
+    assert.equal(reds[0]!.hp, 2);
+    assert.equal(s.kit, null);
   });
 
   it("AI does not throw a sixth ball when five are already flying", () => {

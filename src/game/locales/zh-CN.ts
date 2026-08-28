@@ -110,6 +110,7 @@ const dict: Record<I18nKey, string> = {
   pickupBig: "大雪球出现了！快去抢！",
   pickupHold: "大雪球 · 剩 {n} 球 · {s}秒",
   pickupFoe: "对方持有大雪球！",
+  pickupKit: "药箱掉了！走近或点附近可补一格血。",
 };
 
 export default dict;

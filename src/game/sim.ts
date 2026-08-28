@@ -8,6 +8,9 @@ import {
   enemyCountForLevel,
   HP,
   INTRO_TIME,
+  KIT_CHANCE,
+  KIT_LIFE,
+  KIT_MIN_LEVEL,
   KID_RADIUS,
   MARGIN,
   MAX_RANGE,
@@ -129,6 +132,7 @@ export function createState(
     pvp: versus,
     godSpeed: false,
     pickup: null,
+    kit: null,
     pickupCd: 2.5,
     lootPop: null,
     buffs: { red: null, green: null },
@@ -662,7 +666,11 @@ function hitKid(
   state.trauma = Math.min(1, state.trauma + (kid.hp <= 0 ? 0.55 : 0.32));
   state.freeze = kid.hp <= 0 ? 0.07 : 0.045;
   onHit(kid.hp <= 0);
-  if (kid.hp <= 0 && kid.team === "red") maybeArmComeback(state);
+  if (kid.hp <= 0) {
+    if (kid.team === "red") maybeArmComeback(state);
+    maybeDropKit(state, kid.x, kid.y, ball.team);
+    maybeComebackKit(state);
+  }
 }
 
 export function playerComeback(state: GameState) {
@@ -670,16 +678,39 @@ export function playerComeback(state: GameState) {
   return living(state.kids, "red").length === 1;
 }
 
+export function teamNeedsHeal(state: GameState, team: Team) {
+  return living(state.kids, team).some((k) => k.hp < (k.maxHp || HP));
+}
+
+function healLowest(state: GameState, team: Team) {
+  const hurt = living(state.kids, team).filter((k) => k.hp < (k.maxHp || HP)).sort((a, b) => a.hp - b.hp || a.id - b.id);
+  const dog = hurt[0];
+  if (!dog) return false;
+  dog.hp = Math.min(dog.maxHp || HP, dog.hp + 1);
+  burst(state, dog.x, dog.y, 0, 12, "spark");
+  return true;
+}
+
 export function maybeArmComeback(state: GameState) {
   if (!playerComeback(state) || state.pickup) return;
   state.pickupCd = Math.max(state.pickupCd, COMEBACK_WAIT + Math.random() * 1.5);
 }
 
-function healComeback(state: GameState, team: Team) {
-  if (state.pvp || team !== "red") return;
-  const hurt = living(state.kids, "red").sort((a, b) => a.hp - b.hp || a.id - b.id);
-  const dog = hurt.find((k) => k.hp < (k.maxHp || HP));
-  if (dog) dog.hp += 1;
+export function maybeComebackKit(state: GameState) {
+  if (state.pvp || state.kit || !playerComeback(state) || !teamNeedsHeal(state, "red")) return;
+  const last = living(state.kids, "red")[0];
+  if (!last) return;
+  placeKit(state, last.x + rand(-50, 20), last.y + rand(-36, 36));
+}
+
+export function maybeDropKit(state: GameState, x: number, y: number, killer: Team, chance = KIT_CHANCE) {
+  if (state.kit) return null;
+  if (!state.pvp && (killer !== "red" || state.level < KIT_MIN_LEVEL)) return null;
+  if (!teamNeedsHeal(state, killer)) return null;
+  if (Math.random() > chance) return null;
+  const ox = x + rand(-56, 56);
+  const oy = y + rand(-40, 40);
+  return placeKit(state, ox, oy);
 }
 
 /** Fly one ball for catch-up, hitting kids at historical (or current) positions. */
@@ -904,11 +935,37 @@ export function claimPickup(state: GameState, team: Team): boolean {
   if (!state.pickup || (state.phase !== "fight" && state.phase !== "intro")) return false;
   if (!canTeamClaimPickup(state, team)) return false;
   grantBigBuff(state, team);
-  healComeback(state, team);
   burstLoot(state, state.pickup.x, state.pickup.y);
   state.pickup = null;
   state.pickupCd = PICKUP_CD_MIN + Math.random() * (PICKUP_CD_MAX - PICKUP_CD_MIN);
   return true;
+}
+
+export function claimKit(state: GameState, team: Team): boolean {
+  if (!state.kit || (state.phase !== "fight" && state.phase !== "intro")) return false;
+  if (!canTeamClaimPickup(state, team)) return false;
+  healLowest(state, team);
+  burst(state, state.kit.x, state.kit.y, 0, 14, "puff");
+  burst(state, state.kit.x, state.kit.y, 0, 10, "spark");
+  state.lootPop = { x: state.kit.x, y: state.kit.y, t: 0.45 };
+  state.kit = null;
+  return true;
+}
+
+export function placeKit(state: GameState, x: number, y: number): Pickup {
+  const kit: Pickup = {
+    x: clamp(x, MARGIN + 20, WORLD_W - MARGIN - 20),
+    y: clamp(y, MARGIN + 20, WORLD_H - MARGIN - 20),
+    kind: "heal",
+    life: KIT_LIFE,
+    maxLife: KIT_LIFE,
+  };
+  if (inFort(kit.x, kit.y, state.forts)) {
+    kit.x = clamp(kit.x + 50, MARGIN + 20, WORLD_W - MARGIN - 20);
+  }
+  state.kit = kit;
+  burst(state, kit.x, kit.y, 0, 10, "puff");
+  return kit;
 }
 
 export function takeBigBuff(state: GameState, team: Team, consume: boolean) {
@@ -962,9 +1019,21 @@ export function stepPickups(state: GameState, dt: number, spawn: boolean) {
         break;
       }
     }
-    return;
   }
-  if (!spawn || state.phase !== "fight") return;
+  if (state.kit) {
+    state.kit.life -= dt;
+    if (state.kit.life <= 0) state.kit = null;
+    else if (spawn) {
+      for (const kid of state.kids) {
+        if (isOut(kid)) continue;
+        if (!canTeamClaimPickup(state, kid.team)) continue;
+        if (Math.hypot(kid.x - state.kit.x, kid.y - state.kit.y) > pickupRadius()) continue;
+        claimKit(state, kid.team);
+        break;
+      }
+    }
+  }
+  if (state.pickup || !spawn || state.phase !== "fight") return;
   state.pickupCd -= dt;
   if (state.pickupCd <= 0) spawnPickup(state);
 }

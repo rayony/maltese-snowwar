@@ -164,6 +164,7 @@ const EN = {
   pickupBig: "A big snowball appeared! Grab it!",
   pickupHold: "Big snowball · {n} throws · {s}s",
   pickupFoe: "Opponent has the big snowball!",
+  pickupKit: "A medkit dropped! Tap near it to heal.",
 } as const;
 
 const ZH: Record<keyof typeof EN, string> = {
@@ -275,6 +276,7 @@ const ZH: Record<keyof typeof EN, string> = {
   pickupBig: "大雪球出現了！快去搶！",
   pickupHold: "大雪球 · 剩 {n} 球 · {s}秒",
   pickupFoe: "對方持有大雪球！",
+  pickupKit: "藥箱掉了！走近或點附近可補一格血。",
 };
 
 export type I18nKey = keyof typeof EN;

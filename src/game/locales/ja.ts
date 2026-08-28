@@ -114,6 +114,7 @@ const dict: Record<I18nKey, string> = {
   pickupBig: "大雪玉が出た！急いで奪え！",
   pickupHold: "大雪玉 · 残り{n}球 · {s}秒",
   pickupFoe: "相手が大雪玉を持っている！",
+  pickupKit: "救急箱が落ちた！近くをタップすると1回復。",
 };
 
 export default dict;

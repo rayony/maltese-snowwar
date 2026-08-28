@@ -1,5 +1,5 @@
 import { aiInterval, aiMoveSpeed, BIG_HELD_TIME, MARGIN, MAX_CHARGE, PACK_TIME, throwSpeed, WORLD_H, WORLD_W } from "./constants";
-import { aimFromKid, canEnterFort, canTeamClaimPickup, closestEnemy, closestHittableEnemy, ensureAi, foeHittable, inFort, isOut, lineHitsFort, living, rand, throwSnowball } from "./sim";
+import { aimFromKid, canEnterFort, canTeamClaimPickup, closestEnemy, closestHittableEnemy, ensureAi, foeHittable, inFort, isOut, lineHitsFort, living, rand, teamNeedsHeal, throwSnowball } from "./sim";
 import type { AllyMode, Fort, GameState, Kid, Snowball, Team } from "./types";
 
 export type GreenControl = "enemy" | AllyMode;
@@ -627,6 +627,14 @@ function pickDest(state: GameState, kid: Kid, stance: "defend" | "attack" | "ene
     if (!crowded && d < (stance === "attack" ? 280 : 240) && Math.random() < (stance === "attack" ? 0.85 : 0.7)) {
       kid.ai.destX = clampSide(state.pickup.x + rand(-6, 6), kid.team, cross);
       kid.ai.destY = state.pickup.y + rand(-6, 6);
+      return;
+    }
+  }
+  if (state.kit && kid.ai && canTeamClaimPickup(state, kid.team) && teamNeedsHeal(state, kid.team)) {
+    const d = Math.hypot(kid.x - state.kit.x, kid.y - state.kit.y);
+    if (d < 260 && Math.random() < 0.7) {
+      kid.ai.destX = clamp(state.kit.x + rand(-8, 8), MARGIN, WORLD_W - MARGIN);
+      kid.ai.destY = clamp(state.kit.y + rand(-8, 8), MARGIN, WORLD_H - MARGIN);
       return;
     }
   }

@@ -25,6 +25,9 @@ export const BIG_CHARGE = 1.2;
 export const PICKUP_LIFE = 10;
 export const PICKUP_CD_MIN = 8;
 export const PICKUP_CD_MAX = 12;
+export const KIT_LIFE = 10;
+export const KIT_CHANCE = 0.7;
+export const KIT_MIN_LEVEL = 3;
 export const COMEBACK_WAIT = 6.5;
 export const SWEET_WINDOW = 0.35;
 export const SWEET_WINDOW_PVP = 0.42;
@@ -109,4 +112,9 @@ export function pickupRadius(cssW = 0) {
   const feel = playFeel(cssW);
   const orb = feel.ball * (BIG_BALL_RADIUS / BALL_RADIUS) * 0.48;
   return orb + feel.hit * 0.9;
+}
+
+/** Nearby tap radius for a medkit — looser than walking into it. */
+export function kitClickRadius(cssW = 0) {
+  return pickupRadius(cssW) * 1.85;
 }

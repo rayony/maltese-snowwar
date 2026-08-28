@@ -3,7 +3,7 @@ import { VersusLink } from "./versus-link";
 import { stepAi, type GreenControl } from "./ai";
 import { ASSET_TOTAL, loadCoreAssets, loadRestAssets, type Assets } from "./assets";
 import { GameAudio } from "./audio";
-import { FORT_HP, FIXED_DT, MARGIN, BALL_RADIUS, BIG_BALL_RADIUS, BIG_HELD_TIME, BIG_SHOTS, pickupRadius, playFeel, PVP_RANGE, SAVE_KEY, STAR_HP, WORLD_H, WORLD_W, AI_WIN_LEVEL } from "./constants";
+import { FORT_HP, FIXED_DT, MARGIN, BALL_RADIUS, BIG_BALL_RADIUS, BIG_HELD_TIME, BIG_SHOTS, kitClickRadius, pickupRadius, playFeel, PVP_RANGE, SAVE_KEY, STAR_HP, WORLD_H, WORLD_W, AI_WIN_LEVEL } from "./constants";
 import {
   applyState,
   applyPose,
@@ -20,7 +20,7 @@ import {
   type PoseSample,
 } from "./net";
 import { render, worldFromClient, clampWorldToView } from "./render";
-import { aimFromKid, burst, claimPickup, clamp, createState, faceNearest, isOut, living, placePickup, puffMissingBalls, snapCombatFx, stepOneBall, stepPickups, stepPresentation, stepSim, sweetReady, throwSnowball } from "./sim";
+import { aimFromKid, burst, claimKit, claimPickup, clamp, createState, faceNearest, isOut, living, placePickup, puffMissingBalls, snapCombatFx, stepOneBall, stepPickups, stepPresentation, stepSim, sweetReady, throwSnowball } from "./sim";
 import type {
   AllyMode,
   Difficulty,
@@ -1023,6 +1023,14 @@ export class SnowCraftGame {
         this.tryRematch();
         break;
       case "loot":
+        if (data.kind === "heal") {
+          if (typeof data.x === "number" && typeof data.y === "number") {
+            this.state.kit = { x: data.x, y: data.y, kind: "heal", life: data.life ?? 10, maxLife: 10 };
+          } else {
+            this.state.kit = null;
+          }
+          break;
+        }
         if (typeof data.x === "number" && typeof data.y === "number") {
           this.state.pickup = { x: data.x, y: data.y, kind: "big", life: data.life ?? 10, maxLife: 10 };
         } else {
@@ -1039,7 +1047,7 @@ export class SnowCraftGame {
         }
         break;
       case "claim":
-        if (this.netRole === "host" && !this.botTakeover) this.hostHonorClaim("green");
+        if (this.netRole === "host" && !this.botTakeover) this.hostHonorClaim("green", data.kind === "heal" ? "heal" : "big");
         break;
       case "bye":
       case "bot":
@@ -1399,6 +1407,10 @@ export class SnowCraftGame {
       e.preventDefault();
       return;
     }
+    if (this.hitKit(w.x, w.y) && this.tryClaimKit()) {
+      e.preventDefault();
+      return;
+    }
     const kid = this.pickTeam(this.myTeam(), w.x, w.y);
     if (!kid) return;
     e.preventDefault();
@@ -1425,7 +1437,7 @@ export class SnowCraftGame {
     const w = this.toWorld(e);
     this.pointer = w;
     this.hoverId = this.pickTeam(this.myTeam(), w.x, w.y)?.id ?? null;
-    this.canvas.style.cursor = this.hitPickup(w.x, w.y) ? "pointer" : this.hoverId ? "grab" : "";
+    this.canvas.style.cursor = this.hitPickup(w.x, w.y) || this.hitKit(w.x, w.y) ? "pointer" : this.hoverId ? "grab" : "";
     if (!this.grab || e.pointerId !== this.grab.pointerId) return;
     const kid = this.state.kids.find((k) => k.id === this.grab!.id);
     if (!kid || isOut(kid)) return;
@@ -1500,11 +1512,17 @@ export class SnowCraftGame {
     return Math.hypot(orb.x - x, orb.y - y) <= r;
   }
 
+  private hitKit(x: number, y: number) {
+    const kit = this.state.kit;
+    if (!kit) return false;
+    return Math.hypot(kit.x - x, kit.y - y) <= kitClickRadius(this.canvas.clientWidth);
+  }
+
   private tryClaimPickup() {
     if (!this.state.pickup) return false;
     const team = this.myTeam();
     if (this.netRole === "guest" && !this.botTakeover) {
-      this.sendNet({ t: "claim" });
+      this.sendNet({ t: "claim", kind: "big" });
       if (claimPickup(this.state, team)) this.audio.splat();
       this.emit();
       return true;
@@ -1516,7 +1534,30 @@ export class SnowCraftGame {
     return true;
   }
 
-  private hostHonorClaim(team: Team) {
+  private tryClaimKit() {
+    if (!this.state.kit) return false;
+    const team = this.myTeam();
+    if (this.netRole === "guest" && !this.botTakeover) {
+      this.sendNet({ t: "claim", kind: "heal" });
+      if (claimKit(this.state, team)) this.audio.ding();
+      this.emit();
+      return true;
+    }
+    if (!claimKit(this.state, team)) return false;
+    this.audio.ding();
+    this.hostBroadcastKit();
+    this.emit();
+    return true;
+  }
+
+  private hostHonorClaim(team: Team, kind: "big" | "heal" = "big") {
+    if (kind === "heal") {
+      if (!claimKit(this.state, team)) return;
+      this.audio.ding();
+      this.hostBroadcastKit();
+      this.emit();
+      return;
+    }
     if (!claimPickup(this.state, team)) return;
     this.audio.splat();
     this.hostBroadcastLoot(team);
@@ -1528,6 +1569,13 @@ export class SnowCraftGame {
     this.sendNet({ t: "loot" });
     const buff = this.state.buffs[team];
     if (buff) this.sendNet({ t: "got", team, shots: buff.shots, ttl: buff.t });
+  }
+
+  private hostBroadcastKit() {
+    if (this.netRole !== "host" || !this.versus) return;
+    const kit = this.state.kit;
+    if (kit) this.sendNet({ t: "loot", kind: "heal", x: kit.x, y: kit.y, life: kit.life });
+    else this.sendNet({ t: "loot", kind: "heal" });
   }
 
   private cueSweetHold() {
@@ -1675,7 +1723,7 @@ export class SnowCraftGame {
       this.fpsFrames = 0;
       this.fpsAcc = 0;
     }
-    if (this.state.buffs.red || this.state.buffs.green || this.state.pickup) {
+    if (this.state.buffs.red || this.state.buffs.green || this.state.pickup || this.state.kit) {
       this.buffHudAcc += dt;
       if (this.buffHudAcc >= 0.08) {
         this.buffHudAcc = 0;
@@ -1906,6 +1954,7 @@ export class SnowCraftGame {
     );
     const hpBefore = new Map(this.state.kids.map((k) => [k.id, k.hp]));
     const hadPickup = !!this.state.pickup;
+    const hadKit = !!this.state.kit;
     const hadBuff = {
       red: this.state.buffs.red ? { ...this.state.buffs.red } : null,
       green: this.state.buffs.green ? { ...this.state.buffs.green } : null,
@@ -1935,7 +1984,7 @@ export class SnowCraftGame {
         onFort: () => this.audio.fort(),
       },
     );
-    this.syncLoot(hadPickup, hadBuff);
+    this.syncLoot(hadPickup, hadKit, hadBuff);
     this.keepGrabbed();
     this.handleOutcome();
   }
@@ -1951,12 +2000,16 @@ export class SnowCraftGame {
 
   private syncLoot(
     hadPickup: boolean,
+    hadKit: boolean,
     hadBuff: { red: { shots: number; t: number } | null; green: { shots: number; t: number } | null },
   ) {
     if (this.netRole !== "host" || !this.versus || this.botTakeover) return;
     const orb = this.state.pickup;
     if (orb && !hadPickup) this.sendNet({ t: "loot", x: orb.x, y: orb.y, life: orb.life });
     if (!orb && hadPickup) this.sendNet({ t: "loot" });
+    const kit = this.state.kit;
+    if (kit && !hadKit) this.sendNet({ t: "loot", kind: "heal", x: kit.x, y: kit.y, life: kit.life });
+    if (!kit && hadKit) this.sendNet({ t: "loot", kind: "heal" });
     for (const team of ["red", "green"] as const) {
       const now = this.state.buffs[team];
       const prev = hadBuff[team];
@@ -2092,6 +2145,7 @@ export class SnowCraftGame {
       },
       fps: this.fps,
       pickup: this.pickupUi(),
+      kit: this.state.kit ? { field: true } : null,
     });
   }
 

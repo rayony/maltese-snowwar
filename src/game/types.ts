@@ -94,7 +94,7 @@ export interface Particle {
 export interface Pickup {
   x: number;
   y: number;
-  kind: "big";
+  kind: "big" | "heal";
   life: number;
   maxLife: number;
 }
@@ -142,6 +142,7 @@ export interface GameState {
   pvp: boolean;
   godSpeed: boolean;
   pickup: Pickup | null;
+  kit: Pickup | null;
   pickupCd: number;
   lootPop: { x: number; y: number; t: number } | null;
   buffs: { red: TeamBuff | null; green: TeamBuff | null };
@@ -194,6 +195,7 @@ export interface UiSnapshot {
     shots: number;
     maxShots: number;
   } | null;
+  kit: { field: boolean } | null;
 }
 
 export interface View {

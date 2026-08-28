@@ -278,6 +278,9 @@ export function render(
   if (state.pickup) {
     drawFieldPickup(ctx, state.pickup.x, state.pickup.y, goldOrbRadius(view.ballSize), state.time);
   }
+  if (state.kit) {
+    drawMedkit(ctx, state.kit.x, state.kit.y, state.time);
+  }
   for (const kid of state.kids) {
     const buff = state.buffs[kid.team];
     if (!buff || isOut(kid)) continue;
@@ -817,6 +820,30 @@ function drawFieldPickup(ctx: CanvasRenderingContext2D, x: number, y: number, ra
     ctx.arc(x + Math.cos(a) * rr, py + Math.sin(a) * rr * 0.55, 2.4, 0, Math.PI * 2);
     ctx.fill();
   }
+}
+
+function drawMedkit(ctx: CanvasRenderingContext2D, x: number, y: number, time: number) {
+  const bob = Math.sin(time * 3.2) * 5;
+  const s = 22;
+  ctx.save();
+  ctx.translate(x, y + bob);
+  ctx.globalAlpha = 0.28;
+  ctx.fillStyle = "#4a6578";
+  ctx.beginPath();
+  ctx.ellipse(0, 16, 16, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#f4f7fa";
+  ctx.strokeStyle = "#c43b3b";
+  ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  ctx.roundRect(-s * 0.55, -s * 0.42, s * 1.1, s * 0.84, 5);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#c43b3b";
+  ctx.fillRect(-3.2, -s * 0.28, 6.4, s * 0.56);
+  ctx.fillRect(-s * 0.28, -3.2, s * 0.56, 6.4);
+  ctx.restore();
 }
 
 /** White snowball with a pulsing gold rim — field pickup and thrown big balls. */

@@ -40,9 +40,9 @@ export type NetMsg =
   | { t: "hb" }
   | { t: "ping"; t0: number }
   | { t: "pong"; t0: number; t1?: number }
-  | { t: "loot"; x?: number; y?: number; life?: number }
+  | { t: "loot"; x?: number; y?: number; life?: number; kind?: "big" | "heal" }
   | { t: "got"; team: Team; shots: number; ttl: number }
-  | { t: "claim" };
+  | { t: "claim"; kind?: "big" | "heal" };
 
 export interface WireKid {
   id: number;
@@ -105,6 +105,7 @@ export interface WireState {
   kids: WireKid[];
   balls: WireBall[];
   pickup?: GameState["pickup"];
+  kit?: GameState["kit"];
   buffs?: GameState["buffs"];
   forts?: GameState["forts"];
   particles?: GameState["particles"];
@@ -165,6 +166,7 @@ export function packState(state: GameState): WireState {
       big: b.big || undefined,
     })),
     pickup: state.pickup,
+    kit: state.kit,
     buffs: state.buffs,
     forts,
     level: state.level,
@@ -404,6 +406,7 @@ export function applyState(
   });
   for (const k of state.kids) ensureAi(k);
   if (wire.pickup !== undefined) state.pickup = wire.pickup;
+  if (wire.kit !== undefined) state.kit = wire.kit;
   if (wire.buffs) state.buffs = wire.buffs;
   if (!opts.hard) {
     const now = typeof performance !== "undefined" ? performance.now() : 0;

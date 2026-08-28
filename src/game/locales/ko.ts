@@ -114,6 +114,7 @@ const dict: Record<I18nKey, string> = {
   pickupBig: "큰 눈덩이가 나타났어요! 어서 쟁탈하세요!",
   pickupHold: "큰 눈덩이 · {n}개 남음 · {s}초",
   pickupFoe: "상대가 큰 눈덩이를 들고 있어요!",
+  pickupKit: "구급상자가 떨어졌어요! 근처를 누르면 체력 1 회복.",
 };
 
 export default dict;
