@@ -20,8 +20,6 @@ import {
   PVP_RANGE,
   PVP_SPEED,
   playFeel,
-  SWEET_RANGE,
-  SWEET_SPEED,
   sweetCharge,
   THROW_COOLDOWN,
   throwRange,
@@ -360,8 +358,7 @@ export function throwSnowball(
   const sweet = user && sweetCharge(charge, star, wantBig);
   let speed = state.pvp ? PVP_SPEED : throwSpeed(power) * (state.hard ? 2 : 1);
   if (star) speed *= 3;
-  if (sweet) speed *= SWEET_SPEED;
-  const range = (state.pvp ? PVP_RANGE : throwRange(power)) * (sweet ? SWEET_RANGE : 1);
+  const range = state.pvp ? PVP_RANGE : throwRange(power);
   const cover = inFort(kid.x, kid.y, state.forts);
   const big = user && takeBigBuff(state, kid.team, consume);
   const ball: Snowball = {
