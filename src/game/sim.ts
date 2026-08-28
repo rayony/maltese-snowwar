@@ -603,10 +603,6 @@ export function tryGrabCatch(state: GameState, kid: Kid, ball: Snowball) {
   kid.flash = 0.2;
   kid.stun = 0;
   if (ball.big) addOneBigShot(state, kid.team);
-  if (kid.packT <= 0.02) {
-    parryBall(state, kid, ball);
-    return true;
-  }
   kid.packT = 0;
   ball.alive = false;
   return true;
@@ -620,26 +616,6 @@ function addOneBigShot(state: GameState, team: Team) {
   }
   buff.shots = Math.min(BIG_SHOTS, buff.shots + 1);
   buff.t = Math.max(buff.t, 4);
-}
-
-function parryBall(state: GameState, kid: Kid, ball: Snowball) {
-  const foe = closestEnemy(kid, state.kids);
-  ball.team = kid.team;
-  ball.fromId = kid.id;
-  ball.big = false;
-  ball.r = BALL_RADIUS;
-  ball.grace = 0.12;
-  ball.ghost = false;
-  ball.traveled = 0;
-  ball.range = Math.max(ball.range, 480);
-  const dx = foe ? foe.x - kid.x : -Math.sign(ball.vx) || kid.facing;
-  const dy = foe ? foe.y - kid.y : -ball.vy;
-  const len = Math.hypot(dx, dy) || 1;
-  const spd = throwSpeed(0.72);
-  ball.vx = (dx / len) * spd;
-  ball.vy = (dy / len) * spd;
-  ball.x = kid.x + (dx / len) * 22;
-  ball.y = kid.y - 8;
 }
 
 function hitKid(
