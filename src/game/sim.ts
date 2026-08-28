@@ -81,6 +81,8 @@ function makeKid(state: GameState, team: Team, x: number, y: number): Kid {
     fidgetT: 0,
     fidgetWait: rand(0.35, 2.6),
     moving: false,
+    hideFuel: 1,
+    hideSession: false,
     ai: makeBrain(x, y),
   };
 }
@@ -223,6 +225,74 @@ export function living(kids: Kid[], team?: Team) {
 
 export function isOut(k: Kid) {
   return k.state === "buried" || k.hp <= 0;
+}
+
+export function hideStayTime(state: GameState, kid: Kid) {
+  const mates = living(state.kids, kid.team).length;
+  const foes = living(state.kids, kid.team === "red" ? "green" : "red").length;
+  if (mates > 1 && foes <= 1) return 0;
+  if (mates <= 1) return 3;
+  return 5;
+}
+
+export function hideRechargeTime(state: GameState, kid: Kid) {
+  return living(state.kids, kid.team).length <= 1 ? 3 : 5;
+}
+
+export function canEnterFort(kid: Kid) {
+  return (kid.hideFuel ?? 1) >= 0.999;
+}
+
+function ejectFromFort(kid: Kid, forts: Fort[]) {
+  const fort = inFort(kid.x, kid.y, forts);
+  if (!fort) return;
+  const dx = kid.x - fort.x;
+  const dy = kid.y - fort.y;
+  const len = Math.hypot(dx, dy) || 1;
+  kid.x = fort.x + (dx / len) * (fort.rx + 30);
+  kid.y = clamp(fort.y + (dy / len) * (fort.ry + 26), MARGIN, WORLD_H - MARGIN);
+  kid.hideSession = false;
+}
+
+export function tickHideFuel(state: GameState, dt: number) {
+  for (const kid of state.kids) {
+    if (isOut(kid)) {
+      kid.hideFuel = 1;
+      kid.hideSession = false;
+      continue;
+    }
+    kid.hideFuel ??= 1;
+    const stay = hideStayTime(state, kid);
+    const rec = hideRechargeTime(state, kid);
+    const cover = !!inFort(kid.x, kid.y, state.forts);
+    if (stay <= 0) {
+      kid.hideFuel = 0;
+      kid.hideSession = false;
+      if (cover) ejectFromFort(kid, state.forts);
+    } else if (cover) {
+      if (!kid.hideSession) {
+        if (!canEnterFort(kid)) {
+          ejectFromFort(kid, state.forts);
+        } else {
+          kid.hideSession = true;
+        }
+      }
+      if (kid.hideSession) {
+        kid.hideFuel = Math.max(0, kid.hideFuel - dt / stay);
+        if (kid.hideFuel <= 0) {
+          kid.hideFuel = 0;
+          ejectFromFort(kid, state.forts);
+        }
+      }
+    } else {
+      kid.hideSession = false;
+      kid.hideFuel = Math.min(1, kid.hideFuel + dt / rec);
+    }
+    if (kid.ai) {
+      kid.ai.awayT = canEnterFort(kid) ? 0 : (1 - kid.hideFuel) * rec;
+      kid.ai.coverT = cover && kid.hideSession ? (1 - kid.hideFuel) * stay : 0;
+    }
+  }
 }
 
 export function closestEnemy(kid: Kid, kids: Kid[]) {
@@ -812,6 +882,7 @@ export function stepSim(
   }
 
   stepKids(state, dt);
+  tickHideFuel(state, dt);
   stepPickups(state, dt, true);
   stepBalls(state, dt, onHit, extra);
   separate(state, dt);

@@ -10,6 +10,7 @@ import {
   claimPickup,
   closestEnemy,
   createState,
+  canEnterFort,
   faceFromDir,
   faceNearest,
   isOut,
@@ -17,6 +18,7 @@ import {
   stepPickups,
   stepSim,
   throwSnowball,
+  tickHideFuel,
 } from "./sim";
 import { holdPower, MAX_CHARGE, BIG_CHARGE, BIG_SPEED, throwSpeed } from "./constants";
 import { aiThrowAim, bigBallRoles, fortCoverSpot, shouldHideInPile, stepAi, teamReactsToBig, throwAimForStance } from "./ai";
@@ -576,7 +578,30 @@ describe("shouldHideInPile", () => {
     assert.equal(shouldHideInPile(s, red, "defend", false), null);
   });
 });
-describe("fortCoverSpot", () => {
+
+describe("hide fuel", () => {
+  it("drains in a pile and must refill before re-entry", () => {
+    const s = createState(1);
+    s.phase = "fight";
+    const red = s.kids.find((k) => k.team === "red")!;
+    red.x = 390;
+    red.y = 168;
+    red.hideFuel = 1;
+    tickHideFuel(s, 2.5);
+    assert.ok(red.hideFuel < 0.6);
+    assert.ok(red.hideSession);
+    red.x = 120;
+    red.y = 80;
+    tickHideFuel(s, 0.05);
+    assert.equal(red.hideSession, false);
+    assert.equal(canEnterFort(red), false);
+    const left = red.hideFuel;
+    tickHideFuel(s, 1);
+    assert.ok(red.hideFuel > left);
+    red.hideFuel = 1;
+    assert.equal(canEnterFort(red), true);
+  });
+});describe("fortCoverSpot", () => {
   const fort = { x: 390, y: 200, rx: 90, ry: 40, hitFlash: 0, hp: 0, maxHp: 0 };
 
   it("peeks to the right when the threat is on the left", () => {
@@ -691,6 +716,7 @@ describe("resume after buff / last stand / no pile shots", () => {
     g.state = "idle";
     s.forts = [];
     stepAi(s, 0, () => {}, "off", "enemy", false, true);
+    g.hideFuel = 0.2;
     g.ai!.awayT = 3;
     g.ai!.coverT = 0;
     g.ai!.phase = "idle";
@@ -698,6 +724,7 @@ describe("resume after buff / last stand / no pile shots", () => {
     g.ai!.charge = 0;
     let wind = false;
     for (let i = 0; i < 90; i++) {
+      g.hideFuel = 0.2;
       g.ai!.awayT = Math.max(g.ai!.awayT, 2);
       stepAi(s, 1 / 60, () => {}, "off", "enemy", false, true);
       if (String(g.ai!.phase) === "windup" || s.balls.some((b) => b.fromId === g.id)) wind = true;

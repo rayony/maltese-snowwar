@@ -337,6 +337,8 @@ export function applyState(
         fidgetT: prev.fidgetT,
         fidgetWait: prev.fidgetWait,
         moving: prev.moving,
+        hideFuel: prev.hideFuel ?? 1,
+        hideSession: prev.hideSession ?? false,
         ai,
       };
     }
@@ -369,6 +371,8 @@ export function applyState(
         fidgetT: prev.fidgetT,
         fidgetWait: prev.fidgetWait,
         moving: keepPos ? prev.moving : w.moving,
+        hideFuel: prev.hideFuel ?? 1,
+        hideSession: prev.hideSession ?? false,
         ai,
       };
     }
@@ -393,6 +397,8 @@ export function applyState(
       fidgetT: w.fidgetT ?? 0,
       fidgetWait: w.fidgetWait ?? 0,
       moving: w.moving,
+      hideFuel: prev?.hideFuel ?? 1,
+      hideSession: prev?.hideSession ?? false,
       ai,
     };
   });
