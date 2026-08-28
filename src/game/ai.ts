@@ -475,14 +475,14 @@ export function stepAi(
         else throwChance = punish ? 0.92 : 0.16;
       } else if (stance === "enemy") {
         const foe = closestHittableEnemy(kid, state.kids, state.forts);
-        throwChance = !foe ? 0 : foeIsOpen(foe) ? 0.9 : 0.48;
+        throwChance = !foe ? 0 : foeIsOpen(foe) ? 0.7 : 0.35;
       }
       if (holding) throwChance = 0;
       else if (!intercepting && !arenaCanThrow(state)) throwChance = 0;
       else if (!intercepting && !mayPunish) throwChance = 0;
       else {
         const hunger = arenaHunger(state);
-        if (hunger) throwChance = Math.max(throwChance, hunger);
+        if (hunger) throwChance = Math.max(throwChance, stance === "enemy" ? hunger * 0.82 : hunger);
       }
       if (!hunting && !intercepting && arenaBalls(state) > 1 && !draggedMate(state, kid) && mateThrewRecently(state, kid)) {
         throwChance = Math.min(throwChance, 0.1);

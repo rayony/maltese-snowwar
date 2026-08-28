@@ -563,7 +563,7 @@ function drawKid(
     ctx.restore();
   }
 
-  if (!isOut(kid) && (cover || (kid.hideFuel ?? 1) < 0.995)) drawHideBar(ctx, kid, size, cover);
+  if (!isOut(kid) && (cover || (kid.hideFuel ?? 1) < 0.999)) drawHideBar(ctx, kid, size, cover);
 
   if (!isOut(kid)) drawPips(ctx, kid, cover);
   if (!cover && kid.packT > 0 && !isOut(kid) && kid.state !== "throw") {
