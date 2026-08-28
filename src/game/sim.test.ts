@@ -22,7 +22,7 @@ import {
   throwSnowball,
   tickHideFuel,
 } from "./sim";
-import { holdPower, MAX_CHARGE, BIG_CHARGE, BIG_SPEED, pickupRadius, throwSpeed } from "./constants";
+import { holdPower, MAX_CHARGE, BIG_CHARGE, BIG_SPEED, pickupRadius, throwSpeed, WORLD_W } from "./constants";
 import { aiThrowAim, bigBallRoles, fortCoverSpot, mateThrewRecently, shouldHideInPile, stepAi, surroundLast, teamJob, teamReactsToBig, teamSurging, throwAimForStance } from "./ai";
 import type { Kid } from "./types";
 
@@ -928,5 +928,27 @@ describe("ai rhythm", () => {
       stepAi(s, 1 / 60, () => { throws += 1; }, "off", "enemy", false, false);
     }
     assert.ok(throws > 0);
+  });
+
+  it("easy retrievers fan out past midfield to hunt the last maltese", () => {
+    const s = createState(1);
+    const reds = s.kids.filter((k) => k.team === "red");
+    reds.forEach((r, i) => {
+      if (i > 0) {
+        r.hp = 0;
+        r.state = "buried";
+      } else {
+        r.x = 820;
+        r.y = 270;
+      }
+    });
+    const greens = s.kids.filter((k) => k.team === "green");
+    const xs = greens.map((g) => {
+      surroundLast(s, g);
+      return g.ai!.destX;
+    });
+    assert.ok(Math.max(...xs) > WORLD_W * 0.48);
+    const ys = greens.map((g) => g.ai!.destY);
+    assert.ok(Math.max(...ys) - Math.min(...ys) > 40);
   });
 });
