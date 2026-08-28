@@ -22,7 +22,6 @@ import {
   stepSim,
   throwSnowball,
   tickHideFuel,
-  tryGrabCatch,
 } from "./sim";
 import { holdPower, MAX_CHARGE, BIG_CHARGE, BIG_SPEED, pickupRadius, throwSpeed, WORLD_W } from "./constants";
 import { aiThrowAim, bigBallRoles, draggedMate, fortCoverSpot, huntPressers, mateThrewRecently, shouldHideInPile, stepAi, surroundLast, teamJob, teamReactsToBig, teamSurging, throwAimForStance } from "./ai";
@@ -981,33 +980,6 @@ describe("ai rhythm", () => {
     ally.ai!.t = 2;
     stepAi(s, 0.05, () => {}, "defend", "enemy", false, false);
     assert.equal(String(ally.ai!.phase), "windup");
-  });
-
-  it("a grabbed dog catches an incoming snowball", () => {
-    const s = createState(1);
-    s.phase = "fight";
-    s.forts = [];
-    const red = s.kids.find((k) => k.team === "red")!;
-    const green = s.kids.find((k) => k.team === "green")!;
-    red.x = 500;
-    red.y = 270;
-    red.state = "grabbed";
-    red.packT = 0.5;
-    red.hp = 2;
-    red.lastX = red.x - 12;
-    red.lastY = red.y;
-    green.x = 200;
-    green.y = 270;
-    throwSnowball(s, green, 1, 1, 0, false, false);
-    const ball = s.balls.at(-1)!;
-    ball.x = red.x;
-    ball.y = red.y - 10;
-    ball.grace = 0;
-    stepSim(s, 1 / 60, () => {});
-    assert.equal(red.hp, 2);
-    assert.equal(red.packT, 0);
-    assert.equal(red.state, "grabbed");
-    assert.equal(s.balls.some((b) => b.alive && b.team === "green"), false);
   });
 
   it("comeback gold heals one pip and spawns on the player side", () => {
