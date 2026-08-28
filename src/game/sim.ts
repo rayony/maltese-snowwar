@@ -534,7 +534,7 @@ function stepBalls(
   state: GameState,
   dt: number,
   onHit: (heavy: boolean) => void,
-  extra?: { onClash?: () => void; onFort?: () => void; onCatch?: () => void },
+  extra?: { onClash?: () => void; onFort?: () => void },
 ) {
   clashBalls(state, extra?.onClash);
   for (const ball of state.balls) {
@@ -579,43 +579,14 @@ function stepBalls(
       if (inFort(kid.x, kid.y, state.forts) && kid.state !== "grabbed") continue;
       const dx = kid.x - ball.x;
       const dy = kid.y - 10 - ball.y;
-      const catchR = playFeel().hit * 1.22 + ball.r;
-      if (dx * dx + dy * dy > catchR * catchR) continue;
-      if (tryGrabCatch(state, kid, ball)) {
-        extra?.onCatch?.();
-        break;
-      }
-      if (dx * dx + dy * dy > (playFeel().hit + ball.r) ** 2) continue;
+      const hitR = playFeel().hit + ball.r;
+      if (dx * dx + dy * dy > hitR * hitR) continue;
       ball.alive = false;
       hitKid(state, kid, ball, onHit);
       break;
     }
   }
   state.balls = state.balls.filter((b) => b.alive);
-}
-
-export function tryGrabCatch(state: GameState, kid: Kid, ball: Snowball) {
-  if (kid.state !== "grabbed" || isOut(kid) || kid.team === ball.team) return false;
-  const moving = kid.moving || Math.hypot(kid.x - kid.lastX, kid.y - kid.lastY) > 1.15;
-  if (!moving) return false;
-  burst(state, kid.x, kid.y, 0, 14, "spark");
-  burst(state, kid.x, kid.y, 0, 8, "gold");
-  kid.flash = 0.2;
-  kid.stun = 0;
-  if (ball.big) addOneBigShot(state, kid.team);
-  kid.packT = 0;
-  ball.alive = false;
-  return true;
-}
-
-function addOneBigShot(state: GameState, team: Team) {
-  const buff = state.buffs[team];
-  if (!buff) {
-    state.buffs[team] = { kind: "big", shots: 1, t: 6 };
-    return;
-  }
-  buff.shots = Math.min(BIG_SHOTS, buff.shots + 1);
-  buff.t = Math.max(buff.t, 4);
 }
 
 function hitKid(
@@ -701,10 +672,8 @@ export function stepOneBall(
     if (inFort(p.x, p.y, state.forts) && kid.state !== "grabbed") continue;
     const dx = p.x - ball.x;
     const dy = p.y - 10 - ball.y;
-    const catchR = playFeel().hit * 1.22 + ball.r;
-    if (dx * dx + dy * dy > catchR * catchR) continue;
-    if (tryGrabCatch(state, kid, ball)) break;
-    if (dx * dx + dy * dy > (playFeel().hit + ball.r) ** 2) continue;
+    const hitR = playFeel().hit + ball.r;
+    if (dx * dx + dy * dy > hitR * hitR) continue;
     ball.alive = false;
     const saved = { x: kid.x, y: kid.y };
     kid.x = p.x;
@@ -955,7 +924,7 @@ export function stepSim(
   state: GameState,
   dt: number,
   onHit: (heavy: boolean) => void,
-  extra?: { onClash?: () => void; onFort?: () => void; onCatch?: () => void },
+  extra?: { onClash?: () => void; onFort?: () => void },
 ) {
   state.time += dt;
   if (state.freeze > 0) {
