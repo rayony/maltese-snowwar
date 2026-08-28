@@ -23,7 +23,7 @@ import {
   tickHideFuel,
 } from "./sim";
 import { holdPower, MAX_CHARGE, BIG_CHARGE, BIG_SPEED, pickupRadius, throwSpeed, WORLD_W } from "./constants";
-import { aiThrowAim, bigBallRoles, fortCoverSpot, mateThrewRecently, shouldHideInPile, stepAi, surroundLast, teamJob, teamReactsToBig, teamSurging, throwAimForStance } from "./ai";
+import { aiThrowAim, bigBallRoles, draggedMate, fortCoverSpot, mateThrewRecently, shouldHideInPile, stepAi, surroundLast, teamJob, teamReactsToBig, teamSurging, throwAimForStance } from "./ai";
 import type { Kid } from "./types";
 
 function kid(partial: Partial<Kid> & Pick<Kid, "id" | "team" | "x" | "y">): Kid {
@@ -950,5 +950,30 @@ describe("ai rhythm", () => {
     assert.ok(Math.max(...xs) > WORLD_W * 0.48);
     const ys = greens.map((g) => g.ai!.destY);
     assert.ok(Math.max(...ys) - Math.min(...ys) > 40);
+  });
+
+  it("defend AI volleys with a dragged teammate even if the shot may miss", () => {
+    const s = createState(1);
+    s.phase = "fight";
+    const reds = s.kids.filter((k) => k.team === "red");
+    const drag = reds[0]!;
+    const ally = reds[1]!;
+    drag.state = "grabbed";
+    drag.x = 700;
+    drag.y = 200;
+    ally.x = 760;
+    ally.y = 360;
+    ally.packT = 0;
+    ally.cooldown = 0;
+    ally.stun = 0;
+    ally.state = "idle";
+    assert.ok(draggedMate(s, ally));
+    const aim = throwAimForStance(ally, s, "defend", false);
+    assert.ok(aim && aim.dx < 0);
+    stepAi(s, 0, () => {}, "defend", "enemy", false, false);
+    ally.ai!.phase = "move";
+    ally.ai!.t = 2;
+    stepAi(s, 0.05, () => {}, "defend", "enemy", false, false);
+    assert.equal(String(ally.ai!.phase), "windup");
   });
 });
