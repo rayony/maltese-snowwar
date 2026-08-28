@@ -96,12 +96,25 @@ describe("aimFromKid", () => {
     assert.ok(dx > 0, "nearest is to the right");
   });
 
-  it("allows a pure vertical throw when the foe is directly above", () => {
-    const me = kid({ id: 1, team: "red", x: 400, y: 300 });
-    const foe = kid({ id: 2, team: "green", x: 400, y: 80 });
-    const { dx, dy } = aimFromKid(me, [me, foe]);
-    assert.equal(dx, 0);
-    assert.ok(dy < 0);
+  it("skips a nearer foe behind a fort and aims at a clear shot", () => {
+    const me = kid({ id: 1, team: "red", x: 700, y: 168 });
+    const blocked = kid({ id: 2, team: "green", x: 250, y: 168 });
+    const open = kid({ id: 3, team: "green", x: 700, y: 400 });
+    const forts = [{ x: 390, y: 168, rx: 92, ry: 40, hitFlash: 0, hp: 0, maxHp: 0 }];
+    const aim = aimFromKid(me, [me, blocked, open], 0, 0, false, false, forts);
+    assert.equal(aim.ok, true);
+    assert.ok(aim.dy > 0, "should aim at the open foe below, not through the fort");
+  });
+
+  it("returns no aim when every foe is in cover or behind a fort", () => {
+    const me = kid({ id: 1, team: "red", x: 700, y: 168 });
+    const inPile = kid({ id: 2, team: "green", x: 390, y: 168 });
+    const behind = kid({ id: 3, team: "green", x: 250, y: 168 });
+    const forts = [{ x: 390, y: 168, rx: 92, ry: 40, hitFlash: 0, hp: 0, maxHp: 0 }];
+    const aim = aimFromKid(me, [me, inPile, behind], 0, 0, false, false, forts);
+    assert.equal(aim.ok, false);
+    assert.equal(aim.dx, 0);
+    assert.equal(aim.dy, 0);
   });
 });
 

@@ -175,6 +175,48 @@ export function inFort(x: number, y: number, forts: Fort[]) {
   return null;
 }
 
+/** True if the segment crosses a fort other than `ignore` (the shooter's own pile). */
+export function lineHitsFort(
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  forts: Fort[],
+  ignore: Fort | null = null,
+) {
+  const dist = Math.hypot(x1 - x0, y1 - y0);
+  if (dist < 8) return false;
+  const steps = Math.max(6, Math.ceil(dist / 18));
+  for (let i = 1; i < steps; i++) {
+    const t = i / steps;
+    const wall = inFort(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, forts);
+    if (wall && wall !== ignore) return true;
+  }
+  return false;
+}
+
+export function foeHittable(from: Kid, foe: Kid, forts: Fort[]): boolean {
+  if (foe.team === from.team || isOut(foe)) return false;
+  if (inFort(foe.x, foe.y, forts)) return false;
+  const home = inFort(from.x, from.y, forts);
+  return !lineHitsFort(from.x, from.y, foe.x, foe.y, forts, home);
+}
+
+export function closestHittableEnemy(kid: Kid, kids: Kid[], forts: Fort[]): Kid | null {
+  const other: Team = kid.team === "red" ? "green" : "red";
+  let best: Kid | null = null;
+  let bestD = Infinity;
+  for (const k of kids) {
+    if (k.team !== other || !foeHittable(kid, k, forts)) continue;
+    const d = (k.x - kid.x) ** 2 + (k.y - kid.y) ** 2;
+    if (d < bestD) {
+      bestD = d;
+      best = k;
+    }
+  }
+  return best;
+}
+
 export function living(kids: Kid[], team?: Team) {
   return kids.filter((k) => !isOut(k) && (team ? k.team === team : true));
 }
@@ -796,11 +838,29 @@ export function faceNearest(state: GameState, team?: Team) {
   }
 }
 
-export function aimFromKid(kid: Kid, kids: Kid[], _extraX = 0, _extraY = 0, scatter = false, _allowBack = false) {
+export function aimFromKid(
+  kid: Kid,
+  kids: Kid[],
+  _extraX = 0,
+  _extraY = 0,
+  scatter = false,
+  _allowBack = false,
+  forts?: Fort[],
+): { dx: number; dy: number; ok: boolean } {
+  const useCover = !!(forts && forts.length);
   const foes = kids.filter((k) => k.team !== kid.team && !isOut(k));
-  const target = scatter && foes.length ? foes[(Math.random() * foes.length) | 0]! : closestEnemy(kid, kids);
-  if (!target) {
-    return { dx: kid.team === "red" ? -1 : 1, dy: 0 };
+  let target: Kid | null = null;
+  if (scatter && foes.length) {
+    const pool = useCover ? foes.filter((k) => foeHittable(kid, k, forts!)) : foes;
+    if (pool.length) target = pool[(Math.random() * pool.length) | 0]!;
+  } else if (useCover) {
+    target = closestHittableEnemy(kid, kids, forts!);
+  } else {
+    target = closestEnemy(kid, kids);
   }
-  return { dx: target.x - kid.x, dy: target.y - kid.y };
+  if (!target) {
+    if (useCover) return { dx: 0, dy: 0, ok: false };
+    return { dx: kid.team === "red" ? -1 : 1, dy: 0, ok: false };
+  }
+  return { dx: target.x - kid.x, dy: target.y - kid.y, ok: true };
 }

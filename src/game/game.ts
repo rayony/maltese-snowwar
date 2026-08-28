@@ -1143,7 +1143,11 @@ export class SnowCraftGame {
         : Math.max(0, (performance.now() - grab.startedAt) / 1000 - grab.packLeft);
     const aimVx = msg.vx ?? grab.vx;
     const aimVy = msg.vy ?? grab.vy;
-    const { dx, dy } = aimFromKid(kid, this.state.kids, aimVx, aimVy, false, this.state.godSpeed && kid.team === "red");
+    const { dx, dy, ok } = aimFromKid(kid, this.state.kids, aimVx, aimVy, false, this.state.godSpeed && kid.team === "red", this.state.forts);
+    if (!ok) {
+      kid.state = "idle";
+      return;
+    }
     const fireAt =
       typeof msg.at === "number" ? this.peerToHostTime(msg.at) : performance.now();
     this.commitOrCatchUp(kid, seconds, dx, dy, fireAt);
@@ -1423,8 +1427,8 @@ export class SnowCraftGame {
     if (this.state.godSpeed && kid.team === "red") {
       const extraX = kid.x - this.grab.originX + this.grab.vx;
       const extraY = kid.y - this.grab.originY + this.grab.vy;
-      const { dx, dy } = aimFromKid(kid, this.state.kids, extraX, extraY, false, true);
-      kid.facing = Math.abs(dx) < Math.max(8, Math.abs(dy) * 0.35) ? kid.facing : dx < 0 ? -1 : 1;
+      const { dx, dy, ok } = aimFromKid(kid, this.state.kids, extraX, extraY, false, true, this.state.forts);
+      if (ok) kid.facing = Math.abs(dx) < Math.max(8, Math.abs(dy) * 0.35) ? kid.facing : dx < 0 ? -1 : 1;
     }
     if (this.netRole === "guest") {
       const t = performance.now();
@@ -1528,14 +1532,19 @@ export class SnowCraftGame {
       return;
     }
     const seconds = Math.max(0, (performance.now() - grab.startedAt) / 1000 - grab.packLeft);
-    const { dx, dy } = aimFromKid(
+    const { dx, dy, ok } = aimFromKid(
       kid,
       this.state.kids,
       kid.x - grab.originX + grab.vx,
       kid.y - grab.originY + grab.vy,
       false,
       this.state.godSpeed && kid.team === "red",
+      this.state.forts,
     );
+    if (!ok) {
+      kid.state = "idle";
+      return;
+    }
     const delay = this.netRole === "host" ? this.hostDelayMs() : 0;
     if (delay > 0) {
       this.commitThrow(kid, seconds, dx, dy, true, true);
