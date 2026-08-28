@@ -51,6 +51,19 @@ function arenaHunger(state: GameState) {
   return 0;
 }
 
+/** Easy: 1 dog may fire at a dragged foe. Hard / PvP: 2. */
+export function grabShooters(state: GameState, team: Kid["team"], hard: boolean) {
+  const prey = living(state.kids).find((k) => k.team !== team && k.state === "grabbed") ?? null;
+  if (!prey) return null;
+  const n = hard || state.pvp ? 2 : 1;
+  const mates = livingMates(state, team).sort((a, b) => {
+    const da = Math.hypot(a.x - prey.x, a.y - prey.y);
+    const db = Math.hypot(b.x - prey.x, b.y - prey.y);
+    return da - db || a.id - b.id;
+  });
+  return new Set(mates.slice(0, n).map((k) => k.id));
+}
+
 function foeHasBigBuff(state: GameState, team: Team): boolean {
   const buff = state.buffs[foeTeam(team)];
   return !!(buff && buff.shots > 0 && buff.t > 0);
@@ -156,6 +169,8 @@ export function stepAi(
     const charging = kid.ai.phase === "windup" && !lastStand;
     const prey = living(state.kids).find((k) => k.team !== kid.team && k.state === "grabbed") ?? null;
     const mate = draggedMate(state, kid);
+    const punishers = grabShooters(state, kid.team, hard);
+    const mayPunish = !punishers || punishers.has(kid.id);
     if (incoming && kid.stun <= 0 && kid.ai.phase !== "dodge" && (charging || !intercepting)) {
       const dist = charging ? 72 : longDodge ? 118 : stance === "defend" ? 88 : 64;
       const step = dodgeDest(state, kid, incoming, dist, mayCross);
@@ -200,7 +215,8 @@ export function stepAi(
       kid.ai.phase !== "dodge" &&
       kid.ai.phase !== "windup" &&
       !inFort(kid.x, kid.y, state.forts) &&
-      arenaCanThrow(state)
+      arenaCanThrow(state) &&
+      mayPunish
     ) {
       const aim = throwAimForStance(kid, state, stance, hard);
       if (aim) {
@@ -463,6 +479,7 @@ export function stepAi(
       }
       if (holding) throwChance = 0;
       else if (!intercepting && !arenaCanThrow(state)) throwChance = 0;
+      else if (!intercepting && !mayPunish) throwChance = 0;
       else {
         const hunger = arenaHunger(state);
         if (hunger) throwChance = Math.max(throwChance, hunger);

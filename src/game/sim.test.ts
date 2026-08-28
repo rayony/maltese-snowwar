@@ -17,14 +17,15 @@ import {
   foeHittable,
   isOut,
   living,
+  maybeArmComeback,
   playerComeback,
   stepPickups,
   stepSim,
   throwSnowball,
   tickHideFuel,
 } from "./sim";
-import { holdPower, MAX_CHARGE, BIG_CHARGE, BIG_SPEED, pickupRadius, throwSpeed, WORLD_W } from "./constants";
-import { aiThrowAim, arenaBalls, arenaCanThrow, bigBallRoles, draggedMate, fortCoverSpot, huntPressers, mateThrewRecently, shouldHideInPile, stepAi, surroundLast, teamJob, teamReactsToBig, teamSurging, throwAimForStance } from "./ai";
+import { holdPower, MAX_CHARGE, BIG_CHARGE, BIG_SPEED, pickupRadius, SWEET_SPEED, sweetCharge, throwSpeed, WORLD_W } from "./constants";
+import { aiThrowAim, arenaBalls, arenaCanThrow, bigBallRoles, draggedMate, fortCoverSpot, grabShooters, huntPressers, mateThrewRecently, shouldHideInPile, stepAi, surroundLast, teamJob, teamReactsToBig, teamSurging, throwAimForStance } from "./ai";
 import type { Kid } from "./types";
 
 function kid(partial: Partial<Kid> & Pick<Kid, "id" | "team" | "x" | "y">): Kid {
@@ -233,6 +234,29 @@ describe("createState", () => {
   });
 });
 
+describe("sweet charge", () => {
+  it("last 0.3s of a full hold is sweet and slightly faster", () => {
+    assert.equal(sweetCharge(0.8), false);
+    assert.equal(sweetCharge(0.9), true);
+    assert.equal(sweetCharge(1.2), true);
+    const s = createState(1);
+    s.phase = "fight";
+    s.forts = [];
+    const red = s.kids.find((k) => k.team === "red")!;
+    red.packT = 0;
+    red.state = "idle";
+    throwSnowball(s, red, 0.5, -1, 0, false, true);
+    const normal = s.balls.at(-1)!;
+    red.packT = 0;
+    red.state = "idle";
+    throwSnowball(s, red, 1.2, -1, 0, false, true);
+    const sweet = s.balls.at(-1)!;
+    assert.equal(sweet.sweet, true);
+    assert.equal(!!normal.sweet, false);
+    assert.ok(Math.hypot(sweet.vx, sweet.vy) > Math.hypot(normal.vx, normal.vy));
+  });
+});
+
 describe("big snowball pickup", () => {
   it("grants a team buff when a dog touches the orb", () => {
     const s = createState(1, true);
@@ -333,7 +357,7 @@ describe("big snowball pickup", () => {
     red.state = "idle";
     throwSnowball(s, red, MAX_CHARGE * BIG_CHARGE, -1, 0, false, true, true);
     const ball = s.balls.find((b) => b.big)!;
-    const full = throwSpeed(1);
+    const full = throwSpeed(1) * SWEET_SPEED;
     assert.ok(Math.abs(Math.hypot(ball.vx, ball.vy) - full * BIG_SPEED) < 1e-6);
   });
 
@@ -926,12 +950,18 @@ describe("ai rhythm", () => {
     g.ai!.phase = "move";
     g.ai!.t = 2;
     stepAi(s, 0.05, () => {}, "off", "enemy", false, false);
-    assert.equal(String(g.ai!.phase), "windup");
+    const allowed = grabShooters(s, "green", false);
+    assert.equal(allowed?.size, 1);
     let throws = 0;
+    const who = new Set<number>();
     for (let i = 0; i < 40; i++) {
-      stepAi(s, 1 / 60, () => { throws += 1; }, "off", "enemy", false, false);
+      stepAi(s, 1 / 60, (_p, kid) => {
+        throws += 1;
+        who.add(kid.id);
+      }, "off", "enemy", false, false);
     }
     assert.ok(throws > 0);
+    assert.ok(who.size <= 1);
   });
 
   it("easy retrievers fan out past midfield to hunt the last maltese", () => {
@@ -992,12 +1022,23 @@ describe("ai rhythm", () => {
     reds[2]!.state = "buried";
     reds[0]!.hp = 1;
     assert.equal(playerComeback(s), true);
+    s.pickupCd = 0.4;
+    maybeArmComeback(s);
+    assert.ok(s.pickupCd >= 6.5);
     s.pickup = { x: 480, y: 270, kind: "big", life: 10, maxLife: 10 };
     assert.equal(claimPickup(s, "red"), true);
     assert.equal(reds[0]!.hp, 2);
     s.pickupCd = 0;
     stepPickups(s, 0.05, true);
     assert.ok(s.pickup && s.pickup.x > 540);
+  });
+
+  it("comeback gold does not trigger while two maltese remain", () => {
+    const s = createState(1, false);
+    const reds = s.kids.filter((k) => k.team === "red");
+    reds[2]!.hp = 0;
+    reds[2]!.state = "buried";
+    assert.equal(playerComeback(s), false);
   });
 
   it("AI does not throw a sixth ball when five are already flying", () => {
