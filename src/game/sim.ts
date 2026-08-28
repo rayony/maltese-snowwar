@@ -47,6 +47,9 @@ function makeBrain(x: number, y: number) {
     charge: 0,
     coverT: 0,
     awayT: 0,
+    campX: x,
+    campY: y,
+    campT: 0,
   };
 }
 
@@ -55,6 +58,9 @@ export function ensureAi(kid: Kid) {
   else {
     kid.ai.coverT ??= 0;
     kid.ai.awayT ??= 0;
+    kid.ai.campX ??= kid.x;
+    kid.ai.campY ??= kid.y;
+    kid.ai.campT ??= 0;
   }
   return kid;
 }
@@ -231,12 +237,12 @@ export function hideStayTime(state: GameState, kid: Kid) {
   const mates = living(state.kids, kid.team).length;
   const foes = living(state.kids, kid.team === "red" ? "green" : "red").length;
   if (mates > 1 && foes <= 1) return 0;
-  if (mates <= 1) return 3;
-  return 5;
+  if (mates <= 1) return 1;
+  return 3;
 }
 
-export function hideRechargeTime(state: GameState, kid: Kid) {
-  return living(state.kids, kid.team).length <= 1 ? 3 : 5;
+export function hideRechargeTime(_state: GameState, _kid: Kid) {
+  return 3;
 }
 
 export function canEnterFort(kid: Kid) {

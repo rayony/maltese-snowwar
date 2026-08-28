@@ -103,6 +103,7 @@ export function stepAi(
     const longDodge = (hard && stance === "enemy") || (stance === "attack" && kid.team === "green") || lastStand;
 
     const forbidFort = tickFortRoam(state, kid, dt, stance, lastStand, hunting);
+    tickCamp(state, kid, dt, stance, hard);
 
     const incoming = incomingBall(state, kid, lastStand ? 240 : longDodge ? 210 : stance === "defend" ? 150 : 95, hard && stance === "enemy" || lastStand);
     const teamRoles = kid.team === "red" ? roles.red : roles.green;
@@ -355,10 +356,10 @@ export function stepAi(
   }
 }
 
-function hideMax(stance: "defend" | "attack" | "enemy", lastStand = false, hunting = false) {
+function hideMax(_stance: "defend" | "attack" | "enemy", lastStand = false, hunting = false) {
   if (hunting) return 0;
-  if (lastStand) return 3;
-  return 5;
+  if (lastStand) return 1;
+  return 3;
 }
 
 function tickFortRoam(
@@ -384,6 +385,34 @@ function tickFortRoam(
     return true;
   }
   return false;
+}
+
+function tickCamp(state: GameState, kid: Kid, dt: number, stance: "defend" | "attack" | "enemy", hard: boolean) {
+  if (!kid.ai || kid.state === "grabbed") return;
+  if (inFort(kid.x, kid.y, state.forts)) {
+    kid.ai.campT = 0;
+    kid.ai.campX = kid.x;
+    kid.ai.campY = kid.y;
+    return;
+  }
+  const d = Math.hypot(kid.x - (kid.ai.campX ?? kid.x), kid.y - (kid.ai.campY ?? kid.y));
+  if (d > 48) {
+    kid.ai.campX = kid.x;
+    kid.ai.campY = kid.y;
+    kid.ai.campT = 0;
+    return;
+  }
+  kid.ai.campT = (kid.ai.campT ?? 0) + dt;
+  if (kid.ai.campT < 3) return;
+  kid.ai.campT = 0;
+  kid.ai.campX = kid.x;
+  kid.ai.campY = kid.y;
+  const ang = rand(0, Math.PI * 2);
+  kid.ai.phase = "move";
+  kid.ai.t = 0.65;
+  kid.ai.destX = clampSide(kid.x + Math.cos(ang) * rand(110, 160), kid.team, hard && stance === "enemy");
+  kid.ai.destY = clamp(kid.y + Math.sin(ang) * rand(90, 140), MARGIN, WORLD_H - MARGIN);
+  bumpDestOutOfFort(state, kid);
 }
 
 function pickAwayFromFort(state: GameState, kid: Kid) {

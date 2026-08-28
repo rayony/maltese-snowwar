@@ -14,6 +14,9 @@ export interface AiBrain {
   charge: number;
   coverT: number;
   awayT: number;
+  campX?: number;
+  campY?: number;
+  campT?: number;
 }
 
 export interface Kid {
