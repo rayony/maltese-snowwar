@@ -34,6 +34,23 @@ export function mateThrewRecently(state: GameState, kid: Kid, window = 0.4) {
   );
 }
 
+export const ARENA_BALL_MAX = 5;
+
+export function arenaBalls(state: GameState) {
+  return state.balls.filter((b) => b.alive && !b.ghost).length;
+}
+
+export function arenaCanThrow(state: GameState, intercepting = false) {
+  return intercepting || arenaBalls(state) < ARENA_BALL_MAX;
+}
+
+function arenaHunger(state: GameState) {
+  const n = arenaBalls(state);
+  if (n <= 0) return 0.92;
+  if (n <= 1) return 0.7;
+  return 0;
+}
+
 function foeHasBigBuff(state: GameState, team: Team): boolean {
   const buff = state.buffs[foeTeam(team)];
   return !!(buff && buff.shots > 0 && buff.t > 0);
@@ -182,7 +199,8 @@ export function stepAi(
       kid.cooldown <= 0 &&
       kid.ai.phase !== "dodge" &&
       kid.ai.phase !== "windup" &&
-      !inFort(kid.x, kid.y, state.forts)
+      !inFort(kid.x, kid.y, state.forts) &&
+      arenaCanThrow(state)
     ) {
       const aim = throwAimForStance(kid, state, stance, hard);
       if (aim) {
@@ -203,7 +221,8 @@ export function stepAi(
       kid.packT <= 0 &&
       kid.cooldown <= 0 &&
       kid.ai.phase !== "dodge" &&
-      kid.ai.phase !== "windup"
+      kid.ai.phase !== "windup" &&
+      arenaCanThrow(state)
     ) {
       if (inFort(kid.x, kid.y, state.forts)) {
         const fort = inFort(kid.x, kid.y, state.forts)!;
@@ -347,6 +366,12 @@ export function stepAi(
         continue;
       }
       if (kid.ai.t <= 0 || flyingBig) {
+        if (!arenaCanThrow(state, intercepting)) {
+          kid.ai.phase = "idle";
+          kid.ai.t = rand(0.2, 0.4);
+          kid.ai.charge = 0;
+          continue;
+        }
         if (inFort(kid.x, kid.y, state.forts)) {
           const fort = inFort(kid.x, kid.y, state.forts)!;
           kid.ai.phase = "move";
@@ -420,7 +445,7 @@ export function stepAi(
       } else if (hunting) {
         const foe = closestHittableEnemy(kid, state.kids, state.forts);
         throwChance = foe ? 0.88 : 0.2;
-      } else if (panic) {
+      } else if (panic && arenaBalls(state) > 1) {
         throwChance = 0;
       } else if (stance === "defend") {
         throwChance = draggedMate(state, kid) ? 0.84 : nearFortRim(kid, state) ? 0.78 : 0.42;
@@ -437,7 +462,14 @@ export function stepAi(
         throwChance = !foe ? 0 : foeIsOpen(foe) ? 0.9 : 0.48;
       }
       if (holding) throwChance = 0;
-      else if (!hunting && !intercepting && !draggedMate(state, kid) && mateThrewRecently(state, kid)) throwChance = Math.min(throwChance, 0.1);
+      else if (!intercepting && !arenaCanThrow(state)) throwChance = 0;
+      else {
+        const hunger = arenaHunger(state);
+        if (hunger) throwChance = Math.max(throwChance, hunger);
+      }
+      if (!hunting && !intercepting && arenaBalls(state) > 1 && !draggedMate(state, kid) && mateThrewRecently(state, kid)) {
+        throwChance = Math.min(throwChance, 0.1);
+      }
       if (Math.random() < throwChance && !(forbidFort && cover)) {
         kid.ai.phase = "windup";
         kid.ai.t = rand(0.2, stance === "attack" ? 0.48 : 0.7);
