@@ -6,10 +6,11 @@ import {
   BIG_SPEED,
   COMEBACK_WAIT,
   enemyCountForLevel,
-  holdPower,
   HP,
   INTRO_TIME,
   MARGIN,
+  MAX_RANGE,
+  MAX_THROW_SPEED,
   PACK_TIME,
   PICKUP_CD_MAX,
   PICKUP_CD_MIN,
@@ -20,10 +21,8 @@ import {
   PVP_RANGE,
   PVP_SPEED,
   playFeel,
-  sweetCharge,
+  counterSweet,
   THROW_COOLDOWN,
-  throwRange,
-  throwSpeed,
   WORLD_H,
   WORLD_W,
 } from "./constants";
@@ -92,6 +91,7 @@ function makeKid(state: GameState, team: Team, x: number, y: number): Kid {
     moving: false,
     hideFuel: 1,
     hideSession: false,
+    lastThrowAt: -99,
     ai: makeBrain(x, y),
   };
 }
@@ -333,10 +333,17 @@ export function closestEnemy(kid: Kid, kids: Kid[]) {
   return best;
 }
 
+export function sweetReady(state: GameState, kid: Kid) {
+  const foe = closestHittableEnemy(kid, state.kids, state.forts);
+  if (!foe) return false;
+  const at = foe.lastThrowAt ?? foe.ai?.lastThrowAt ?? -99;
+  return counterSweet(state.time - at, state.pvp);
+}
+
 export function throwSnowball(
   state: GameState,
   kid: Kid,
-  charge: number,
+  _charge: number,
   dirX: number,
   dirY: number,
   local = false,
@@ -347,7 +354,6 @@ export function throwSnowball(
   if (inFort(kid.x, kid.y, state.forts)) return 0;
   const star = state.godSpeed && kid.team === "red";
   const wantBig = user && !!state.buffs[kid.team] && state.buffs[kid.team]!.shots > 0 && state.buffs[kid.team]!.t > 0;
-  const power = state.pvp ? 1 : holdPower(charge, star, wantBig);
   let len = Math.hypot(dirX, dirY);
   if (len < 0.001) {
     dirX = kid.team === "red" ? -1 : 1;
@@ -356,12 +362,12 @@ export function throwSnowball(
   }
   const nx = dirX / len;
   const ny = dirY / len;
-  const sweet = user && sweetCharge(charge, star, wantBig);
-  let speed = state.pvp ? PVP_SPEED : throwSpeed(power) * (state.hard ? 2 : 1);
-  if (star) speed *= 3;
-  const range = state.pvp ? PVP_RANGE : throwRange(power);
-  const cover = inFort(kid.x, kid.y, state.forts);
   const big = user && takeBigBuff(state, kid.team, consume);
+  const sweet = user && !big && sweetReady(state, kid);
+  let speed = state.pvp ? PVP_SPEED : MAX_THROW_SPEED * (state.hard ? 2 : 1);
+  if (star) speed *= 3;
+  const range = state.pvp ? PVP_RANGE : MAX_RANGE;
+  const cover = inFort(kid.x, kid.y, state.forts);
   const ball: Snowball = {
     x: kid.x + nx * 30,
     y: kid.y + ny * 10 - 6,
@@ -387,10 +393,12 @@ export function throwSnowball(
   kid.cooldown = THROW_COOLDOWN;
   kid.packT = state.godSpeed && kid.team === "red" ? STAR_PACK_TIME : PACK_TIME;
   kid.facing = faceFromDir(nx, ny, kid.facing);
+  kid.lastThrowAt = state.time;
+  if (kid.ai) kid.ai.lastThrowAt = state.time;
   clearFidget(kid);
   burst(state, kid.x + nx * 22, kid.y, nx * 40, big ? 16 : 8, "puff");
   if (big) burst(state, kid.x + nx * 22, kid.y, nx * 20, 10, "spark");
-  return power;
+  return 1;
 }
 
 export function burst(
@@ -513,6 +521,9 @@ function clashBalls(state: GameState, onClash?: () => void) {
       if (dx * dx + dy * dy > rr * rr) continue;
       const mx = (a.x + b.x) / 2;
       const my = (a.y + b.y) / 2;
+      const aSweet = !!a.sweet && !a.big;
+      const bSweet = !!b.sweet && !b.big;
+      if (aSweet && bSweet) continue;
       burst(state, mx, my, 0, 18, "spark");
       burst(state, mx, my, 0, 10, "puff");
       state.trauma = Math.min(1, state.trauma + 0.18);
@@ -528,6 +539,14 @@ function clashBalls(state: GameState, onClash?: () => void) {
           shrinkBigBall(b);
           a.alive = false;
         }
+        continue;
+      }
+      if (aSweet) {
+        b.alive = false;
+        continue;
+      }
+      if (bSweet) {
+        a.alive = false;
         continue;
       }
       a.alive = false;

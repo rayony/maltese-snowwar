@@ -23,8 +23,9 @@ import {
   stepSim,
   throwSnowball,
   tickHideFuel,
+  sweetReady,
 } from "./sim";
-import { holdPower, MAX_CHARGE, BIG_CHARGE, BIG_SPEED, pickupRadius, sweetCharge, throwSpeed, WORLD_W } from "./constants";
+import { BIG_SPEED, MAX_RANGE, MAX_THROW_SPEED, pickupRadius, SWEET_WINDOW, WORLD_W } from "./constants";
 import { aiThrowAim, arenaBalls, arenaCanThrow, bigBallRoles, draggedMate, fortCoverSpot, grabShooters, huntPressers, mateThrewRecently, shouldHideInPile, stepAi, surroundLast, teamJob, teamReactsToBig, teamSurging, throwAimForStance } from "./ai";
 import type { Kid } from "./types";
 
@@ -252,28 +253,141 @@ describe("createState", () => {
     const fast = Math.hypot(hard.balls.at(-1)!.vx, hard.balls.at(-1)!.vy);
     assert.ok(Math.abs(fast - slow * 2) < 1e-4);
   });
-});
 
-describe("sweet charge", () => {
-  it("last 0.3s of a full hold is sweet without changing speed", () => {
-    assert.equal(sweetCharge(0.8), false);
-    assert.equal(sweetCharge(0.9), true);
-    assert.equal(sweetCharge(1.2), true);
+  it("tap and long hold fly the same distance and speed", () => {
     const s = createState(1);
     s.phase = "fight";
     s.forts = [];
     const red = s.kids.find((k) => k.team === "red")!;
     red.packT = 0;
-    red.state = "idle";
-    throwSnowball(s, red, 0.5, -1, 0, false, true);
-    const normal = s.balls.at(-1)!;
+    throwSnowball(s, red, 0.05, -1, 0, false, true);
+    const tap = s.balls.at(-1)!;
     red.packT = 0;
     red.state = "idle";
     throwSnowball(s, red, 1.2, -1, 0, false, true);
-    const sweet = s.balls.at(-1)!;
-    assert.equal(sweet.sweet, true);
-    assert.equal(!!normal.sweet, false);
-    assert.ok(Math.abs(Math.hypot(sweet.vx, sweet.vy) - throwSpeed(holdPower(1.2))) < 1e-6);
+    const hold = s.balls.at(-1)!;
+    assert.equal(tap.range, MAX_RANGE);
+    assert.equal(hold.range, MAX_RANGE);
+    assert.ok(Math.abs(Math.hypot(tap.vx, tap.vy) - MAX_THROW_SPEED) < 1e-6);
+    assert.ok(Math.abs(Math.hypot(hold.vx, hold.vy) - Math.hypot(tap.vx, tap.vy)) < 1e-6);
+  });
+});
+
+describe("counter sweet", () => {
+  it("is sweet only if the aimed foe just threw", () => {
+    const s = createState(1);
+    s.phase = "fight";
+    s.forts = [];
+    s.time = 2;
+    const red = s.kids.find((k) => k.team === "red")!;
+    const green = s.kids.find((k) => k.team === "green")!;
+    red.x = 700;
+    red.y = 200;
+    red.packT = 0;
+    green.x = 200;
+    green.y = 200;
+    green.lastThrowAt = 2 - 0.2;
+    assert.equal(sweetReady(s, red), true);
+    throwSnowball(s, red, 0, -1, 0, false, true);
+    assert.equal(s.balls.at(-1)!.sweet, true);
+    assert.ok(Math.abs(Math.hypot(s.balls.at(-1)!.vx, s.balls.at(-1)!.vy) - MAX_THROW_SPEED) < 1e-6);
+  });
+
+  it("is not sweet if the aimed foe threw too long ago", () => {
+    const s = createState(1);
+    s.phase = "fight";
+    s.forts = [];
+    s.time = 2;
+    const red = s.kids.find((k) => k.team === "red")!;
+    const green = s.kids.find((k) => k.team === "green")!;
+    red.x = 700;
+    red.y = 200;
+    red.packT = 0;
+    green.x = 200;
+    green.y = 200;
+    green.lastThrowAt = 2 - SWEET_WINDOW - 0.2;
+    assert.equal(sweetReady(s, red), false);
+    throwSnowball(s, red, 0, -1, 0, false, true);
+    assert.equal(!!s.balls.at(-1)!.sweet, false);
+  });
+
+  it("a sweet ball eats a normal foe ball and keeps flying", () => {
+    const s = createState(1);
+    s.phase = "fight";
+    s.forts = [];
+    const red = s.kids.find((k) => k.team === "red")!;
+    const green = s.kids.find((k) => k.team === "green")!;
+    red.x = 400;
+    red.y = 80;
+    green.x = 400;
+    green.y = 460;
+    s.balls = [
+      {
+        x: 400, y: 200, vx: 0, vy: 0, team: "red", r: 12, fromId: red.id, grace: 0, spin: 0,
+        alive: true, range: 800, traveled: 40, sweet: true, big: false,
+      },
+      {
+        x: 400, y: 200, vx: 0, vy: 0, team: "green", r: 12, fromId: green.id, grace: 0, spin: 0,
+        alive: true, range: 800, traveled: 40, sweet: false, big: false,
+      },
+    ];
+    stepSim(s, 1 / 60, () => {});
+    const sweet = s.balls.find((b) => b.sweet);
+    const foe = s.balls.find((b) => b.fromId === green.id);
+    assert.ok(sweet?.alive);
+    assert.ok(!foe || !foe.alive);
+  });
+
+  it("sweet vs big acts like a normal ball", () => {
+    const s = createState(1);
+    s.phase = "fight";
+    s.forts = [];
+    const red = s.kids.find((k) => k.team === "red")!;
+    const green = s.kids.find((k) => k.team === "green")!;
+    red.x = 400;
+    red.y = 80;
+    green.x = 400;
+    green.y = 460;
+    s.balls = [
+      {
+        x: 400, y: 200, vx: 0, vy: 0, team: "red", r: 12, fromId: red.id, grace: 0, spin: 0,
+        alive: true, range: 800, traveled: 40, sweet: true, big: false,
+      },
+      {
+        x: 400, y: 200, vx: 0, vy: 0, team: "green", r: 36, fromId: green.id, grace: 0, spin: 0,
+        alive: true, range: 800, traveled: 40, sweet: false, big: true,
+      },
+    ];
+    stepSim(s, 1 / 60, () => {});
+    const sweet = s.balls.find((b) => b.fromId === red.id);
+    const big = s.balls.find((b) => b.fromId === green.id);
+    assert.ok(!sweet || !sweet.alive);
+    assert.ok(big?.alive);
+    assert.equal(big?.big, false);
+  });
+
+  it("two sweet balls pass through each other", () => {
+    const s = createState(1);
+    s.phase = "fight";
+    s.forts = [];
+    const red = s.kids.find((k) => k.team === "red")!;
+    const green = s.kids.find((k) => k.team === "green")!;
+    red.x = 400;
+    red.y = 80;
+    green.x = 400;
+    green.y = 460;
+    s.balls = [
+      {
+        x: 400, y: 200, vx: 0, vy: 0, team: "red", r: 12, fromId: red.id, grace: 0, spin: 0,
+        alive: true, range: 800, traveled: 40, sweet: true, big: false,
+      },
+      {
+        x: 400, y: 200, vx: 0, vy: 0, team: "green", r: 12, fromId: green.id, grace: 0, spin: 0,
+        alive: true, range: 800, traveled: 40, sweet: true, big: false,
+      },
+    ];
+    stepSim(s, 1 / 60, () => {});
+    assert.equal(s.balls.filter((b) => b.alive && b.sweet).length, 2);
   });
 });
 
@@ -364,10 +478,7 @@ describe("big snowball pickup", () => {
     assert.ok(s.lootPop);
   });
 
-  it("big ball flies at 0.8x and needs 1.2x hold for full range", () => {
-    assert.equal(holdPower(MAX_CHARGE), 1);
-    assert.ok(holdPower(MAX_CHARGE, false, true) < 1);
-    assert.equal(holdPower(MAX_CHARGE * BIG_CHARGE, false, true), 1);
+  it("big ball flies at 0.8x at full range", () => {
     const s = createState(1, false);
     s.phase = "fight";
     s.forts = [];
@@ -375,9 +486,10 @@ describe("big snowball pickup", () => {
     const red = s.kids.find((k) => k.team === "red")!;
     red.packT = 0;
     red.state = "idle";
-    throwSnowball(s, red, MAX_CHARGE * BIG_CHARGE, -1, 0, false, true, true);
+    throwSnowball(s, red, 0.1, -1, 0, false, true, true);
     const ball = s.balls.find((b) => b.big)!;
-    const full = throwSpeed(1);
+    const full = MAX_THROW_SPEED;
+    assert.equal(ball.range, MAX_RANGE);
     assert.ok(Math.abs(Math.hypot(ball.vx, ball.vy) - full * BIG_SPEED) < 1e-6);
   });
 

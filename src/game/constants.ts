@@ -26,7 +26,8 @@ export const PICKUP_LIFE = 10;
 export const PICKUP_CD_MIN = 8;
 export const PICKUP_CD_MAX = 12;
 export const COMEBACK_WAIT = 6.5;
-export const SWEET_WINDOW = 0.3;
+export const SWEET_WINDOW = 0.35;
+export const SWEET_WINDOW_PVP = 0.42;
 export const INTRO_TIME = 3;
 export const MARGIN = 34;
 export const SAVE_KEY = "snowcraft-v1";
@@ -52,17 +53,10 @@ export function chargeCap(star = false, big = false) {
   return (star ? STAR_CHARGE : MAX_CHARGE) * (big ? BIG_CHARGE : 1);
 }
 
-/** Last 0.3s of the charge (shorter on Star). Juice only — does not change speed. */
-export function sweetCharge(seconds: number, star = false, big = false) {
-  const cap = chargeCap(star, big);
-  const win = Math.min(SWEET_WINDOW, cap * 0.4);
-  return seconds >= cap - win;
-}
-
-export function sweetFrom(star = false, big = false) {
-  const cap = chargeCap(star, big);
-  const win = Math.min(SWEET_WINDOW, cap * 0.4);
-  return (cap - win) / cap;
+/** Counter-throw window after the aimed foe's last shot. */
+export function counterSweet(sinceFoeThrow: number, pvp = false) {
+  const win = pvp ? SWEET_WINDOW_PVP : SWEET_WINDOW;
+  return sinceFoeThrow >= 0 && sinceFoeThrow <= win;
 }
 
 export function enemyCountForLevel(level: number) {

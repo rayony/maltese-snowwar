@@ -44,6 +44,7 @@ export interface Kid {
   moving: boolean;
   hideFuel?: number;
   hideSession?: boolean;
+  lastThrowAt?: number;
   ai: AiBrain | null;
   viewX?: number;
   viewY?: number;

@@ -3,7 +3,7 @@ import { VersusLink } from "./versus-link";
 import { stepAi, type GreenControl } from "./ai";
 import { ASSET_TOTAL, loadCoreAssets, loadRestAssets, type Assets } from "./assets";
 import { GameAudio } from "./audio";
-import { FORT_HP, FIXED_DT, MARGIN, BALL_RADIUS, BIG_BALL_RADIUS, BIG_HELD_TIME, BIG_SHOTS, pickupRadius, playFeel, PVP_RANGE, SAVE_KEY, STAR_HP, sweetCharge, WORLD_H, WORLD_W, AI_WIN_LEVEL } from "./constants";
+import { FORT_HP, FIXED_DT, MARGIN, BALL_RADIUS, BIG_BALL_RADIUS, BIG_HELD_TIME, BIG_SHOTS, pickupRadius, playFeel, PVP_RANGE, SAVE_KEY, STAR_HP, WORLD_H, WORLD_W, AI_WIN_LEVEL } from "./constants";
 import {
   applyState,
   applyPose,
@@ -20,7 +20,7 @@ import {
   type PoseSample,
 } from "./net";
 import { render, worldFromClient, clampWorldToView } from "./render";
-import { aimFromKid, burst, claimPickup, clamp, createState, faceNearest, isOut, living, placePickup, puffMissingBalls, snapCombatFx, stepOneBall, stepPickups, stepPresentation, stepSim, throwSnowball } from "./sim";
+import { aimFromKid, burst, claimPickup, clamp, createState, faceNearest, isOut, living, placePickup, puffMissingBalls, snapCombatFx, stepOneBall, stepPickups, stepPresentation, stepSim, sweetReady, throwSnowball } from "./sim";
 import type {
   AllyMode,
   Difficulty,
@@ -1534,12 +1534,13 @@ export class SnowCraftGame {
     if (!this.grab || this.screen !== "playing") return;
     const kid = this.state.kids.find((k) => k.id === this.grab!.id);
     if (!kid || isOut(kid) || kid.packT > 0) return;
-    const seconds = Math.max(0, (performance.now() - this.grab.startedAt) / 1000 - this.grab.packLeft);
-    const star = this.state.godSpeed && kid.team === "red";
-    const big = !!(this.state.buffs[this.myTeam()] && this.state.buffs[this.myTeam()]!.shots > 0 && this.state.buffs[this.myTeam()]!.t > 0);
-    if (!this.sweetChimed && sweetCharge(seconds, star, big)) {
-      this.sweetChimed = true;
-      this.audio.sweetCue();
+    if (sweetReady(this.state, kid)) {
+      if (!this.sweetChimed) {
+        this.sweetChimed = true;
+        this.audio.sweetCue();
+      }
+    } else {
+      this.sweetChimed = false;
     }
   }
 
