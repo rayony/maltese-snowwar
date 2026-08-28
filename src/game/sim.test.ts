@@ -19,7 +19,7 @@ import {
   throwSnowball,
 } from "./sim";
 import { holdPower, MAX_CHARGE, BIG_CHARGE, BIG_SPEED, throwSpeed } from "./constants";
-import { aiThrowAim, bigBallRoles, shouldHideInPile, stepAi, teamReactsToBig } from "./ai";
+import { aiThrowAim, bigBallRoles, fortCoverSpot, shouldHideInPile, stepAi, teamReactsToBig } from "./ai";
 import type { Kid } from "./types";
 
 function kid(partial: Partial<Kid> & Pick<Kid, "id" | "team" | "x" | "y">): Kid {
@@ -440,8 +440,10 @@ describe("big-ball AI roles", () => {
     const ids = [...bigBallRoles(s, "green").intercept];
     const blockers = s.kids.filter((k) => ids.includes(k.id));
     assert.equal(blockers.length, 2);
+    const fromBlockers = (balls: typeof s.balls) =>
+      balls.filter((b) => b.team === "green" && ids.includes(b.fromId)).length;
     assert.ok(blockers.every((k) => (k.ai?.charge ?? 0) >= 0.85));
-    assert.equal(s.balls.filter((b) => b.team === "green").length, 0);
+    assert.equal(fromBlockers(s.balls), 0);
     s.balls.push({
       x: 400,
       y: blockers[0]!.y,
@@ -458,7 +460,7 @@ describe("big-ball AI roles", () => {
       big: true,
     });
     stepAi(s, 1 / 60, () => {}, "off", "enemy", false, true);
-    assert.ok(s.balls.filter((b) => b.team === "green").length >= 1);
+    assert.ok(fromBlockers(s.balls) >= 1);
   });
 });
 
@@ -552,5 +554,23 @@ describe("shouldHideInPile", () => {
     greens[1]!.y = 220;
     const near = shouldHideInPile(s, red, "attack", false);
     assert.ok(near);
+  });
+});
+describe("fortCoverSpot", () => {
+  const fort = { x: 390, y: 200, rx: 90, ry: 40, hitFlash: 0, hp: 0, maxHp: 0 };
+
+  it("peeks to the right when the threat is on the left", () => {
+    const p = fortCoverSpot(fort, { x: 120, y: 200 }, "peek");
+    assert.ok(p.x > fort.x + fort.rx);
+  });
+
+  it("peeks below when the threat is above", () => {
+    const p = fortCoverSpot(fort, { x: 390, y: 40 }, "peek");
+    assert.ok(p.y > fort.y + fort.ry * 0.5);
+  });
+
+  it("peeks above when the threat is below", () => {
+    const p = fortCoverSpot(fort, { x: 390, y: 400 }, "peek");
+    assert.ok(p.y < fort.y - fort.ry * 0.5);
   });
 });

@@ -119,14 +119,14 @@ export function stepAi(
       if (stance === "defend" && (kid.ai.awayT ?? 0) <= 0) {
         const fort = fortForKid(state, kid);
         if (fort) {
-          const hide = hideSpot(kid, fort);
+          const hide = hideSpot(kid, fort, state);
           kid.ai.destX = hide.x;
           kid.ai.destY = hide.y;
         }
       } else if (stance !== "defend") {
         const pile = shouldHideInPile(state, kid, stance, hard);
         if (pile) {
-          const hide = hideSpot(kid, pile);
+          const hide = hideSpot(kid, pile, state);
           kid.ai.destX = hide.x;
           kid.ai.destY = hide.y;
         }
@@ -136,7 +136,7 @@ export function stepAi(
     if (intercepting && inFort(kid.x, kid.y, state.forts)) {
       const fort = inFort(kid.x, kid.y, state.forts);
       if (fort && kid.ai.phase !== "move") {
-        const peek = peekSpot(kid, fort);
+        const peek = peekSpot(kid, fort, state);
         kid.ai.phase = "move";
         kid.ai.t = 0.45;
         kid.ai.destX = peek.x;
@@ -167,7 +167,7 @@ export function stepAi(
             const fort = inFort(kid.x, kid.y, state.forts)!;
             kid.ai.phase = "move";
             kid.ai.t = 0.4;
-            const next = peekSpot(kid, fort);
+            const next = peekSpot(kid, fort, state);
             kid.ai.destX = next.x;
             kid.ai.destY = next.y;
           }
@@ -175,7 +175,7 @@ export function stepAi(
           const fort = inFort(kid.x, kid.y, state.forts)!;
           kid.ai.phase = "move";
           kid.ai.t = 0.4;
-          const next = peekSpot(kid, fort);
+          const next = peekSpot(kid, fort, state);
           kid.ai.destX = next.x;
           kid.ai.destY = next.y;
         } else if (inFort(kid.x, kid.y, state.forts)) {
@@ -218,7 +218,7 @@ export function stepAi(
           const fort = inFort(kid.x, kid.y, state.forts)!;
           kid.ai.phase = "move";
           kid.ai.t = 0.4;
-          const next = stance === "defend" ? peekSpot(kid, fort) : awayFromFort(kid, fort);
+          const next = stance === "defend" ? peekSpot(kid, fort, state) : awayFromFort(kid, fort);
           kid.ai.destX = next.x;
           kid.ai.destY = next.y;
           kid.ai.charge = flyingBig ? kid.ai.charge : 0;
@@ -288,7 +288,7 @@ export function stepAi(
         kid.ai.t = rand(0.35, stance === "defend" ? 1.3 : 0.95);
         if (cover && forbidFort) {
           const fort = inFort(kid.x, kid.y, state.forts)!;
-          const next = peekSpot(kid, fort);
+          const next = peekSpot(kid, fort, state);
           kid.ai.destX = next.x;
           kid.ai.destY = next.y;
         } else if (cover && !forbidFort) {
@@ -296,7 +296,7 @@ export function stepAi(
           kid.ai.t = 0.22;
         } else if (panic) {
           const pile = shouldHideInPile(state, kid, stance, hard)!;
-          const hide = hideSpot(kid, pile);
+          const hide = hideSpot(kid, pile, state);
           kid.ai.destX = hide.x;
           kid.ai.destY = hide.y;
         } else if (forbidFort) pickAwayFromFort(state, kid);
@@ -321,7 +321,7 @@ function tickFortRoam(state: GameState, kid: Kid, dt: number, stance: "defend" |
     kid.ai.awayT = Math.max(0, kid.ai.awayT - dt);
     if (cover && kid.ai.phase !== "dodge") {
       const fort = inFort(kid.x, kid.y, state.forts)!;
-      const next = peekSpot(kid, fort);
+      const next = peekSpot(kid, fort, state);
       kid.ai.phase = "move";
       kid.ai.t = Math.max(kid.ai.t, 0.4);
       kid.ai.destX = next.x;
@@ -335,7 +335,7 @@ function tickFortRoam(state: GameState, kid: Kid, dt: number, stance: "defend" |
       kid.ai.coverT = 0;
       kid.ai.awayT = hideCooldown(stance);
       const fort = inFort(kid.x, kid.y, state.forts)!;
-      const next = peekSpot(kid, fort);
+      const next = peekSpot(kid, fort, state);
       kid.ai.phase = "move";
       kid.ai.t = 0.5;
       kid.ai.destX = next.x;
@@ -380,7 +380,7 @@ function pickDest(state: GameState, kid: Kid, stance: "defend" | "attack" | "ene
   }
   const panicFort = shouldHideInPile(state, kid, stance, cross);
   if (panicFort) {
-    const hide = hideSpot(kid, panicFort);
+    const hide = hideSpot(kid, panicFort, state);
     kid.ai!.destX = hide.x;
     kid.ai!.destY = hide.y;
     return;
@@ -395,7 +395,7 @@ function pickDest(state: GameState, kid: Kid, stance: "defend" | "attack" | "ene
   if (stance === "defend") {
     const fort = fortForKid(state, kid);
     if (fort) {
-      const peek = peekSpot(kid, fort);
+      const peek = peekSpot(kid, fort, state);
       kid.ai!.destX = peek.x;
       kid.ai!.destY = peek.y;
       return;
@@ -556,19 +556,45 @@ export function shouldHideInPile(
   return null;
 }
 
-function hideSpot(kid: Kid, fort: Fort): { x: number; y: number } {
-  const side = kid.team === "red" ? 1 : -1;
-  return {
-    x: fort.x + side * Math.min(22, fort.rx * 0.22),
-    y: clamp(fort.y + rand(-10, 10), MARGIN, WORLD_H - MARGIN),
-  };
+function hideSpot(kid: Kid, fort: Fort, state: GameState): { x: number; y: number } {
+  return fortCoverSpot(fort, threatCentroid(state, kid), "hide");
 }
 
-function peekSpot(kid: Kid, fort: Fort): { x: number; y: number } {
-  const side = kid.team === "red" ? 1 : -1;
+function peekSpot(kid: Kid, fort: Fort, state: GameState): { x: number; y: number } {
+  return fortCoverSpot(fort, threatCentroid(state, kid), "peek");
+}
+
+function threatCentroid(state: GameState, kid: Kid): { x: number; y: number } {
+  const foes = living(state.kids).filter((k) => k.team !== kid.team);
+  if (!foes.length) return { x: kid.team === "red" ? 0 : WORLD_W, y: kid.y };
+  let sx = 0;
+  let sy = 0;
+  let w = 0;
+  for (const f of foes) {
+    const wt = 1 / Math.max(40, Math.hypot(f.x - kid.x, f.y - kid.y));
+    sx += f.x * wt;
+    sy += f.y * wt;
+    w += wt;
+  }
+  return { x: sx / w, y: sy / w };
+}
+
+/** Stand on the far side of the pile from the threat — left, right, above, or below. */
+export function fortCoverSpot(
+  fort: Fort,
+  threat: { x: number; y: number },
+  mode: "hide" | "peek",
+): { x: number; y: number } {
+  let dx = fort.x - threat.x;
+  let dy = fort.y - threat.y;
+  const len = Math.hypot(dx, dy) || 1;
+  dx /= len;
+  dy /= len;
+  const rim = 1 / Math.sqrt((dx / Math.max(8, fort.rx)) ** 2 + (dy / Math.max(8, fort.ry)) ** 2);
+  const dist = mode === "hide" ? rim * 0.3 : rim + 26;
   return {
-    x: clampSide(fort.x + side * (fort.rx + 32), kid.team),
-    y: clamp(fort.y + rand(-14, 14), MARGIN, WORLD_H - MARGIN),
+    x: clamp(fort.x + dx * dist, MARGIN, WORLD_W - MARGIN),
+    y: clamp(fort.y + dy * dist, MARGIN, WORLD_H - MARGIN),
   };
 }
 
@@ -595,7 +621,7 @@ function nearFortRim(kid: Kid, state: GameState): boolean {
 function bumpDestOutOfFort(state: GameState, kid: Kid) {
   const wall = inFort(kid.ai!.destX, kid.ai!.destY, state.forts);
   if (!wall) return;
-  const peek = peekSpot(kid, wall);
+  const peek = peekSpot(kid, wall, state);
   kid.ai!.destX = peek.x;
   kid.ai!.destY = peek.y;
 }
