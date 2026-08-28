@@ -118,9 +118,9 @@ For unselected Maltese (vs AI and host during pvp) and Retrievers on your team (
 
 | | Defend | Attack | Manual |
 |---|---|---|---|
-| Post | Own half, hug the nearest pile | Press toward the assigned foe’s Y, ~midfield | You drag them |
-| Throw | Mostly from the **rim** of a pile (high rate once peeking) | Clear a lane around forts, then punish right after the foe throws or packs | Your hold / release |
-| Incoming | Dive into the pile, then peek | Sidestep; hide only if a pile is **≤200 px** and not through the pack | You dodge |
+| Post | Own half; peek on the pile’s **least-exposed rim** (left / right / above / below, opposite the enemy) | Press toward the assigned foe’s Y, ~midfield | You drag them |
+| Throw | Mostly from that rim (high rate once peeking) | Clear a lane around forts, then punish right after the foe throws or packs | Your hold / release |
+| Incoming | Dive into the pile (far side from the shot), then peek | Sidestep; hide only if a pile is **≤200 px** and not through the pack | You dodge |
 | Dodge | Normal | Retriever Attack: **longer, faster dodge** (same as Hard). Maltese Attack: short sidestep | You dodge |
 | Cover timer | 8 s in / 3 s out | **5 s in / 5 s out** | You choose |
 | Big snowball | PvP: two **pre-charge a long shot**, fire when the big ball leaves the hand | Same | Your throws consume the 3 / 10 s buff |
