@@ -1,4 +1,4 @@
-import { BALL_RADIUS, BIG_BALL_RADIUS, holdPower, isCompactPlay, MARGIN, PACK_TIME, PVP_RANGE, STAR_PACK_TIME, throwRange, WORLD_H, WORLD_W } from "./constants";
+import { BALL_RADIUS, BIG_BALL_RADIUS, holdPower, isCompactPlay, MARGIN, PACK_TIME, PVP_RANGE, STAR_PACK_TIME, sweetCharge, sweetFrom, throwRange, WORLD_H, WORLD_W } from "./constants";
 import { readLang, tr } from "./i18n";
 import type { Assets } from "./assets";
 import { aimFromKid, clamp, inFort, isOut } from "./sim";
@@ -572,13 +572,15 @@ function drawKid(
   }
 
   const hovered = view.hoverId === kid.id || view.grab?.id === kid.id;
-  if (!cover && hovered && kid.team === "red" && !isOut(kid)) {
-    const power = view.pvp
-      ? 0.7
-      : view.grab?.id === kid.id
-        ? holdPower((performance.now() - view.grab.startedAt) / 1000, view.godSpeed, view.bigCharge)
-        : 0;
-    drawBullseye(ctx, power, view.pickRadius);
+  const mine = view.mirror ? kid.team === "green" : kid.team === "red";
+  if (!cover && mine && (hovered || view.grab?.id === kid.id) && !isOut(kid)) {
+    const grab = view.grab?.id === kid.id ? view.grab : null;
+    const packing = !!grab && kid.packT > 0;
+    const holdSec = !grab || packing ? 0 : Math.max(0, (performance.now() - grab.startedAt) / 1000 - grab.packLeft);
+    const star = view.godSpeed && kid.team === "red";
+    const power = view.pvp ? 0.7 : holdPower(holdSec, star, view.bigCharge);
+    const sweet = !view.pvp && !!grab && !packing && sweetCharge(holdSec, star, view.bigCharge);
+    drawBullseye(ctx, power, view.pickRadius, sweet, sweetFrom(star, view.bigCharge));
   }
   ctx.restore();
 }
@@ -705,7 +707,7 @@ function drawPackMeter(ctx: CanvasRenderingContext2D, packT: number, packMax = P
   ctx.restore();
 }
 
-function drawBullseye(ctx: CanvasRenderingContext2D, power: number, pick: number) {
+function drawBullseye(ctx: CanvasRenderingContext2D, power: number, pick: number, sweet = false, sweetAt = 0.75) {
   ctx.save();
   ctx.translate(0, -10);
   const r = Math.max(28, pick * 0.55);
@@ -720,12 +722,25 @@ function drawBullseye(ctx: CanvasRenderingContext2D, power: number, pick: number
   ctx.beginPath();
   ctx.arc(0, 0, 5, 0, Math.PI * 2);
   ctx.stroke();
+  ctx.strokeStyle = "rgba(232,197,71,0.55)";
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.arc(0, 0, r + 8, -Math.PI / 2 + sweetAt * Math.PI * 2, -Math.PI / 2 + Math.PI * 2);
+  ctx.stroke();
   if (power > 0) {
-    ctx.strokeStyle = power >= 0.98 ? "#f4f7fa" : "#c43b3b";
-    ctx.lineWidth = 5;
+    ctx.strokeStyle = sweet || power >= sweetAt ? "#e8c547" : "#c43b3b";
+    ctx.lineWidth = sweet ? 7 : 5;
     ctx.beginPath();
     ctx.arc(0, 0, r + 8, -Math.PI / 2, -Math.PI / 2 + power * Math.PI * 2, false);
     ctx.stroke();
+    if (sweet) {
+      const pulse = 0.55 + 0.45 * Math.abs(Math.sin(performance.now() / 140));
+      ctx.strokeStyle = `rgba(255,236,150,${pulse})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, r + 15, 0, Math.PI * 2);
+      ctx.stroke();
+    }
   }
   ctx.restore();
 }
@@ -742,8 +757,10 @@ function drawThrowPreview(
 ) {
   const packing = kid.packT > 0;
   const seconds = packing ? 0 : Math.max(0, (performance.now() - grab.startedAt) / 1000 - grab.packLeft);
-  const power = pvp ? 1 : holdPower(seconds, godSpeed && kid.team === "red", big);
+  const star = godSpeed && kid.team === "red";
+  const power = pvp ? 1 : holdPower(seconds, star, big);
   const range = packing ? 0 : pvp ? PVP_RANGE : throwRange(power);
+  const sweet = !pvp && !packing && sweetCharge(seconds, star, big);
   const extraX = kid.x - grab.originX + grab.vx;
   const extraY = kid.y - grab.originY + grab.vy;
   const dir = aimFromKid(kid, kids, extraX, extraY, false, godSpeed && kid.team === "red", forts);
@@ -756,9 +773,9 @@ function drawThrowPreview(
   const ex = px + nx * range;
   const ey = py + ny * range;
   ctx.save();
-  ctx.strokeStyle = "rgba(21,32,43,0.45)";
-  ctx.setLineDash([7, 7]);
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = sweet ? "rgba(232,197,71,0.85)" : "rgba(21,32,43,0.45)";
+  ctx.setLineDash(sweet ? [4, 5] : [7, 7]);
+  ctx.lineWidth = sweet ? 3 : 2;
   ctx.beginPath();
   ctx.moveTo(px + nx * 26, py + ny * 8);
   ctx.lineTo(ex, ey);

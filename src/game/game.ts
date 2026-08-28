@@ -3,7 +3,7 @@ import { VersusLink } from "./versus-link";
 import { stepAi, type GreenControl } from "./ai";
 import { ASSET_TOTAL, loadCoreAssets, loadRestAssets, type Assets } from "./assets";
 import { GameAudio } from "./audio";
-import { FORT_HP, FIXED_DT, MARGIN, BALL_RADIUS, BIG_BALL_RADIUS, BIG_HELD_TIME, BIG_SHOTS, pickupRadius, playFeel, PVP_RANGE, SAVE_KEY, STAR_HP, WORLD_H, WORLD_W, AI_WIN_LEVEL } from "./constants";
+import { FORT_HP, FIXED_DT, MARGIN, BALL_RADIUS, BIG_BALL_RADIUS, BIG_HELD_TIME, BIG_SHOTS, pickupRadius, playFeel, PVP_RANGE, SAVE_KEY, STAR_HP, sweetCharge, WORLD_H, WORLD_W, AI_WIN_LEVEL } from "./constants";
 import {
   applyState,
   applyPose,
@@ -45,6 +45,7 @@ export class SnowCraftGame {
   private screen: Screen = "title";
   private grab: Grab | null = null;
   private grabGuest: Grab | null = null;
+  private sweetChimed = false;
   private pointer: { x: number; y: number } | null = null;
   private hoverId: number | null = null;
   private raf = 0;
@@ -1407,6 +1408,7 @@ export class SnowCraftGame {
       originY: w.y,
     };
     kid.state = "grabbed";
+    this.sweetChimed = false;
     this.audio.grab();
     if (this.netRole === "guest") this.sendNet({ t: "input", kind: "down", x: w.x, y: w.y, at: performance.now() });
   };
@@ -1520,6 +1522,19 @@ export class SnowCraftGame {
     if (buff) this.sendNet({ t: "got", team, shots: buff.shots, ttl: buff.t });
   }
 
+  private cueSweetHold() {
+    if (!this.grab || this.screen !== "playing") return;
+    const kid = this.state.kids.find((k) => k.id === this.grab!.id);
+    if (!kid || isOut(kid) || kid.packT > 0) return;
+    const seconds = Math.max(0, (performance.now() - this.grab.startedAt) / 1000 - this.grab.packLeft);
+    const star = this.state.godSpeed && kid.team === "red";
+    const big = !!(this.state.buffs[this.myTeam()] && this.state.buffs[this.myTeam()]!.shots > 0 && this.state.buffs[this.myTeam()]!.t > 0);
+    if (!this.sweetChimed && sweetCharge(seconds, star, big)) {
+      this.sweetChimed = true;
+      this.audio.sweetCue();
+    }
+  }
+
   private releaseThrow() {
     const grab = this.grab;
     this.grab = null;
@@ -1563,6 +1578,7 @@ export class SnowCraftGame {
     let dt = this.last ? now - this.last : 0;
     this.last = now;
     dt = Math.min(dt, 0.1);
+    this.cueSweetHold();
 
     if (this.p2p && !this.botTakeover && this.netStatus !== "off") {
       this.hbAcc += dt;

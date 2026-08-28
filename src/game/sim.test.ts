@@ -24,7 +24,7 @@ import {
   throwSnowball,
   tickHideFuel,
 } from "./sim";
-import { holdPower, MAX_CHARGE, BIG_CHARGE, BIG_SPEED, pickupRadius, SWEET_SPEED, sweetCharge, throwSpeed, WORLD_W } from "./constants";
+import { holdPower, MAX_CHARGE, BIG_CHARGE, BIG_SPEED, pickupRadius, sweetCharge, throwSpeed, WORLD_W } from "./constants";
 import { aiThrowAim, arenaBalls, arenaCanThrow, bigBallRoles, draggedMate, fortCoverSpot, grabShooters, huntPressers, mateThrewRecently, shouldHideInPile, stepAi, surroundLast, teamJob, teamReactsToBig, teamSurging, throwAimForStance } from "./ai";
 import type { Kid } from "./types";
 
@@ -235,7 +235,7 @@ describe("createState", () => {
 });
 
 describe("sweet charge", () => {
-  it("last 0.3s of a full hold is sweet and slightly faster", () => {
+  it("last 0.3s of a full hold is sweet without changing speed", () => {
     assert.equal(sweetCharge(0.8), false);
     assert.equal(sweetCharge(0.9), true);
     assert.equal(sweetCharge(1.2), true);
@@ -253,7 +253,7 @@ describe("sweet charge", () => {
     const sweet = s.balls.at(-1)!;
     assert.equal(sweet.sweet, true);
     assert.equal(!!normal.sweet, false);
-    assert.ok(Math.hypot(sweet.vx, sweet.vy) > Math.hypot(normal.vx, normal.vy));
+    assert.ok(Math.abs(Math.hypot(sweet.vx, sweet.vy) - throwSpeed(holdPower(1.2))) < 1e-6);
   });
 });
 
@@ -357,7 +357,7 @@ describe("big snowball pickup", () => {
     red.state = "idle";
     throwSnowball(s, red, MAX_CHARGE * BIG_CHARGE, -1, 0, false, true, true);
     const ball = s.balls.find((b) => b.big)!;
-    const full = throwSpeed(1) * SWEET_SPEED;
+    const full = throwSpeed(1);
     assert.ok(Math.abs(Math.hypot(ball.vx, ball.vy) - full * BIG_SPEED) < 1e-6);
   });
 
