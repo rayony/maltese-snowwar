@@ -276,7 +276,7 @@ export function render(
   for (const layer of layers) layer.draw();
 
   if (state.pickup) {
-    drawGoldOrb(ctx, state.pickup.x, state.pickup.y, goldOrbRadius(view.ballSize), state.time, state.time * 1.2);
+    drawFieldPickup(ctx, state.pickup.x, state.pickup.y, goldOrbRadius(view.ballSize), state.time);
   }
   for (const kid of state.kids) {
     const buff = state.buffs[kid.team];
@@ -331,6 +331,14 @@ export function render(
     ctx.globalAlpha = a;
     if (p.kind === "note") {
       drawNote(ctx, p.x, p.y, p.size, Math.abs(Math.floor(p.x * 3 + p.size)) % 4);
+    } else if (p.kind === "gold") {
+      ctx.fillStyle = "#ffd24a";
+      ctx.shadowColor = "rgba(255,196,64,0.9)";
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * a, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
     } else {
       ctx.fillStyle = "#ffffff";
       ctx.beginPath();
@@ -348,6 +356,23 @@ export function render(
     ctx.fill();
   }
   ctx.globalAlpha = 1;
+
+  if (state.lootPop) {
+    const u = 1 - state.lootPop.t / 0.55;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, 1 - u) * 0.85;
+    ctx.strokeStyle = "#ffd24a";
+    ctx.lineWidth = 5 - u * 3;
+    ctx.beginPath();
+    ctx.arc(state.lootPop.x, state.lootPop.y, 18 + u * 52, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(255,255,255,0.7)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(state.lootPop.x, state.lootPop.y, 10 + u * 34, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
 
   if (view.grab && state.phase === "fight") {
     const kid = state.kids.find((k) => k.id === view.grab!.id);
@@ -754,6 +779,28 @@ function ballHop(ball: Snowball) {
 
 function goldOrbRadius(ballSize: number, r = BIG_BALL_RADIUS) {
   return ballSize * (r / BALL_RADIUS) * 0.48;
+}
+
+function drawFieldPickup(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, time: number) {
+  const bob = Math.sin(time * 3.4) * 8;
+  const py = y + bob;
+  ctx.save();
+  ctx.globalAlpha = 0.28;
+  ctx.fillStyle = "#4a6578";
+  ctx.beginPath();
+  ctx.ellipse(x, y + 18, radius * 0.95, radius * 0.32, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  drawGoldOrb(ctx, x, py, radius, time, time * 1.6);
+  for (let i = 0; i < 6; i++) {
+    const a = time * 2.4 + i * ((Math.PI * 2) / 6);
+    const rr = radius * 1.42;
+    const glow = 0.4 + 0.4 * Math.sin(time * 6 + i);
+    ctx.fillStyle = `rgba(255, 214, 72, ${glow})`;
+    ctx.beginPath();
+    ctx.arc(x + Math.cos(a) * rr, py + Math.sin(a) * rr * 0.55, 2.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 /** White snowball with a pulsing gold rim — field pickup and thrown big balls. */

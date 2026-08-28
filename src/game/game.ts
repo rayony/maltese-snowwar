@@ -3,7 +3,7 @@ import { VersusLink } from "./versus-link";
 import { stepAi, type GreenControl } from "./ai";
 import { ASSET_TOTAL, loadCoreAssets, loadRestAssets, type Assets } from "./assets";
 import { GameAudio } from "./audio";
-import { FORT_HP, FIXED_DT, MARGIN, BALL_RADIUS, BIG_BALL_RADIUS, BIG_HELD_TIME, BIG_SHOTS, playFeel, PVP_RANGE, SAVE_KEY, STAR_HP, WORLD_H, WORLD_W, AI_WIN_LEVEL } from "./constants";
+import { FORT_HP, FIXED_DT, MARGIN, BALL_RADIUS, BIG_BALL_RADIUS, BIG_HELD_TIME, BIG_SHOTS, pickupRadius, playFeel, PVP_RANGE, SAVE_KEY, STAR_HP, WORLD_H, WORLD_W, AI_WIN_LEVEL } from "./constants";
 import {
   applyState,
   applyPose,
@@ -1484,7 +1484,7 @@ export class SnowCraftGame {
   private hitPickup(x: number, y: number) {
     const orb = this.state.pickup;
     if (!orb) return false;
-    const r = Math.max(56, playFeel(this.canvas.clientWidth).pick * 0.85);
+    const r = pickupRadius(this.canvas.clientWidth);
     return Math.hypot(orb.x - x, orb.y - y) <= r;
   }
 
@@ -1909,7 +1909,17 @@ export class SnowCraftGame {
       },
     );
     this.syncLoot(hadPickup, hadBuff);
+    this.keepGrabbed();
     this.handleOutcome();
+  }
+
+  private keepGrabbed() {
+    const ids = [this.grab?.id, this.grabGuest?.id];
+    for (const id of ids) {
+      if (id == null) continue;
+      const kid = this.state.kids.find((k) => k.id === id);
+      if (kid && !isOut(kid) && kid.state !== "buried") kid.state = "grabbed";
+    }
   }
 
   private syncLoot(

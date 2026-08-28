@@ -11,8 +11,10 @@ import {
   closestEnemy,
   createState,
   canEnterFort,
+  canTeamClaimPickup,
   faceFromDir,
   faceNearest,
+  foeHittable,
   isOut,
   living,
   stepPickups,
@@ -20,7 +22,7 @@ import {
   throwSnowball,
   tickHideFuel,
 } from "./sim";
-import { holdPower, MAX_CHARGE, BIG_CHARGE, BIG_SPEED, throwSpeed } from "./constants";
+import { holdPower, MAX_CHARGE, BIG_CHARGE, BIG_SPEED, pickupRadius, throwSpeed } from "./constants";
 import { aiThrowAim, bigBallRoles, fortCoverSpot, mateThrewRecently, shouldHideInPile, stepAi, surroundLast, teamJob, teamReactsToBig, teamSurging, throwAimForStance } from "./ai";
 import type { Kid } from "./types";
 
@@ -132,6 +134,31 @@ describe("aimFromKid", () => {
     const before = s.balls.length;
     assert.equal(throwSnowball(s, me, 0.6, -1, 0, false, true), 0);
     assert.equal(s.balls.length, before);
+  });
+
+  it("a grabbed dog can be aimed at and hit even in a pile", () => {
+    const s = createState(1);
+    s.phase = "fight";
+    s.forts = [{ x: 390, y: 168, rx: 92, ry: 40, hitFlash: 0, hp: 0, maxHp: 0 }];
+    const red = s.kids.find((k) => k.team === "red")!;
+    const green = s.kids.find((k) => k.team === "green")!;
+    red.x = 390;
+    red.y = 168;
+    red.state = "grabbed";
+    red.hp = 2;
+    green.x = 200;
+    green.y = 168;
+    assert.equal(foeHittable(green, red, s.forts), true);
+    const aim = aimFromKid(green, s.kids, 0, 0, false, false, s.forts);
+    assert.equal(aim.ok, true);
+    throwSnowball(s, green, 1, 1, 0, false, false);
+    const ball = s.balls.at(-1)!;
+    ball.x = red.x;
+    ball.y = red.y - 10;
+    ball.grace = 0;
+    stepSim(s, 1 / 60, () => {});
+    assert.ok(red.hp < 2);
+    assert.equal(red.state, "grabbed");
   });
 });
 
@@ -267,6 +294,26 @@ describe("big snowball pickup", () => {
     assert.equal(s.buffs.red?.shots, 3);
     assert.equal(s.pickup, null);
     assert.equal(claimPickup(s, "green"), false);
+  });
+
+  it("vs AI retrievers cannot pick up the gold orb", () => {
+    const s = createState(1, false);
+    s.phase = "fight";
+    s.pickup = { x: 500, y: 280, kind: "big", life: 10, maxLife: 10 };
+    const green = s.kids.find((k) => k.team === "green")!;
+    green.x = 500;
+    green.y = 280;
+    assert.equal(canTeamClaimPickup(s, "green"), false);
+    stepPickups(s, 0.05, true);
+    assert.ok(s.pickup);
+    assert.equal(s.buffs.green, null);
+    assert.equal(claimPickup(s, "green"), false);
+    const red = s.kids.find((k) => k.team === "red")!;
+    red.x = 500 + pickupRadius() * 0.7;
+    red.y = 280;
+    stepPickups(s, 0.05, true);
+    assert.equal(s.buffs.red?.shots, 3);
+    assert.ok(s.lootPop);
   });
 
   it("big ball flies at 0.8x and needs 1.2x hold for full range", () => {
