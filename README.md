@@ -92,6 +92,8 @@ While an ally or enemy bot is **holding a charged throw**, they can still walk t
 
 **Last dog:** if only one ally or enemy bot is left, they may hide **at most 3 s**, then must leave and throw. The other team (2+) **does not hide** — they shoot or fan out to surround.
 
+Hide stamina (tiny bar over the dog): full = 5 s in a pile (3 s last dog). It drains in cover, refills out of cover over the same time, and must be **full** before they can enter again.
+
 **Cover:** they will not run *through* the pack to a pile behind the enemies. Same geometry for retrievers (vs AI / PvP guest) and Maltese allies.
 
 | Who | When they hide |

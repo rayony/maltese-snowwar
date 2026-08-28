@@ -538,7 +538,7 @@ function drawKid(
     ctx.restore();
   }
 
-  if (cover && !isOut(kid)) drawHideArrow(ctx, kid, size);
+  if (!isOut(kid) && (cover || (kid.hideFuel ?? 1) < 0.995)) drawHideBar(ctx, kid, size, cover);
 
   if (!isOut(kid)) drawPips(ctx, kid, cover);
   if (!cover && kid.packT > 0 && !isOut(kid) && kid.state !== "throw") {
@@ -617,30 +617,26 @@ function drawFortLayer(
   }
 }
 
-function drawHideArrow(ctx: CanvasRenderingContext2D, kid: Kid, size: number) {
-  const bounce = Math.sin(performance.now() / 160) * 3;
+function drawHideBar(ctx: CanvasRenderingContext2D, kid: Kid, size: number, cover: boolean) {
+  const u = Math.max(0, Math.min(1, kid.hideFuel ?? 1));
+  const w = 22;
+  const h = 4;
   ctx.save();
-  ctx.translate(0, -size * 0.78 + bounce);
-  const fill = kid.team === "red" ? "#e24b3c" : "#2fb37a";
-  ctx.shadowColor = "rgba(21,32,43,0.35)";
-  ctx.shadowBlur = 4;
-  ctx.shadowOffsetY = 1;
-  ctx.fillStyle = fill;
-  ctx.strokeStyle = "rgba(255,255,255,0.95)";
-  ctx.lineWidth = 2;
-  ctx.lineJoin = "round";
-  ctx.beginPath();
-  ctx.moveTo(0, 11);
-  ctx.lineTo(-9, -2);
-  ctx.lineTo(-4, -2);
-  ctx.lineTo(-4, -11);
-  ctx.lineTo(4, -11);
-  ctx.lineTo(4, -2);
-  ctx.lineTo(9, -2);
-  ctx.closePath();
-  ctx.fill();
-  ctx.shadowBlur = 0;
-  ctx.stroke();
+  ctx.translate(0, -size * 0.78);
+  ctx.fillStyle = "rgba(21,32,43,0.55)";
+  ctx.fillRect(-w / 2 - 1, -h / 2 - 1, w + 2, h + 2);
+  const low = u < 0.28;
+  ctx.fillStyle = cover
+    ? low
+      ? "#e24b3c"
+      : kid.team === "red"
+        ? "#7ec8e8"
+        : "#8ee0b8"
+    : "#d4e27a";
+  ctx.fillRect(-w / 2, -h / 2, w * u, h);
+  ctx.strokeStyle = "rgba(255,255,255,0.85)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(-w / 2 - 1, -h / 2 - 1, w + 2, h + 2);
   ctx.restore();
 }
 

@@ -37,6 +37,8 @@ export interface Kid {
   fidgetT: number;
   fidgetWait: number;
   moving: boolean;
+  hideFuel?: number;
+  hideSession?: boolean;
   ai: AiBrain | null;
   viewX?: number;
   viewY?: number;
