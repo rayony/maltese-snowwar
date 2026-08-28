@@ -696,6 +696,20 @@ describe("hide fuel", () => {
     red.hideFuel = 1;
     assert.equal(canEnterFort(red), true);
   });
+
+  it("advantage side does not keep an empty hide bar", () => {
+    const s = createState(1);
+    s.phase = "fight";
+    const reds = s.kids.filter((k) => k.team === "red");
+    reds[1]!.hp = 0;
+    reds[1]!.state = "buried";
+    reds[2]!.hp = 0;
+    reds[2]!.state = "buried";
+    const g = s.kids.find((k) => k.team === "green")!;
+    g.hideFuel = 0.4;
+    tickHideFuel(s, 0.05);
+    assert.equal(g.hideFuel, 1);
+  });
 });
 
 describe("camp", () => {
@@ -705,7 +719,7 @@ describe("camp", () => {
     s.forts = [];
     const g = s.kids.find((k) => k.team === "green")!;
     g.x = 120;
-    g.y = 90;
+    g.y = 270;
     g.packT = 0;
     g.cooldown = 0;
     g.stun = 0;
@@ -720,7 +734,7 @@ describe("camp", () => {
     g.ai!.campT = 0;
     for (let i = 0; i < 200; i++) stepAi(s, 1 / 60, () => {}, "off", "enemy", false, false);
     assert.equal(String(g.ai!.phase), "move");
-    assert.ok(Math.hypot(g.ai!.destX - 120, g.ai!.destY - 90) > 80);
+    assert.ok(Math.hypot(g.ai!.destX - 120, g.ai!.destY - 270) > 80);
   });
 });
 

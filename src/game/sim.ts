@@ -288,7 +288,7 @@ export function tickHideFuel(state: GameState, dt: number) {
     const rec = hideRechargeTime(state, kid);
     const cover = !!inFort(kid.x, kid.y, state.forts);
     if (stay <= 0) {
-      kid.hideFuel = 0;
+      kid.hideFuel = 1;
       kid.hideSession = false;
       if (cover) ejectFromFort(kid, state.forts);
     } else if (cover) {
@@ -309,6 +309,7 @@ export function tickHideFuel(state: GameState, dt: number) {
     } else {
       kid.hideSession = false;
       kid.hideFuel = Math.min(1, kid.hideFuel + dt / rec);
+      if (kid.hideFuel >= 0.995) kid.hideFuel = 1;
     }
     if (kid.ai) {
       kid.ai.awayT = canEnterFort(kid) ? 0 : (1 - kid.hideFuel) * rec;
