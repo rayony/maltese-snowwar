@@ -32,6 +32,7 @@ import {
   tickHideFuel,
   sweetReady,
   incomingAt,
+  armEnemyFireLock,
 } from "./sim";
 import { BIG_SPEED, kitClickRadius, MAX_RANGE, MAX_THROW_SPEED, pickupRadius, SWEET_WINDOW, WORLD_W } from "./constants";
 import { aiThrowAim, arenaBalls, arenaCanThrow, arenaBallMax, bigBallRoles, draggedMate, fortCoverSpot, grabShooters, huntPressers, mateThrewRecently, shouldHideInPile, stepAi, surroundLast, teamJob, teamReactsToBig, teamSurging, throwAimForStance } from "./ai";
@@ -1443,6 +1444,43 @@ describe("ai rhythm", () => {
     }
     assert.equal(arenaBallMax(hard), 5);
     assert.equal(arenaCanThrow(hard), true);
+  });
+
+  it("easy/normal hold enemy release after a player throw; hard does not", () => {
+    const easy = createState(1, false);
+    easy.phase = "fight";
+    easy.forts = [];
+    const red = easy.kids.find((k) => k.team === "red")!;
+    red.packT = 0;
+    throwSnowball(easy, red, 1, -1, 0, false, true);
+    assert.ok(easy.enemyFireLock > 0.2);
+    const g = easy.kids.find((k) => k.team === "green")!;
+    g.x = 200;
+    g.y = 270;
+    g.packT = 0;
+    g.cooldown = 0;
+    g.stun = 0;
+    g.state = "idle";
+    g.ai!.phase = "windup";
+    g.ai!.t = 0;
+    g.ai!.charge = 1;
+    let throws = 0;
+    stepAi(easy, 1 / 60, () => {
+      throws += 1;
+    }, "off", "enemy", false, false);
+    assert.equal(throws, 0);
+    assert.equal(g.ai!.phase, "windup");
+    easy.enemyFireLock = 0;
+    stepAi(easy, 1 / 60, () => {
+      throws += 1;
+    }, "off", "enemy", false, false);
+    assert.ok(throws >= 1);
+    const hard = createState(1, false, { hard: true, difficulty: "hard" });
+    hard.phase = "fight";
+    const hr = hard.kids.find((k) => k.team === "red")!;
+    hr.packT = 0;
+    throwSnowball(hard, hr, 1, -1, 0, false, true);
+    assert.equal(hard.enemyFireLock, 0);
   });
 
   it("AI throws when the arena is empty", () => {

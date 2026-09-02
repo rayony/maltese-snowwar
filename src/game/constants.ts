@@ -13,6 +13,9 @@ export const MIN_THROW_SPEED = 360;
 export const MAX_THROW_SPEED = 500;
 export const THROW_COOLDOWN = 0.12;
 export const PACK_TIME = 0.92;
+/** After a player throw, Easy/Normal enemies cannot release (still may wind up). */
+export const ENEMY_FIRE_LOCK_EASY = 0.3;
+export const ENEMY_FIRE_LOCK_NORMAL = 0.22;
 export const STAR_PACK_TIME = 0.32;
 export const STAR_CHARGE = 0.4;
 export const PVP_RANGE = 520;

@@ -148,6 +148,7 @@ export interface GameState {
   lootPop: { x: number; y: number; t: number } | null;
   buffs: { red: TeamBuff | null; green: TeamBuff | null };
   reviveHint: boolean;
+  enemyFireLock: number;
 }
 
 export type NetRole = "solo" | "host" | "guest";

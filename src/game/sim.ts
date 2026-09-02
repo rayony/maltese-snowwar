@@ -6,6 +6,8 @@ import {
   BIG_SPEED,
   COMEBACK_WAIT,
   enemyCountForLevel,
+  ENEMY_FIRE_LOCK_EASY,
+  ENEMY_FIRE_LOCK_NORMAL,
   HP,
   INTRO_TIME,
   KIT_CHANCE,
@@ -138,6 +140,7 @@ export function createState(
     lootPop: null,
     buffs: { red: null, green: null },
     reviveHint: false,
+    enemyFireLock: 0,
   };
 
   const redYs = [128, 270, 412];
@@ -429,7 +432,18 @@ export function throwSnowball(
   clearFidget(kid);
   burst(state, kid.x + nx * 22, kid.y, nx * 40, big ? 16 : 8, "puff");
   if (big) burst(state, kid.x + nx * 22, kid.y, nx * 20, 10, "spark");
+  if (user && kid.team === "red") armEnemyFireLock(state);
   return 1;
+}
+
+export function enemyFireLockTime(state: GameState) {
+  if (state.pvp || state.difficulty === "hard") return 0;
+  return state.difficulty === "easy" ? ENEMY_FIRE_LOCK_EASY : ENEMY_FIRE_LOCK_NORMAL;
+}
+
+export function armEnemyFireLock(state: GameState) {
+  const t = enemyFireLockTime(state);
+  if (t > 0) state.enemyFireLock = t;
 }
 
 export function burst(
@@ -1084,6 +1098,8 @@ export function stepSim(
   separate(state, dt);
   faceNearest(state);
   stepFx(state, dt);
+
+  if (state.enemyFireLock > 0) state.enemyFireLock = Math.max(0, state.enemyFireLock - dt);
 
   const reds = living(state.kids, "red").length;
   const greens = living(state.kids, "green").length;

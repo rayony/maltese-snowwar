@@ -388,6 +388,7 @@ export function stepAi(
         continue;
       }
       if (kid.ai.t <= 0 || flyingBig) {
+        if (kid.team === "green" && state.enemyFireLock > 0) continue;
         if (!arenaCanThrow(state, intercepting)) {
           kid.ai.phase = "idle";
           kid.ai.t = rand(0.2, 0.4);
