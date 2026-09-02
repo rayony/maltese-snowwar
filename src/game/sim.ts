@@ -112,7 +112,7 @@ export function makeForts(hp = 0): Fort[] {
 export function createState(
   level: number,
   versus = false,
-  opts: { fortHp?: number; buriedRed?: boolean[]; hard?: boolean; difficulty?: Difficulty } = {},
+  opts: { fortHp?: number; buriedRed?: boolean[]; hard?: boolean; difficulty?: Difficulty; reviveAt?: number } = {},
 ): GameState {
   const state: GameState = {
     kids: [],
@@ -148,6 +148,8 @@ export function createState(
       kid.state = "buried";
       kid.stateT = 0;
       kid.fidget = null;
+    } else if (opts.reviveAt === i) {
+      kid.hp = 1;
     }
     state.kids.push(kid);
   }
@@ -685,11 +687,11 @@ export function hardRoundReward(buried: boolean[]) {
   const next = buried.slice(0, PLAYER_COUNT);
   while (next.length < PLAYER_COUNT) next.push(false);
   const livingN = next.filter((b) => !b).length;
-  if (livingN >= PLAYER_COUNT) return { buried: next.map(() => false), revived: false };
+  if (livingN >= PLAYER_COUNT) return { buried: next.map(() => false), revived: false, reviveAt: -1 };
   const i = next.findIndex((b) => b);
-  if (i < 0) return { buried: next, revived: false };
+  if (i < 0) return { buried: next, revived: false, reviveAt: -1 };
   next[i] = false;
-  return { buried: next, revived: true };
+  return { buried: next, revived: true, reviveAt: i };
 }
 
 export function teamNeedsHeal(state: GameState, team: Team) {

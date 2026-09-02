@@ -322,15 +322,23 @@ describe("hard round reward / pickups", () => {
   it("revives one buried maltese per win, cap 3", () => {
     const one = hardRoundReward([true, true, false]);
     assert.equal(one.revived, true);
+    assert.equal(one.reviveAt, 0);
     assert.equal(one.buried.filter((b) => !b).length, 2);
+    const s1 = createState(2, false, { buriedRed: one.buried, hard: true, reviveAt: one.reviveAt });
+    const reds1 = s1.kids.filter((k) => k.team === "red");
+    assert.equal(reds1[0]!.hp, 1);
+    assert.equal(reds1[1]!.hp, 0);
+    assert.equal(reds1[2]!.hp, 2);
     const full = hardRoundReward([false, false, false]);
     assert.equal(full.revived, false);
     assert.deepEqual(full.buried, [false, false, false]);
     const two = hardRoundReward(one.buried);
     assert.equal(two.revived, true);
     assert.equal(two.buried.filter((b) => !b).length, 3);
-    const s = createState(2, false, { buriedRed: two.buried, hard: true });
+    const s = createState(2, false, { buriedRed: two.buried, hard: true, reviveAt: two.reviveAt });
     assert.equal(living(s.kids, "red").length, 3);
+    const revived = s.kids.filter((k) => k.team === "red")[two.reviveAt]!;
+    assert.equal(revived.hp, 1);
   });
 
   it("keeps at most one gold and one kit on the field", () => {

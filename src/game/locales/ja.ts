@@ -32,8 +32,8 @@ const dict: Record<I18nKey, string> = {
   hard1: "全員の移動が速く、雪玉は2倍速",
   hard2: "レトリバーは標的を変え、よくかわす",
   hard3: "砦は10発で壊れる",
-  hard4: "クリアで倒れたマルチーズを1匹復活（最大3）",
-  reviveHint: "マルチーズ復活！",
+  hard4: "クリアで倒れたマルチーズを1匹復活（1HP、最大3）",
+  reviveHint: "マルチーズ復活（1HP）！",
   easy: "かんたん",
   back: "戻る",
   vsFriendLead:

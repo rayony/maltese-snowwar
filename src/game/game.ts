@@ -510,7 +510,7 @@ export class SnowCraftGame {
     return this.seat;
   }
 
-  private startLevel(level: number, versus = this.versus, buriedRed?: boolean[], revived = false) {
+  private startLevel(level: number, versus = this.versus, buriedRed?: boolean[], revived = false, reviveAt = -1) {
     this.versus = versus;
     this.round += 1;
     this.lastCount = -1;
@@ -528,10 +528,16 @@ export class SnowCraftGame {
       buriedRed: !versus && this.difficulty === "hard" ? buriedRed : undefined,
       hard: !versus && this.difficulty === "hard",
       difficulty: versus ? "easy" : this.difficulty,
+      reviveAt: !versus && this.difficulty === "hard" && revived && reviveAt >= 0 ? reviveAt : undefined,
     });
     this.state.godSpeed = this.godSpeed;
     this.state.reviveHint = revived;
     if (this.godSpeed) this.applyStarHp();
+    if (!versus && revived && reviveAt >= 0) {
+      const reds = this.state.kids.filter((k) => k.team === "red");
+      const dog = reds[reviveAt];
+      if (dog && !isOut(dog)) dog.hp = 1;
+    }
     this.grab = null;
     this.grabGuest = null;
     this.outcomeHandled = false;
@@ -2069,13 +2075,15 @@ export class SnowCraftGame {
         if (this.destroyed || this.screen !== "playing") return;
         let carry: boolean[] | undefined;
         let revived = false;
+        let reviveAt = -1;
         if (this.difficulty === "hard") {
           const flags = this.state.kids.filter((k) => k.team === "red").map((k) => isOut(k));
           const reward = hardRoundReward(flags);
           carry = reward.buried;
           revived = reward.revived;
+          reviveAt = reward.reviveAt;
         }
-        this.startLevel(this.state.level + 1, false, carry, revived);
+        this.startLevel(this.state.level + 1, false, carry, revived, reviveAt);
       }, 1100);
     }
     if (this.state.phase === "lost") {
