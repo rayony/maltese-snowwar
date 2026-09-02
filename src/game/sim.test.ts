@@ -34,7 +34,7 @@ import {
   incomingAt,
 } from "./sim";
 import { BIG_SPEED, kitClickRadius, MAX_RANGE, MAX_THROW_SPEED, pickupRadius, SWEET_WINDOW, WORLD_W } from "./constants";
-import { aiThrowAim, arenaBalls, arenaCanThrow, bigBallRoles, draggedMate, fortCoverSpot, grabShooters, huntPressers, mateThrewRecently, shouldHideInPile, stepAi, surroundLast, teamJob, teamReactsToBig, teamSurging, throwAimForStance } from "./ai";
+import { aiThrowAim, arenaBalls, arenaCanThrow, arenaBallMax, bigBallRoles, draggedMate, fortCoverSpot, grabShooters, huntPressers, mateThrewRecently, shouldHideInPile, stepAi, surroundLast, teamJob, teamReactsToBig, teamSurging, throwAimForStance } from "./ai";
 import type { Kid } from "./types";
 
 function kid(partial: Partial<Kid> & Pick<Kid, "id" | "team" | "x" | "y">): Kid {
@@ -1402,6 +1402,29 @@ describe("ai rhythm", () => {
     }
     assert.equal(throws, 0);
     assert.ok(arenaBalls(s) <= 5);
+  });
+
+  it("normal caps flying balls at 3; hard still allows 5", () => {
+    const normal = createState(1, false, { difficulty: "normal" });
+    normal.phase = "fight";
+    for (let i = 0; i < 3; i++) {
+      normal.balls.push({
+        x: 400, y: 180 + i * 20, vx: 90, vy: 0, team: "green", r: 12, fromId: -1,
+        grace: 0, spin: 0, alive: true, range: 500, traveled: 0,
+      });
+    }
+    assert.equal(arenaBallMax(normal), 3);
+    assert.equal(arenaCanThrow(normal), false);
+    const hard = createState(1, false, { hard: true, difficulty: "hard" });
+    hard.phase = "fight";
+    for (let i = 0; i < 3; i++) {
+      hard.balls.push({
+        x: 400, y: 180 + i * 20, vx: 90, vy: 0, team: "green", r: 12, fromId: -1,
+        grace: 0, spin: 0, alive: true, range: 500, traveled: 0,
+      });
+    }
+    assert.equal(arenaBallMax(hard), 5);
+    assert.equal(arenaCanThrow(hard), true);
   });
 
   it("AI throws when the arena is empty", () => {

@@ -139,6 +139,7 @@ export interface GameState {
   time: number;
   trauma: number;
   hard: boolean;
+  difficulty: Difficulty;
   pvp: boolean;
   godSpeed: boolean;
   pickup: Pickup | null;

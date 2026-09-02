@@ -527,6 +527,7 @@ export class SnowCraftGame {
       fortHp: !versus && this.difficulty === "hard" ? FORT_HP : 0,
       buriedRed: !versus && this.difficulty === "hard" ? buriedRed : undefined,
       hard: !versus && this.difficulty === "hard",
+      difficulty: versus ? "easy" : this.difficulty,
     });
     this.state.godSpeed = this.godSpeed;
     this.state.reviveHint = revived;

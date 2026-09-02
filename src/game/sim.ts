@@ -32,7 +32,7 @@ import {
   WORLD_H,
   WORLD_W,
 } from "./constants";
-import type { Fort, GameState, Kid, Pickup, Snowball, Team, TeamBuff } from "./types";
+import type { Difficulty, Fort, GameState, Kid, Pickup, Snowball, Team, TeamBuff } from "./types";
 
 export function clamp(v: number, a: number, b: number) {
   return Math.max(a, Math.min(b, v));
@@ -112,7 +112,7 @@ export function makeForts(hp = 0): Fort[] {
 export function createState(
   level: number,
   versus = false,
-  opts: { fortHp?: number; buriedRed?: boolean[]; hard?: boolean } = {},
+  opts: { fortHp?: number; buriedRed?: boolean[]; hard?: boolean; difficulty?: Difficulty } = {},
 ): GameState {
   const state: GameState = {
     kids: [],
@@ -129,6 +129,7 @@ export function createState(
     time: 0,
     trauma: 0,
     hard: !!opts.hard,
+    difficulty: versus ? "easy" : (opts.difficulty ?? (opts.hard ? "hard" : "easy")),
     pvp: versus,
     godSpeed: false,
     pickup: null,

@@ -35,13 +35,20 @@ export function mateThrewRecently(state: GameState, kid: Kid, window = 0.4) {
 }
 
 export const ARENA_BALL_MAX = 5;
+export const ARENA_BALL_MAX_NORMAL = 3;
+
+export function arenaBallMax(state: GameState) {
+  if (state.pvp || state.difficulty === "hard") return ARENA_BALL_MAX;
+  if (state.difficulty === "normal") return ARENA_BALL_MAX_NORMAL;
+  return ARENA_BALL_MAX;
+}
 
 export function arenaBalls(state: GameState) {
   return state.balls.filter((b) => b.alive && !b.ghost).length;
 }
 
 export function arenaCanThrow(state: GameState, intercepting = false) {
-  return intercepting || arenaBalls(state) < ARENA_BALL_MAX;
+  return intercepting || arenaBalls(state) < arenaBallMax(state);
 }
 
 function arenaHunger(state: GameState) {
