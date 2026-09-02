@@ -32,7 +32,8 @@ const dict: Record<I18nKey, string> = {
   hard1: "모두 더 빠르게 움직이고, 눈덩이는 2배 속도",
   hard2: "리트리버는 목표를 바꾸고 잘 피합니다",
   hard3: "요새는 10대를 맞아야 합니다",
-  hard4: "묻힌 말티즈는 다음 라운드에도 일어나지 않습니다",
+  hard4: "클리어하면 쓰러진 말티즈 1마리 부활 (최대 3)",
+  reviveHint: "말티즈 부활!",
   easy: "쉬움",
   back: "뒤로",
   vsFriendLead:

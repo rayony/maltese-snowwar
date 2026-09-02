@@ -24,6 +24,8 @@ import {
   living,
   maybeArmComeback,
   playerComeback,
+  placePickup,
+  hardRoundReward,
   stepPickups,
   stepSim,
   throwSnowball,
@@ -276,6 +278,39 @@ describe("createState", () => {
     assert.equal(hold.range, MAX_RANGE);
     assert.ok(Math.abs(Math.hypot(tap.vx, tap.vy) - MAX_THROW_SPEED) < 1e-6);
     assert.ok(Math.abs(Math.hypot(hold.vx, hold.vy) - Math.hypot(tap.vx, tap.vy)) < 1e-6);
+  });
+});
+
+describe("hard round reward / pickups", () => {
+  it("revives one buried maltese per win, cap 3", () => {
+    const one = hardRoundReward([true, true, false]);
+    assert.equal(one.revived, true);
+    assert.equal(one.buried.filter((b) => !b).length, 2);
+    const full = hardRoundReward([false, false, false]);
+    assert.equal(full.revived, false);
+    assert.deepEqual(full.buried, [false, false, false]);
+    const two = hardRoundReward(one.buried);
+    assert.equal(two.revived, true);
+    assert.equal(two.buried.filter((b) => !b).length, 3);
+    const s = createState(2, false, { buriedRed: two.buried, hard: true });
+    assert.equal(living(s.kids, "red").length, 3);
+  });
+
+  it("keeps at most one gold and one kit on the field", () => {
+    const s = createState(3, false);
+    s.phase = "fight";
+    placePickup(s, 400, 200);
+    placePickup(s, 500, 300);
+    assert.equal(s.pickup?.x, 500);
+    s.kids.find((k) => k.team === "red")!.hp = 1;
+    const first = maybeDropKit(s, 220, 200, "red", 1);
+    const second = maybeDropKit(s, 100, 100, "red", 1);
+    assert.ok(first);
+    assert.equal(second, null);
+    assert.equal(s.kit, first);
+    assert.ok(s.pickup);
+    assert.equal(s.pickup.kind, "big");
+    assert.equal(s.kit?.kind, "heal");
   });
 });
 

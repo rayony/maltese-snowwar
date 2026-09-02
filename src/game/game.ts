@@ -20,7 +20,7 @@ import {
   type PoseSample,
 } from "./net";
 import { render, worldFromClient, clampWorldToView } from "./render";
-import { aimFromKid, burst, claimKit, claimPickup, clamp, createState, faceNearest, isOut, living, placePickup, puffMissingBalls, snapCombatFx, stepOneBall, stepPickups, stepPresentation, stepSim, sweetReady, throwSnowball } from "./sim";
+import { aimFromKid, burst, claimKit, claimPickup, clamp, createState, faceNearest, hardRoundReward, isOut, living, placePickup, puffMissingBalls, snapCombatFx, stepOneBall, stepPickups, stepPresentation, stepSim, sweetReady, throwSnowball } from "./sim";
 import type {
   AllyMode,
   Difficulty,
@@ -510,7 +510,7 @@ export class SnowCraftGame {
     return this.seat;
   }
 
-  private startLevel(level: number, versus = this.versus, buriedRed?: boolean[]) {
+  private startLevel(level: number, versus = this.versus, buriedRed?: boolean[], revived = false) {
     this.versus = versus;
     this.round += 1;
     this.lastCount = -1;
@@ -529,6 +529,7 @@ export class SnowCraftGame {
       hard: !versus && this.difficulty === "hard",
     });
     this.state.godSpeed = this.godSpeed;
+    this.state.reviveHint = revived;
     if (this.godSpeed) this.applyStarHp();
     this.grab = null;
     this.grabGuest = null;
@@ -2065,11 +2066,15 @@ export class SnowCraftGame {
       }
       window.setTimeout(() => {
         if (this.destroyed || this.screen !== "playing") return;
-        const carry =
-          this.difficulty === "hard"
-            ? this.state.kids.filter((k) => k.team === "red").map((k) => isOut(k))
-            : undefined;
-        this.startLevel(this.state.level + 1, false, carry);
+        let carry: boolean[] | undefined;
+        let revived = false;
+        if (this.difficulty === "hard") {
+          const flags = this.state.kids.filter((k) => k.team === "red").map((k) => isOut(k));
+          const reward = hardRoundReward(flags);
+          carry = reward.buried;
+          revived = reward.revived;
+        }
+        this.startLevel(this.state.level + 1, false, carry, revived);
       }, 1100);
     }
     if (this.state.phase === "lost") {

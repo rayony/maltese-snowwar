@@ -136,6 +136,7 @@ export function createState(
     pickupCd: 2.5,
     lootPop: null,
     buffs: { red: null, green: null },
+    reviveHint: false,
   };
 
   const redYs = [128, 270, 412];
@@ -678,6 +679,18 @@ export function playerComeback(state: GameState) {
   return living(state.kids, "red").length === 1;
 }
 
+/** After a Hard win: revive one buried Maltese (cap 3). */
+export function hardRoundReward(buried: boolean[]) {
+  const next = buried.slice(0, PLAYER_COUNT);
+  while (next.length < PLAYER_COUNT) next.push(false);
+  const livingN = next.filter((b) => !b).length;
+  if (livingN >= PLAYER_COUNT) return { buried: next.map(() => false), revived: false };
+  const i = next.findIndex((b) => b);
+  if (i < 0) return { buried: next, revived: false };
+  next[i] = false;
+  return { buried: next, revived: true };
+}
+
 export function teamNeedsHeal(state: GameState, team: Team) {
   return living(state.kids, team).some((k) => k.hp < (k.maxHp || HP));
 }
@@ -952,6 +965,14 @@ export function claimKit(state: GameState, team: Team): boolean {
   return true;
 }
 
+export function placePickup(state: GameState, x = 480, y = 270): Pickup {
+  const orb: Pickup = { x, y, kind: "big", life: PICKUP_LIFE, maxLife: PICKUP_LIFE };
+  state.pickup = orb;
+  state.pickupCd = PICKUP_CD_MIN;
+  burst(state, x, y, 0, 18, "spark");
+  return orb;
+}
+
 export function placeKit(state: GameState, x: number, y: number): Pickup {
   const kit: Pickup = {
     x: clamp(x, MARGIN + 20, WORLD_W - MARGIN - 20),
@@ -976,14 +997,6 @@ export function takeBigBuff(state: GameState, team: Team, consume: boolean) {
     if (buff.shots <= 0) state.buffs[team] = null;
   }
   return true;
-}
-
-export function placePickup(state: GameState, x = 480, y = 270): Pickup {
-  const orb: Pickup = { x, y, kind: "big", life: PICKUP_LIFE, maxLife: PICKUP_LIFE };
-  state.pickup = orb;
-  state.pickupCd = PICKUP_CD_MIN;
-  burst(state, x, y, 0, 18, "spark");
-  return orb;
 }
 
 function spawnPickup(state: GameState): Pickup {

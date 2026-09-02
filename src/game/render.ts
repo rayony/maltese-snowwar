@@ -398,7 +398,8 @@ export function render(
   if (state.phase === "intro") {
     const n = Math.max(1, Math.ceil(state.introT));
     const lang = readLang();
-    drawCountdown(ctx, view.pvp ? tr(lang, "pvpMode") : tr(lang, "level", { n: state.level }), String(n));
+    const hint = state.reviveHint ? tr(lang, "reviveHint") : "";
+    drawCountdown(ctx, view.pvp ? tr(lang, "pvpMode") : tr(lang, "level", { n: state.level }), String(n), hint);
   }
 }
 
@@ -497,7 +498,7 @@ function drawEdgeArrow(
   ctx.restore();
 }
 
-function drawCountdown(ctx: CanvasRenderingContext2D, kicker: string, n: string) {
+function drawCountdown(ctx: CanvasRenderingContext2D, kicker: string, n: string, hint = "") {
   const lang = readLang();
   const kickerFont = lang === "ja"
     ? '600 22px "Klee One","YuKyokasho","Yu Kyokasho",sans-serif'
@@ -519,12 +520,16 @@ function drawCountdown(ctx: CanvasRenderingContext2D, kicker: string, n: string)
         : "700 96px Fraunces, Georgia, serif";
   ctx.save();
   ctx.fillStyle = "rgba(21,32,43,0.4)";
-  ctx.fillRect(0, WORLD_H / 2 - 88, WORLD_W, 176);
+  ctx.fillRect(0, WORLD_H / 2 - (hint ? 108 : 88), WORLD_W, hint ? 216 : 176);
   ctx.fillStyle = "rgba(244,247,250,0.85)";
   ctx.font = kickerFont;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(kicker, WORLD_W / 2, WORLD_H / 2 - 52);
+  ctx.fillText(kicker, WORLD_W / 2, WORLD_H / 2 - (hint ? 70 : 52));
+  if (hint) {
+    ctx.fillStyle = "#e8c547";
+    ctx.fillText(hint, WORLD_W / 2, WORLD_H / 2 - 40);
+  }
   ctx.fillStyle = "#f4f7fa";
   ctx.font = numFont;
   ctx.fillText(n, WORLD_W / 2, WORLD_H / 2 + 18);
