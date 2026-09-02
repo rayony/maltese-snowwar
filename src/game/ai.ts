@@ -39,8 +39,7 @@ export const ARENA_BALL_MAX_NORMAL = 3;
 
 export function arenaBallMax(state: GameState) {
   if (state.pvp || state.difficulty === "hard") return ARENA_BALL_MAX;
-  if (state.difficulty === "normal") return ARENA_BALL_MAX_NORMAL;
-  return ARENA_BALL_MAX;
+  return ARENA_BALL_MAX_NORMAL;
 }
 
 export function arenaBalls(state: GameState) {

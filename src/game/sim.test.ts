@@ -1366,7 +1366,7 @@ describe("ai rhythm", () => {
   });
 
   it("AI does not throw a sixth ball when five are already flying", () => {
-    const s = createState(1);
+    const s = createState(1, false, { hard: true, difficulty: "hard" });
     s.phase = "fight";
     s.forts = [];
     for (let i = 0; i < 5; i++) {
@@ -1404,7 +1404,17 @@ describe("ai rhythm", () => {
     assert.ok(arenaBalls(s) <= 5);
   });
 
-  it("normal caps flying balls at 3; hard still allows 5", () => {
+  it("easy and normal cap flying balls at 3; hard still allows 5", () => {
+    const easy = createState(1, false);
+    easy.phase = "fight";
+    for (let i = 0; i < 3; i++) {
+      easy.balls.push({
+        x: 400, y: 180 + i * 20, vx: 90, vy: 0, team: "green", r: 12, fromId: -1,
+        grace: 0, spin: 0, alive: true, range: 500, traveled: 0,
+      });
+    }
+    assert.equal(arenaBallMax(easy), 3);
+    assert.equal(arenaCanThrow(easy), false);
     const normal = createState(1, false, { difficulty: "normal" });
     normal.phase = "fight";
     for (let i = 0; i < 3; i++) {
