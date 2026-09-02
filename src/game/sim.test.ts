@@ -232,6 +232,43 @@ describe("aiThrowAim", () => {
     assert.ok(aim);
     assert.ok(aim.dx < 0);
   });
+
+  it("easy retrievers refuse a left shot even vs the last maltese, and walk left first", () => {
+    const s = createState(1, false);
+    s.phase = "fight";
+    s.forts = [];
+    const reds = s.kids.filter((k) => k.team === "red");
+    reds.forEach((r, i) => {
+      if (i > 0) {
+        r.hp = 0;
+        r.state = "buried";
+      } else {
+        r.x = 160;
+        r.y = 240;
+        r.state = "idle";
+      }
+    });
+    const g = s.kids.find((k) => k.team === "green")!;
+    g.x = 420;
+    g.y = 240;
+    g.packT = 0;
+    g.cooldown = 0;
+    g.stun = 0;
+    g.state = "idle";
+    g.ai!.phase = "idle";
+    g.ai!.t = 0;
+    const startX = g.x;
+    const aim = throwAimForStance(g, s, "enemy", false);
+    assert.equal(aim, null);
+    let leftShot = false;
+    for (let i = 0; i < 90; i++) {
+      stepAi(s, 1 / 60, (_p, _k, _h, dx) => {
+        if (dx < 0) leftShot = true;
+      }, "off", "enemy", false, false);
+    }
+    assert.equal(leftShot, false);
+    assert.ok(g.ai!.destX < startX);
+  });
 });
 
 describe("createState", () => {
