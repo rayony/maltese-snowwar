@@ -28,6 +28,7 @@ import {
   hardRoundReward,
   stepPickups,
   stepSim,
+  makeForts,
   throwSnowball,
   tickHideFuel,
   sweetReady,
@@ -342,7 +343,7 @@ describe("hard round reward / pickups", () => {
     assert.equal(revived.hp, 1);
   });
 
-  it("keeps at most one gold and one kit on the field", () => {
+  it("keeps at most three kits and one gold on the field", () => {
     const s = createState(3, false);
     s.phase = "fight";
     placePickup(s, 400, 200);
@@ -351,12 +352,14 @@ describe("hard round reward / pickups", () => {
     s.kids.find((k) => k.team === "red")!.hp = 1;
     const first = maybeDropKit(s, 220, 200, "red", 1);
     const second = maybeDropKit(s, 100, 100, "red", 1);
-    assert.ok(first);
-    assert.equal(second, null);
-    assert.equal(s.kit, first);
+    const third = maybeDropKit(s, 300, 300, "red", 1);
+    const fourth = maybeDropKit(s, 400, 400, "red", 1);
+    assert.ok(first && second && third);
+    assert.equal(fourth, null);
+    assert.equal(s.kits.length, 3);
+    assert.ok(s.kits.every((k) => k.life === 30 && k.maxLife === 30));
     assert.ok(s.pickup);
     assert.equal(s.pickup.kind, "big");
-    assert.equal(s.kit?.kind, "heal");
   });
 });
 
@@ -1298,6 +1301,36 @@ describe("ai rhythm", () => {
     assert.equal(String(ally.ai!.phase), "windup");
   });
 
+  it("ally AI does not throw into a snow pile", () => {
+    const s = createState(1, false, { fortHp: 10 });
+    s.phase = "fight";
+    s.forts = makeForts(10);
+    const reds = s.kids.filter((k) => k.team === "red");
+    const greens = s.kids.filter((k) => k.team === "green");
+    for (const r of reds) {
+      r.x = 720;
+      r.y = 168;
+      r.packT = 0;
+      r.cooldown = 0;
+      r.stun = 0;
+      r.state = "idle";
+    }
+    for (const g of greens) {
+      g.x = 180;
+      g.y = 168;
+    }
+    const ally = reds[1]!;
+    assert.equal(throwAimForStance(ally, s, "attack", false), null);
+    assert.equal(throwAimForStance(ally, s, "defend", false), null);
+    let throws = 0;
+    for (let i = 0; i < 80; i++) {
+      stepAi(s, 1 / 60, () => {
+        throws += 1;
+      }, "attack", "enemy", false, false);
+    }
+    assert.equal(throws, 0);
+  });
+
   it("comeback gold does not heal; a kit heals one pip", () => {
     const s = createState(1, false);
     s.phase = "fight";
@@ -1365,13 +1398,12 @@ describe("ai rhythm", () => {
     reds[2]!.state = "buried";
     reds[0]!.hp = 1;
     maybeComebackKit(s);
-    assert.ok(s.kit);
-    const green = s.kids.find((k) => k.team === "green")!;
+    assert.ok(s.kits.length);
     assert.equal(claimKit(s, "green"), false);
-    assert.ok(s.kit);
+    assert.ok(s.kits.length);
     assert.equal(claimKit(s, "red"), true);
     assert.equal(reds[0]!.hp, 2);
-    assert.equal(s.kit, null);
+    assert.equal(s.kits.length, 0);
   });
 
   it("AI does not throw a sixth ball when five are already flying", () => {

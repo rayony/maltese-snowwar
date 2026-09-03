@@ -143,7 +143,7 @@ export interface GameState {
   pvp: boolean;
   godSpeed: boolean;
   pickup: Pickup | null;
-  kit: Pickup | null;
+  kits: Pickup[];
   pickupCd: number;
   lootPop: { x: number; y: number; t: number } | null;
   buffs: { red: TeamBuff | null; green: TeamBuff | null };
@@ -198,7 +198,7 @@ export interface UiSnapshot {
     shots: number;
     maxShots: number;
   } | null;
-  kit: { field: boolean } | null;
+  kit: { field: boolean; n: number } | null;
 }
 
 export interface View {

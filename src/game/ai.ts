@@ -1,5 +1,5 @@
 import { aiInterval, aiMoveSpeed, BIG_HELD_TIME, MARGIN, MAX_CHARGE, PACK_TIME, throwSpeed, WORLD_H, WORLD_W } from "./constants";
-import { aimFromKid, canEnterFort, canTeamClaimPickup, closestEnemy, closestHittableEnemy, ensureAi, foeHittable, inFort, isOut, lineHitsFort, living, rand, teamNeedsHeal, throwSnowball } from "./sim";
+import { aimFromKid, canEnterFort, canTeamClaimPickup, closestEnemy, closestHittableEnemy, ensureAi, foeHittable, inFort, isOut, lineHitsFort, living, nearestKit, rand, teamNeedsHeal, throwSnowball } from "./sim";
 import type { AllyMode, Fort, GameState, Kid, Snowball, Team } from "./types";
 
 export type GreenControl = "enemy" | AllyMode;
@@ -417,7 +417,7 @@ export function stepAi(
           kid.ai.t = rand(0.12, 0.3);
           continue;
         }
-        if (!intercepting && stance !== "defend" && shotHitsFort(kid, aim.dx, aim.dy, state.forts, fortOfGrabbed(state, kid))) {
+        if (!intercepting && shotHitsFort(kid, aim.dx, aim.dy, state.forts, fortOfGrabbed(state, kid))) {
           kid.ai.phase = "move";
           kid.ai.t = rand(0.28, 0.5);
           pickDest(state, kid, stance, false, mayCross, hard);
@@ -471,7 +471,9 @@ export function stepAi(
       } else if (panic && arenaBalls(state) > 1) {
         throwChance = 0;
       } else if (stance === "defend") {
-        throwChance = draggedMate(state, kid) ? 0.84 : nearFortRim(kid, state) ? 0.78 : 0.42;
+        const foe = closestHittableEnemy(kid, state.kids, state.forts);
+        if (!foe || shotHitsFort(kid, foe.x - kid.x, foe.y - kid.y, state.forts, fortOfGrabbed(state, kid))) throwChance = 0;
+        else throwChance = draggedMate(state, kid) ? 0.84 : nearFortRim(kid, state) ? 0.78 : 0.42;
       } else if (stance === "attack") {
         const foe = living(state.kids).find((k) => k.team !== kid.team && k.state === "grabbed") ?? assignedFoe(state, kid);
         const punish = foeIsOpen(foe);
@@ -646,11 +648,11 @@ function pickDest(state: GameState, kid: Kid, stance: "defend" | "attack" | "ene
       return;
     }
   }
-  if (state.kit && kid.ai && canTeamClaimPickup(state, kid.team) && teamNeedsHeal(state, kid.team)) {
-    const d = Math.hypot(kid.x - state.kit.x, kid.y - state.kit.y);
-    if (d < 260 && Math.random() < 0.7) {
-      kid.ai.destX = clamp(state.kit.x + rand(-8, 8), MARGIN, WORLD_W - MARGIN);
-      kid.ai.destY = clamp(state.kit.y + rand(-8, 8), MARGIN, WORLD_H - MARGIN);
+  if (state.kits.length && kid.ai && canTeamClaimPickup(state, kid.team) && teamNeedsHeal(state, kid.team)) {
+    const kit = nearestKit(state, kid.x, kid.y, 260);
+    if (kit && Math.random() < 0.7) {
+      kid.ai.destX = clamp(kit.x + rand(-8, 8), MARGIN, WORLD_W - MARGIN);
+      kid.ai.destY = clamp(kit.y + rand(-8, 8), MARGIN, WORLD_H - MARGIN);
       return;
     }
   }
@@ -1015,12 +1017,19 @@ export function throwAimForStance(kid: Kid, state: GameState, stance: "defend" |
     if (!(kid.team === "green" && !hard && dx < 1)) return { dx, dy };
   }
   if (stance === "defend") {
-    const foe = focusFoe(state, kid);
+    const marked = focusFoe(state, kid);
+    const foe =
+      marked && foeHittable(kid, marked, state.forts) ? marked : closestHittableEnemy(kid, state.kids, state.forts);
     if (!foe) return null;
-    const dx = foe.x - kid.x;
     const miss = ((kid.id % 5) - 2) * 14;
-    const dy = foe.y - kid.y + miss;
+    let dx = foe.x - kid.x;
+    let dy = foe.y - kid.y + miss;
     if (kid.team === "green" && !hard && dx < 1) return null;
+    const ignore = fortOfGrabbed(state, kid);
+    if (shotHitsFort(kid, dx, dy, state.forts, ignore)) {
+      dy = foe.y - kid.y;
+      if (shotHitsFort(kid, dx, dy, state.forts, ignore)) return null;
+    }
     return { dx, dy };
   }
   const clear = closestHittableEnemy(kid, state.kids, state.forts);

@@ -12,6 +12,7 @@ import {
   INTRO_TIME,
   KIT_CHANCE,
   KIT_LIFE,
+  KIT_MAX,
   KIT_MIN_LEVEL,
   KID_RADIUS,
   MARGIN,
@@ -135,7 +136,7 @@ export function createState(
     pvp: versus,
     godSpeed: false,
     pickup: null,
-    kit: null,
+    kits: [],
     pickupCd: 2.5,
     lootPop: null,
     buffs: { red: null, green: null },
@@ -727,14 +728,14 @@ export function maybeArmComeback(state: GameState) {
 }
 
 export function maybeComebackKit(state: GameState) {
-  if (state.pvp || state.kit || !playerComeback(state) || !teamNeedsHeal(state, "red")) return;
+  if (state.pvp || state.kits.length >= KIT_MAX || !playerComeback(state) || !teamNeedsHeal(state, "red")) return;
   const last = living(state.kids, "red")[0];
   if (!last) return;
   placeKit(state, last.x + rand(-50, 20), last.y + rand(-36, 36));
 }
 
 export function maybeDropKit(state: GameState, x: number, y: number, killer: Team, chance = KIT_CHANCE) {
-  if (state.kit) return null;
+  if (state.kits.length >= KIT_MAX) return null;
   if (!state.pvp && (killer !== "red" || state.level < KIT_MIN_LEVEL)) return null;
   if (!teamNeedsHeal(state, killer)) return null;
   if (Math.random() > chance) return null;
@@ -971,15 +972,30 @@ export function claimPickup(state: GameState, team: Team): boolean {
   return true;
 }
 
-export function claimKit(state: GameState, team: Team): boolean {
-  if (!state.kit || (state.phase !== "fight" && state.phase !== "intro")) return false;
+export function claimKit(state: GameState, team: Team, kit?: Pickup | null): boolean {
+  if (state.phase !== "fight" && state.phase !== "intro") return false;
   if (!canTeamClaimPickup(state, team)) return false;
+  const target = kit && state.kits.includes(kit) ? kit : state.kits[0];
+  if (!target) return false;
   healLowest(state, team);
-  burst(state, state.kit.x, state.kit.y, 0, 14, "puff");
-  burst(state, state.kit.x, state.kit.y, 0, 10, "spark");
-  state.lootPop = { x: state.kit.x, y: state.kit.y, t: 0.45 };
-  state.kit = null;
+  burst(state, target.x, target.y, 0, 14, "puff");
+  burst(state, target.x, target.y, 0, 10, "spark");
+  state.lootPop = { x: target.x, y: target.y, t: 0.45 };
+  state.kits = state.kits.filter((k) => k !== target);
   return true;
+}
+
+export function nearestKit(state: GameState, x: number, y: number, r: number): Pickup | null {
+  let best: Pickup | null = null;
+  let bestD = r;
+  for (const kit of state.kits) {
+    const d = Math.hypot(kit.x - x, kit.y - y);
+    if (d <= bestD) {
+      bestD = d;
+      best = kit;
+    }
+  }
+  return best;
 }
 
 export function placePickup(state: GameState, x = 480, y = 270): Pickup {
@@ -990,7 +1006,8 @@ export function placePickup(state: GameState, x = 480, y = 270): Pickup {
   return orb;
 }
 
-export function placeKit(state: GameState, x: number, y: number): Pickup {
+export function placeKit(state: GameState, x: number, y: number): Pickup | null {
+  if (state.kits.length >= KIT_MAX) return null;
   const kit: Pickup = {
     x: clamp(x, MARGIN + 20, WORLD_W - MARGIN - 20),
     y: clamp(y, MARGIN + 20, WORLD_H - MARGIN - 20),
@@ -1001,7 +1018,7 @@ export function placeKit(state: GameState, x: number, y: number): Pickup {
   if (inFort(kit.x, kit.y, state.forts)) {
     kit.x = clamp(kit.x + 50, MARGIN + 20, WORLD_W - MARGIN - 20);
   }
-  state.kit = kit;
+  state.kits.push(kit);
   burst(state, kit.x, kit.y, 0, 10, "puff");
   return kit;
 }
@@ -1050,16 +1067,18 @@ export function stepPickups(state: GameState, dt: number, spawn: boolean) {
       }
     }
   }
-  if (state.kit) {
-    state.kit.life -= dt;
-    if (state.kit.life <= 0) state.kit = null;
-    else if (spawn) {
-      for (const kid of state.kids) {
-        if (isOut(kid)) continue;
-        if (!canTeamClaimPickup(state, kid.team)) continue;
-        if (Math.hypot(kid.x - state.kit.x, kid.y - state.kit.y) > pickupRadius()) continue;
-        claimKit(state, kid.team);
-        break;
+  if (state.kits.length) {
+    for (const kit of state.kits) kit.life -= dt;
+    state.kits = state.kits.filter((k) => k.life > 0);
+    if (spawn) {
+      outer: for (const kit of state.kits) {
+        for (const kid of state.kids) {
+          if (isOut(kid)) continue;
+          if (!canTeamClaimPickup(state, kid.team)) continue;
+          if (Math.hypot(kid.x - kit.x, kid.y - kit.y) > pickupRadius()) continue;
+          claimKit(state, kid.team, kit);
+          break outer;
+        }
       }
     }
   }

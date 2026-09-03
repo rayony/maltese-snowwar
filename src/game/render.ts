@@ -1,4 +1,4 @@
-import { BALL_RADIUS, BIG_BALL_RADIUS, isCompactPlay, MARGIN, MAX_RANGE, PACK_TIME, PVP_RANGE, STAR_PACK_TIME, WORLD_H, WORLD_W } from "./constants";
+import { BALL_RADIUS, BIG_BALL_RADIUS, isCompactPlay, KIT_BLINK, MARGIN, MAX_RANGE, PACK_TIME, PVP_RANGE, STAR_PACK_TIME, WORLD_H, WORLD_W } from "./constants";
 import { readLang, tr } from "./i18n";
 import type { Assets } from "./assets";
 import { aimFromKid, clamp, inFort, isOut, sweetReady } from "./sim";
@@ -278,8 +278,8 @@ export function render(
   if (state.pickup) {
     drawFieldPickup(ctx, state.pickup.x, state.pickup.y, goldOrbRadius(view.ballSize), state.time);
   }
-  if (state.kit) {
-    drawMedkit(ctx, state.kit.x, state.kit.y, state.time);
+  for (const kit of state.kits) {
+    drawMedkit(ctx, kit.x, kit.y, state.time, kit.life);
   }
   for (const kid of state.kids) {
     const buff = state.buffs[kid.team];
@@ -827,17 +827,21 @@ function drawFieldPickup(ctx: CanvasRenderingContext2D, x: number, y: number, ra
   }
 }
 
-function drawMedkit(ctx: CanvasRenderingContext2D, x: number, y: number, time: number) {
+function drawMedkit(ctx: CanvasRenderingContext2D, x: number, y: number, time: number, life = 99) {
   const bob = Math.sin(time * 3.2) * 5;
   const s = 22;
+  const blink = life <= KIT_BLINK;
+  const flick = blink ? 0.22 + 0.78 * (0.5 + 0.5 * Math.sin(time * (life <= 2 ? 18 : 12))) : 1;
   ctx.save();
+  ctx.globalAlpha = flick;
   ctx.translate(x, y + bob);
-  ctx.globalAlpha = 0.28;
+  ctx.save();
+  ctx.globalAlpha = 0.28 * flick;
   ctx.fillStyle = "#4a6578";
   ctx.beginPath();
   ctx.ellipse(0, 16, 16, 6, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.globalAlpha = 1;
+  ctx.restore();
   ctx.fillStyle = "#f4f7fa";
   ctx.strokeStyle = "#c43b3b";
   ctx.lineWidth = 2.4;
