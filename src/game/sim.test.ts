@@ -12,6 +12,11 @@ import {
   createState,
   canEnterFort,
   canTeamClaimPickup,
+  claimKit,
+  maybeDropKit,
+  maybeComebackKit,
+  placeKit,
+  teamNeedsHeal,
   faceFromDir,
   faceNearest,
   foeHittable,
@@ -19,13 +24,18 @@ import {
   living,
   maybeArmComeback,
   playerComeback,
+  placePickup,
+  hardRoundReward,
   stepPickups,
   stepSim,
+  makeForts,
   throwSnowball,
   tickHideFuel,
+  sweetReady,
+  incomingAt,
 } from "./sim";
-import { holdPower, MAX_CHARGE, BIG_CHARGE, BIG_SPEED, pickupRadius, sweetCharge, throwSpeed, WORLD_W } from "./constants";
-import { aiThrowAim, arenaBalls, arenaCanThrow, bigBallRoles, draggedMate, fortCoverSpot, grabShooters, huntPressers, mateThrewRecently, shouldHideInPile, stepAi, surroundLast, teamJob, teamReactsToBig, teamSurging, throwAimForStance } from "./ai";
+import { BIG_SPEED, kitClickRadius, MAX_RANGE, MAX_THROW_SPEED, pickupRadius, SWEET_WINDOW, WORLD_W } from "./constants";
+import { aiThrowAim, arenaBalls, arenaCanThrow, arenaBallMax, bigBallRoles, draggedMate, fortCoverSpot, grabShooters, mateThrewRecently, shouldHideInPile, stepAi, surroundLast, teamJob, teamReactsToBig, teamSurging, throwAimForStance } from "./ai";
 import type { Kid } from "./types";
 
 function kid(partial: Partial<Kid> & Pick<Kid, "id" | "team" | "x" | "y">): Kid {
@@ -223,6 +233,43 @@ describe("aiThrowAim", () => {
     assert.ok(aim);
     assert.ok(aim.dx < 0);
   });
+
+  it("easy retrievers refuse a left shot even vs the last maltese, and walk left first", () => {
+    const s = createState(1, false);
+    s.phase = "fight";
+    s.forts = [];
+    const reds = s.kids.filter((k) => k.team === "red");
+    reds.forEach((r, i) => {
+      if (i > 0) {
+        r.hp = 0;
+        r.state = "buried";
+      } else {
+        r.x = 160;
+        r.y = 240;
+        r.state = "idle";
+      }
+    });
+    const g = s.kids.find((k) => k.team === "green")!;
+    g.x = 420;
+    g.y = 240;
+    g.packT = 0;
+    g.cooldown = 0;
+    g.stun = 0;
+    g.state = "idle";
+    g.ai!.phase = "idle";
+    g.ai!.t = 0;
+    const startX = g.x;
+    const aim = throwAimForStance(g, s, "enemy", false);
+    assert.equal(aim, null);
+    let leftShot = false;
+    for (let i = 0; i < 90; i++) {
+      stepAi(s, 1 / 60, (_p, _k, _h, dx) => {
+        if (dx < 0) leftShot = true;
+      }, "off", "enemy", false, false);
+    }
+    assert.equal(leftShot, false);
+    assert.ok(g.ai!.destX < startX);
+  });
 });
 
 describe("createState", () => {
@@ -252,28 +299,237 @@ describe("createState", () => {
     const fast = Math.hypot(hard.balls.at(-1)!.vx, hard.balls.at(-1)!.vy);
     assert.ok(Math.abs(fast - slow * 2) < 1e-4);
   });
-});
 
-describe("sweet charge", () => {
-  it("last 0.3s of a full hold is sweet without changing speed", () => {
-    assert.equal(sweetCharge(0.8), false);
-    assert.equal(sweetCharge(0.9), true);
-    assert.equal(sweetCharge(1.2), true);
+  it("tap and long hold fly the same distance and speed", () => {
     const s = createState(1);
     s.phase = "fight";
     s.forts = [];
     const red = s.kids.find((k) => k.team === "red")!;
     red.packT = 0;
-    red.state = "idle";
-    throwSnowball(s, red, 0.5, -1, 0, false, true);
-    const normal = s.balls.at(-1)!;
+    throwSnowball(s, red, 0.05, -1, 0, false, true);
+    const tap = s.balls.at(-1)!;
     red.packT = 0;
     red.state = "idle";
     throwSnowball(s, red, 1.2, -1, 0, false, true);
-    const sweet = s.balls.at(-1)!;
-    assert.equal(sweet.sweet, true);
-    assert.equal(!!normal.sweet, false);
-    assert.ok(Math.abs(Math.hypot(sweet.vx, sweet.vy) - throwSpeed(holdPower(1.2))) < 1e-6);
+    const hold = s.balls.at(-1)!;
+    assert.equal(tap.range, MAX_RANGE);
+    assert.equal(hold.range, MAX_RANGE);
+    assert.ok(Math.abs(Math.hypot(tap.vx, tap.vy) - MAX_THROW_SPEED) < 1e-6);
+    assert.ok(Math.abs(Math.hypot(hold.vx, hold.vy) - Math.hypot(tap.vx, tap.vy)) < 1e-6);
+  });
+});
+
+describe("hard round reward / pickups", () => {
+  it("revives one buried maltese per win, cap 3", () => {
+    const one = hardRoundReward([true, true, false]);
+    assert.equal(one.revived, true);
+    assert.equal(one.reviveAt, 0);
+    assert.equal(one.buried.filter((b) => !b).length, 2);
+    const s1 = createState(2, false, { buriedRed: one.buried, hard: true, reviveAt: one.reviveAt });
+    const reds1 = s1.kids.filter((k) => k.team === "red");
+    assert.equal(reds1[0]!.hp, 1);
+    assert.equal(reds1[1]!.hp, 0);
+    assert.equal(reds1[2]!.hp, 2);
+    const full = hardRoundReward([false, false, false]);
+    assert.equal(full.revived, false);
+    assert.deepEqual(full.buried, [false, false, false]);
+    const two = hardRoundReward(one.buried);
+    assert.equal(two.revived, true);
+    assert.equal(two.buried.filter((b) => !b).length, 3);
+    const s = createState(2, false, { buriedRed: two.buried, hard: true, reviveAt: two.reviveAt });
+    assert.equal(living(s.kids, "red").length, 3);
+    const revived = s.kids.filter((k) => k.team === "red")[two.reviveAt]!;
+    assert.equal(revived.hp, 1);
+  });
+
+  it("keeps at most three kits and one gold on the field", () => {
+    const s = createState(3, false);
+    s.phase = "fight";
+    placePickup(s, 400, 200);
+    placePickup(s, 500, 300);
+    assert.equal(s.pickup?.x, 500);
+    s.kids.find((k) => k.team === "red")!.hp = 1;
+    const first = maybeDropKit(s, 220, 200, "red", 1);
+    const second = maybeDropKit(s, 100, 100, "red", 1);
+    const third = maybeDropKit(s, 300, 300, "red", 1);
+    const fourth = maybeDropKit(s, 400, 400, "red", 1);
+    assert.ok(first && second && third);
+    assert.equal(fourth, null);
+    assert.equal(s.kits.length, 3);
+    assert.ok(s.kits.every((k) => k.life === 30 && k.maxLife === 30));
+    assert.ok(s.pickup);
+    assert.equal(s.pickup.kind, "big");
+  });
+});
+
+describe("counter sweet", () => {
+  it("is sweet only if the aimed foe just threw", () => {
+    const s = createState(1);
+    s.phase = "fight";
+    s.forts = [];
+    s.time = 2;
+    const red = s.kids.find((k) => k.team === "red")!;
+    const green = s.kids.find((k) => k.team === "green")!;
+    red.x = 700;
+    red.y = 200;
+    red.packT = 0;
+    green.x = 200;
+    green.y = 200;
+    green.lastThrowAt = 2 - 0.2;
+    assert.equal(sweetReady(s, red), true);
+    throwSnowball(s, red, 0, -1, 0, false, true);
+    assert.equal(s.balls.at(-1)!.sweet, true);
+    assert.ok(Math.abs(Math.hypot(s.balls.at(-1)!.vx, s.balls.at(-1)!.vy) - MAX_THROW_SPEED) < 1e-6);
+  });
+
+  it("is not sweet if the aimed foe threw too long ago", () => {
+    const s = createState(1);
+    s.phase = "fight";
+    s.forts = [];
+    s.time = 2;
+    const red = s.kids.find((k) => k.team === "red")!;
+    const green = s.kids.find((k) => k.team === "green")!;
+    red.x = 700;
+    red.y = 200;
+    red.packT = 0;
+    green.x = 200;
+    green.y = 200;
+    green.lastThrowAt = 2 - SWEET_WINDOW - 0.2;
+    assert.equal(sweetReady(s, red), false);
+    throwSnowball(s, red, 0, -1, 0, false, true);
+    assert.equal(!!s.balls.at(-1)!.sweet, false);
+  });
+
+  it("is sweet if a nearby foe's ball is flying at the held dog", () => {
+    const s = createState(1);
+    s.phase = "fight";
+    s.forts = [];
+    s.time = 2;
+    const reds = s.kids.filter((k) => k.team === "red");
+    const greens = s.kids.filter((k) => k.team === "green");
+    const red = reds[0]!;
+    const aim = greens[0]!;
+    const other = greens[1] ?? greens[0]!;
+    red.x = 700;
+    red.y = 200;
+    red.packT = 0;
+    aim.x = 180;
+    aim.y = 200;
+    aim.lastThrowAt = -99;
+    other.x = 200;
+    other.y = 248;
+    other.lastThrowAt = -99;
+    s.balls = [{
+      x: 560, y: 200, vx: 480, vy: 0, team: "green", r: 12, fromId: other.id, grace: 0, spin: 0,
+      alive: true, range: 800, traveled: 80, sweet: false, big: false,
+    }];
+    assert.equal(incomingAt(s, red), true);
+    assert.equal(sweetReady(s, red), true);
+    throwSnowball(s, red, 0, -1, 0, false, true);
+    assert.equal(s.balls.filter((b) => b.fromId === red.id).at(-1)!.sweet, true);
+  });
+
+  it("is not sweet for a ball flying away or a big ball", () => {
+    const s = createState(1);
+    s.phase = "fight";
+    s.forts = [];
+    const red = s.kids.find((k) => k.team === "red")!;
+    const green = s.kids.find((k) => k.team === "green")!;
+    red.x = 700;
+    red.y = 200;
+    green.x = 200;
+    green.y = 200;
+    green.lastThrowAt = -99;
+    s.balls = [{
+      x: 560, y: 200, vx: -480, vy: 0, team: "green", r: 12, fromId: green.id, grace: 0, spin: 0,
+      alive: true, range: 800, traveled: 80,
+    }];
+    assert.equal(incomingAt(s, red), false);
+    s.balls = [{
+      x: 560, y: 200, vx: 400, vy: 0, team: "green", r: 36, fromId: green.id, grace: 0, spin: 0,
+      alive: true, range: 800, traveled: 80, big: true,
+    }];
+    assert.equal(incomingAt(s, red), false);
+    assert.equal(sweetReady(s, red), false);
+  });
+
+  it("a sweet ball eats a normal foe ball and keeps flying", () => {
+    const s = createState(1);
+    s.phase = "fight";
+    s.forts = [];
+    const red = s.kids.find((k) => k.team === "red")!;
+    const green = s.kids.find((k) => k.team === "green")!;
+    red.x = 400;
+    red.y = 80;
+    green.x = 400;
+    green.y = 460;
+    s.balls = [
+      {
+        x: 400, y: 200, vx: 0, vy: 0, team: "red", r: 12, fromId: red.id, grace: 0, spin: 0,
+        alive: true, range: 800, traveled: 40, sweet: true, big: false,
+      },
+      {
+        x: 400, y: 200, vx: 0, vy: 0, team: "green", r: 12, fromId: green.id, grace: 0, spin: 0,
+        alive: true, range: 800, traveled: 40, sweet: false, big: false,
+      },
+    ];
+    stepSim(s, 1 / 60, () => {});
+    const sweet = s.balls.find((b) => b.sweet);
+    const foe = s.balls.find((b) => b.fromId === green.id);
+    assert.ok(sweet?.alive);
+    assert.ok(!foe || !foe.alive);
+  });
+
+  it("sweet vs big acts like a normal ball", () => {
+    const s = createState(1);
+    s.phase = "fight";
+    s.forts = [];
+    const red = s.kids.find((k) => k.team === "red")!;
+    const green = s.kids.find((k) => k.team === "green")!;
+    red.x = 400;
+    red.y = 80;
+    green.x = 400;
+    green.y = 460;
+    s.balls = [
+      {
+        x: 400, y: 200, vx: 0, vy: 0, team: "red", r: 12, fromId: red.id, grace: 0, spin: 0,
+        alive: true, range: 800, traveled: 40, sweet: true, big: false,
+      },
+      {
+        x: 400, y: 200, vx: 0, vy: 0, team: "green", r: 36, fromId: green.id, grace: 0, spin: 0,
+        alive: true, range: 800, traveled: 40, sweet: false, big: true,
+      },
+    ];
+    stepSim(s, 1 / 60, () => {});
+    const sweet = s.balls.find((b) => b.fromId === red.id);
+    const big = s.balls.find((b) => b.fromId === green.id);
+    assert.ok(!sweet || !sweet.alive);
+    assert.ok(big?.alive);
+    assert.equal(big?.big, false);
+  });
+
+  it("two sweet balls pass through each other", () => {
+    const s = createState(1);
+    s.phase = "fight";
+    s.forts = [];
+    const red = s.kids.find((k) => k.team === "red")!;
+    const green = s.kids.find((k) => k.team === "green")!;
+    red.x = 400;
+    red.y = 80;
+    green.x = 400;
+    green.y = 460;
+    s.balls = [
+      {
+        x: 400, y: 200, vx: 0, vy: 0, team: "red", r: 12, fromId: red.id, grace: 0, spin: 0,
+        alive: true, range: 800, traveled: 40, sweet: true, big: false,
+      },
+      {
+        x: 400, y: 200, vx: 0, vy: 0, team: "green", r: 12, fromId: green.id, grace: 0, spin: 0,
+        alive: true, range: 800, traveled: 40, sweet: true, big: false,
+      },
+    ];
+    stepSim(s, 1 / 60, () => {});
+    assert.equal(s.balls.filter((b) => b.alive && b.sweet).length, 2);
   });
 });
 
@@ -364,10 +620,7 @@ describe("big snowball pickup", () => {
     assert.ok(s.lootPop);
   });
 
-  it("big ball flies at 0.8x and needs 1.2x hold for full range", () => {
-    assert.equal(holdPower(MAX_CHARGE), 1);
-    assert.ok(holdPower(MAX_CHARGE, false, true) < 1);
-    assert.equal(holdPower(MAX_CHARGE * BIG_CHARGE, false, true), 1);
+  it("big ball flies at 0.8x at full range", () => {
     const s = createState(1, false);
     s.phase = "fight";
     s.forts = [];
@@ -375,9 +628,10 @@ describe("big snowball pickup", () => {
     const red = s.kids.find((k) => k.team === "red")!;
     red.packT = 0;
     red.state = "idle";
-    throwSnowball(s, red, MAX_CHARGE * BIG_CHARGE, -1, 0, false, true, true);
+    throwSnowball(s, red, 0.1, -1, 0, false, true, true);
     const ball = s.balls.find((b) => b.big)!;
-    const full = throwSpeed(1);
+    const full = MAX_THROW_SPEED;
+    assert.equal(ball.range, MAX_RANGE);
     assert.ok(Math.abs(Math.hypot(ball.vx, ball.vy) - full * BIG_SPEED) < 1e-6);
   });
 
@@ -1046,7 +1300,37 @@ describe("ai rhythm", () => {
     assert.equal(String(ally.ai!.phase), "windup");
   });
 
-  it("comeback gold heals one pip and spawns on the player side", () => {
+  it("ally AI does not throw into a snow pile", () => {
+    const s = createState(1, false, { fortHp: 10 });
+    s.phase = "fight";
+    s.forts = makeForts(10);
+    const reds = s.kids.filter((k) => k.team === "red");
+    const greens = s.kids.filter((k) => k.team === "green");
+    for (const r of reds) {
+      r.x = 720;
+      r.y = 168;
+      r.packT = 0;
+      r.cooldown = 0;
+      r.stun = 0;
+      r.state = "idle";
+    }
+    for (const g of greens) {
+      g.x = 180;
+      g.y = 168;
+    }
+    const ally = reds[1]!;
+    assert.equal(throwAimForStance(ally, s, "attack", false), null);
+    assert.equal(throwAimForStance(ally, s, "defend", false), null);
+    let throws = 0;
+    for (let i = 0; i < 80; i++) {
+      stepAi(s, 1 / 60, () => {
+        throws += 1;
+      }, "attack", "enemy", false, false);
+    }
+    assert.equal(throws, 0);
+  });
+
+  it("comeback gold does not heal; a kit heals one pip", () => {
     const s = createState(1, false);
     s.phase = "fight";
     const reds = s.kids.filter((k) => k.team === "red");
@@ -1061,7 +1345,11 @@ describe("ai rhythm", () => {
     assert.ok(s.pickupCd >= 6.5);
     s.pickup = { x: 480, y: 270, kind: "big", life: 10, maxLife: 10 };
     assert.equal(claimPickup(s, "red"), true);
+    assert.equal(reds[0]!.hp, 1);
+    placeKit(s, 640, 270);
+    assert.equal(claimKit(s, "red"), true);
     assert.equal(reds[0]!.hp, 2);
+    assert.equal(reds[0]!.hp <= (reds[0]!.maxHp || 2), true);
     s.pickupCd = 0;
     stepPickups(s, 0.05, true);
     assert.ok(s.pickup && s.pickup.x > 540);
@@ -1075,8 +1363,50 @@ describe("ai rhythm", () => {
     assert.equal(playerComeback(s), false);
   });
 
+  it("medkit drops from level 3 if a teammate is hurt, and can sit next to gold", () => {
+    const early = createState(1, false);
+    early.phase = "fight";
+    early.kids.find((k) => k.team === "red")!.hp = 1;
+    assert.equal(maybeDropKit(early, 200, 200, "red", 1), null);
+    const s = createState(3, false);
+    s.phase = "fight";
+    const red = s.kids.find((k) => k.team === "red")!;
+    red.hp = 1;
+    s.pickup = { x: 480, y: 270, kind: "big", life: 10, maxLife: 10 };
+    const kit = maybeDropKit(s, 220, 200, "red", 1);
+    assert.ok(kit);
+    assert.equal(kit!.kind, "heal");
+    assert.ok(s.pickup);
+    assert.ok(kitClickRadius() > pickupRadius());
+  });
+
+  it("medkit does not drop when the killer's team is full", () => {
+    const s = createState(3, false);
+    s.phase = "fight";
+    assert.equal(teamNeedsHeal(s, "red"), false);
+    assert.equal(maybeDropKit(s, 220, 200, "red", 1), null);
+  });
+
+  it("vs AI greens cannot claim a kit; last maltese gets a comeback kit", () => {
+    const s = createState(3, false);
+    s.phase = "fight";
+    const reds = s.kids.filter((k) => k.team === "red");
+    reds[1]!.hp = 0;
+    reds[1]!.state = "buried";
+    reds[2]!.hp = 0;
+    reds[2]!.state = "buried";
+    reds[0]!.hp = 1;
+    maybeComebackKit(s);
+    assert.ok(s.kits.length);
+    assert.equal(claimKit(s, "green"), false);
+    assert.ok(s.kits.length);
+    assert.equal(claimKit(s, "red"), true);
+    assert.equal(reds[0]!.hp, 2);
+    assert.equal(s.kits.length, 0);
+  });
+
   it("AI does not throw a sixth ball when five are already flying", () => {
-    const s = createState(1);
+    const s = createState(1, false, { hard: true, difficulty: "hard" });
     s.phase = "fight";
     s.forts = [];
     for (let i = 0; i < 5; i++) {
@@ -1112,6 +1442,76 @@ describe("ai rhythm", () => {
     }
     assert.equal(throws, 0);
     assert.ok(arenaBalls(s) <= 5);
+  });
+
+  it("easy and normal cap flying balls at 3; hard still allows 5", () => {
+    const easy = createState(1, false);
+    easy.phase = "fight";
+    for (let i = 0; i < 3; i++) {
+      easy.balls.push({
+        x: 400, y: 180 + i * 20, vx: 90, vy: 0, team: "green", r: 12, fromId: -1,
+        grace: 0, spin: 0, alive: true, range: 500, traveled: 0,
+      });
+    }
+    assert.equal(arenaBallMax(easy), 3);
+    assert.equal(arenaCanThrow(easy), false);
+    const normal = createState(1, false, { difficulty: "normal" });
+    normal.phase = "fight";
+    for (let i = 0; i < 3; i++) {
+      normal.balls.push({
+        x: 400, y: 180 + i * 20, vx: 90, vy: 0, team: "green", r: 12, fromId: -1,
+        grace: 0, spin: 0, alive: true, range: 500, traveled: 0,
+      });
+    }
+    assert.equal(arenaBallMax(normal), 3);
+    assert.equal(arenaCanThrow(normal), false);
+    const hard = createState(1, false, { hard: true, difficulty: "hard" });
+    hard.phase = "fight";
+    for (let i = 0; i < 3; i++) {
+      hard.balls.push({
+        x: 400, y: 180 + i * 20, vx: 90, vy: 0, team: "green", r: 12, fromId: -1,
+        grace: 0, spin: 0, alive: true, range: 500, traveled: 0,
+      });
+    }
+    assert.equal(arenaBallMax(hard), 5);
+    assert.equal(arenaCanThrow(hard), true);
+  });
+
+  it("easy/normal hold enemy release after a player throw; hard does not", () => {
+    const easy = createState(1, false);
+    easy.phase = "fight";
+    easy.forts = [];
+    const red = easy.kids.find((k) => k.team === "red")!;
+    red.packT = 0;
+    throwSnowball(easy, red, 1, -1, 0, false, true);
+    assert.ok(easy.enemyFireLock > 0.2);
+    const g = easy.kids.find((k) => k.team === "green")!;
+    g.x = 200;
+    g.y = 270;
+    g.packT = 0;
+    g.cooldown = 0;
+    g.stun = 0;
+    g.state = "idle";
+    g.ai!.phase = "windup";
+    g.ai!.t = 0;
+    g.ai!.charge = 1;
+    let throws = 0;
+    stepAi(easy, 1 / 60, () => {
+      throws += 1;
+    }, "off", "enemy", false, false);
+    assert.equal(throws, 0);
+    assert.equal(g.ai!.phase, "windup");
+    easy.enemyFireLock = 0;
+    stepAi(easy, 1 / 60, () => {
+      throws += 1;
+    }, "off", "enemy", false, false);
+    assert.ok(throws >= 1);
+    const hard = createState(1, false, { hard: true, difficulty: "hard" });
+    hard.phase = "fight";
+    const hr = hard.kids.find((k) => k.team === "red")!;
+    hr.packT = 0;
+    throwSnowball(hard, hr, 1, -1, 0, false, true);
+    assert.equal(hard.enemyFireLock, 0);
   });
 
   it("AI throws when the arena is empty", () => {

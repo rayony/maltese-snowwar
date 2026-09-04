@@ -74,7 +74,7 @@ const EN = {
   producedBy: "Produced by Gary.TC",
   aiHow1: "1. Press and hold a white Maltese",
   aiHow2: "2. Drag to dodge and line up your lane",
-  aiHow3: "3. Tap for a short toss, hold longer to throw farther",
+  aiHow3: "3. Release to throw — same range every time. After they throw, your shot can punch through theirs.",
   easyBlurb: "Easy is the original SnowCraft pace. Clear 5 heats to win.",
   normal: "Normal",
   normalBlurb: "Hard AI thinking, Easy walking and throw speed.",
@@ -82,7 +82,8 @@ const EN = {
   hard1: "Everyone moves faster; snowballs fly 2× faster",
   hard2: "Retrievers mix targets and dodge well",
   hard3: "Forts take 10 hits",
-  hard4: "A buried Maltese stays down next round",
+  hard4: "Win a round to revive 1 buried Maltese at 1 HP (max 3)",
+  reviveHint: "A Maltese revived — 1 HP!",
   easy: "Easy",
   back: "Back",
   vsFriendLead:
@@ -134,7 +135,7 @@ const EN = {
   decline: "Decline",
   leaveRoom: "Leave room",
   rotate: "Rotate your phone · 橫向遊玩更順手",
-  hintAi: "Hold a {dog} · tap = short toss · hold = far throw · pack snow between throws",
+  hintAi: "Hold a {dog} · release to throw · same range · pack snow between throws",
   hintPvp: "Hold a {dog} · tap to throw · auto-aims nearest · fixed range · pack between shots",
   maltese: "Maltese",
   retriever: "retriever",
@@ -164,6 +165,7 @@ const EN = {
   pickupBig: "A big snowball appeared! Grab it!",
   pickupHold: "Big snowball · {n} throws · {s}s",
   pickupFoe: "Opponent has the big snowball!",
+  pickupKit: "A medkit dropped! Tap near it to heal.",
 } as const;
 
 const ZH: Record<keyof typeof EN, string> = {
@@ -189,7 +191,7 @@ const ZH: Record<keyof typeof EN, string> = {
   producedBy: "製作：Gary.TC",
   aiHow1: "1. 按住一隻小白",
   aiHow2: "2. 拖動閃避、對準通道",
-  aiHow3: "3. 輕點近丟，長按丟得更遠",
+  aiHow3: "3. 放手即丟，每次一樣遠。對方剛出手時丟可貫穿對方的球。",
   easyBlurb: "簡單是原版 SnowCraft 節奏。過 5 關即勝利。",
   normal: "普通",
   normalBlurb: "困難的 AI 思路，簡單的走速與球速。",
@@ -197,7 +199,8 @@ const ZH: Record<keyof typeof EN, string> = {
   hard1: "大家移動更快；雪球快 2 倍",
   hard2: "小金毛會換目標、更懂閃",
   hard3: "雪堆要打 10 下",
-  hard4: "倒下的小白下一回合不會復活",
+  hard4: "過關可復活 1 隻倒下的小白（1 血，最多 3 隻）",
+  reviveHint: "小白復活（1 血）！",
   easy: "簡單",
   back: "返回",
   vsFriendLead: "開房分享 6 位代碼，或輸入對方的碼。你操控小白；對方操控小金毛。",
@@ -245,7 +248,7 @@ const ZH: Record<keyof typeof EN, string> = {
   decline: "拒絕",
   leaveRoom: "離開房間",
   rotate: "請把手機轉橫 · landscape is better",
-  hintAi: "按住{dog} · 輕點近丟 · 長按遠丟 · 出手後搓雪",
+  hintAi: "按住{dog} · 放手丟出 · 固定射程 · 出手後搓雪",
   hintPvp: "按住{dog} · 輕點丟出 · 自動瞄最近 · 固定射程 · 出手後搓雪",
   maltese: "小白",
   retriever: "小金毛",
@@ -275,6 +278,7 @@ const ZH: Record<keyof typeof EN, string> = {
   pickupBig: "大雪球出現了！快去搶！",
   pickupHold: "大雪球 · 剩 {n} 球 · {s}秒",
   pickupFoe: "對方持有大雪球！",
+  pickupKit: "藥箱掉了！走近或點附近可補一格血。",
 };
 
 export type I18nKey = keyof typeof EN;

@@ -44,6 +44,7 @@ export interface Kid {
   moving: boolean;
   hideFuel?: number;
   hideSession?: boolean;
+  lastThrowAt?: number;
   ai: AiBrain | null;
   viewX?: number;
   viewY?: number;
@@ -93,7 +94,7 @@ export interface Particle {
 export interface Pickup {
   x: number;
   y: number;
-  kind: "big";
+  kind: "big" | "heal";
   life: number;
   maxLife: number;
 }
@@ -138,12 +139,16 @@ export interface GameState {
   time: number;
   trauma: number;
   hard: boolean;
+  difficulty: Difficulty;
   pvp: boolean;
   godSpeed: boolean;
   pickup: Pickup | null;
+  kits: Pickup[];
   pickupCd: number;
   lootPop: { x: number; y: number; t: number } | null;
   buffs: { red: TeamBuff | null; green: TeamBuff | null };
+  reviveHint: boolean;
+  enemyFireLock: number;
 }
 
 export type NetRole = "solo" | "host" | "guest";
@@ -193,6 +198,7 @@ export interface UiSnapshot {
     shots: number;
     maxShots: number;
   } | null;
+  kit: { field: boolean; n: number } | null;
 }
 
 export interface View {

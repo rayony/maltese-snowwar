@@ -63,6 +63,7 @@ const INITIAL: UiSnapshot = {
   },
   fps: 0,
   pickup: null,
+  kit: null,
 };
 
 export function SnowCraft() {
@@ -348,6 +349,16 @@ export function SnowCraft() {
                 )}
               >
                 {t("pickupBig")}
+              </p>
+            )}
+            {ui.kit?.field && (
+              <p
+                className={cn(
+                  "pickup-notice text-center",
+                  landscapePhone ? "text-sm" : "text-lg sm:text-xl",
+                )}
+              >
+                {t("pickupKit")}
               </p>
             )}
             {portraitPhone && (

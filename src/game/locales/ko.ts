@@ -24,7 +24,7 @@ const dict: Record<I18nKey, string> = {
   producedBy: "제작: Gary.TC",
   aiHow1: "1. 하얀 말티즈를 길게 누르기",
   aiHow2: "2. 드래그해서 피하고 줄을 맞추기",
-  aiHow3: "3. 탭은 가깝게, 길게 누르면 멀리",
+  aiHow3: "3. 손을 떼면 던집니다. 사거리는 매번 같고, 상대가 던진 직후면 그 공을 관통합니다.",
   easyBlurb: "쉬움은 원작 SnowCraft 페이스. 5라운드를 클리어하면 승리.",
   normal: "보통",
   normalBlurb: "어려움 AI 판단, 쉬움과 같은 이동·투구 속도.",
@@ -32,7 +32,8 @@ const dict: Record<I18nKey, string> = {
   hard1: "모두 더 빠르게 움직이고, 눈덩이는 2배 속도",
   hard2: "리트리버는 목표를 바꾸고 잘 피합니다",
   hard3: "요새는 10대를 맞아야 합니다",
-  hard4: "묻힌 말티즈는 다음 라운드에도 일어나지 않습니다",
+  hard4: "클리어하면 쓰러진 말티즈 1마리 부활 (체력 1, 최대 3)",
+  reviveHint: "말티즈 부활 (체력 1)!",
   easy: "쉬움",
   back: "뒤로",
   vsFriendLead:
@@ -84,7 +85,7 @@ const dict: Record<I18nKey, string> = {
   decline: "거절",
   leaveRoom: "방 나가기",
   rotate: "휴대폰을 가로로 · landscape is better",
-  hintAi: "{dog}를 길게 · 탭은 가깝게 · 길게는 멀리 · 던지기 전 뭉치기",
+  hintAi: "{dog}를 길게 · 손을 떼면 던짐 · 사거리 고정 · 던지기 전 뭉치기",
   hintPvp: "{dog}를 길게 · 탭으로 던지기 · 가장 가까운 조준 · 고정 사거리 · 뭉친 뒤 던지기",
   maltese: "말티즈",
   retriever: "리트리버",
@@ -114,6 +115,7 @@ const dict: Record<I18nKey, string> = {
   pickupBig: "큰 눈덩이가 나타났어요! 어서 쟁탈하세요!",
   pickupHold: "큰 눈덩이 · {n}개 남음 · {s}초",
   pickupFoe: "상대가 큰 눈덩이를 들고 있어요!",
+  pickupKit: "구급상자가 떨어졌어요! 근처를 누르면 체력 1 회복.",
 };
 
 export default dict;

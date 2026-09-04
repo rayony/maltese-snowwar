@@ -24,7 +24,7 @@ const dict: Record<I18nKey, string> = {
   producedBy: "制作：Gary.TC",
   aiHow1: "1. 白いマルチーズを長押し",
   aiHow2: "2. ドラッグして回避・レーン合わせ",
-  aiHow3: "3. タップは近く、長押しは遠くまで",
+  aiHow3: "3. 離すと投げる（飛距離は毎回同じ）。相手の直後に投げるとその球を貫く。",
   easyBlurb: "かんたんは本家 SnowCraft のペース。5ヒートで勝利。",
   normal: "ふつう",
   normalBlurb: "むずかしいAIの判断、かんたんと同じ移動と投球速度。",
@@ -32,7 +32,8 @@ const dict: Record<I18nKey, string> = {
   hard1: "全員の移動が速く、雪玉は2倍速",
   hard2: "レトリバーは標的を変え、よくかわす",
   hard3: "砦は10発で壊れる",
-  hard4: "埋まったマルチーズは次ラウンドも起きない",
+  hard4: "クリアで倒れたマルチーズを1匹復活（1HP、最大3）",
+  reviveHint: "マルチーズ復活（1HP）！",
   easy: "かんたん",
   back: "戻る",
   vsFriendLead:
@@ -84,7 +85,7 @@ const dict: Record<I18nKey, string> = {
   decline: "断る",
   leaveRoom: "部屋を出る",
   rotate: "スマホを横にしてね · landscape is better",
-  hintAi: "{dog}を長押し · タップは近く · 長押しは遠く · 投げる前に丸める",
+  hintAi: "{dog}を長押し · 離すと投げる · 飛距離固定 · 投げる前に丸める",
   hintPvp: "{dog}を長押し · タップで投げる · 一番近くに照準 · 固定飛距離 · 丸めてから投げる",
   maltese: "マルチーズ",
   retriever: "レトリバー",
@@ -114,6 +115,7 @@ const dict: Record<I18nKey, string> = {
   pickupBig: "大雪玉が出た！急いで奪え！",
   pickupHold: "大雪玉 · 残り{n}球 · {s}秒",
   pickupFoe: "相手が大雪玉を持っている！",
+  pickupKit: "救急箱が落ちた！近くをタップすると1回復。",
 };
 
 export default dict;

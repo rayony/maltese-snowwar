@@ -6,10 +6,18 @@ import {
   BIG_SPEED,
   COMEBACK_WAIT,
   enemyCountForLevel,
-  holdPower,
+  ENEMY_FIRE_LOCK_EASY,
+  ENEMY_FIRE_LOCK_NORMAL,
   HP,
   INTRO_TIME,
+  KIT_CHANCE,
+  KIT_LIFE,
+  KIT_MAX,
+  KIT_MIN_LEVEL,
+  KID_RADIUS,
   MARGIN,
+  MAX_RANGE,
+  MAX_THROW_SPEED,
   PACK_TIME,
   PICKUP_CD_MAX,
   PICKUP_CD_MIN,
@@ -20,14 +28,14 @@ import {
   PVP_RANGE,
   PVP_SPEED,
   playFeel,
-  sweetCharge,
+  counterSweet,
+  SWEET_WINDOW,
+  SWEET_WINDOW_PVP,
   THROW_COOLDOWN,
-  throwRange,
-  throwSpeed,
   WORLD_H,
   WORLD_W,
 } from "./constants";
-import type { Fort, GameState, Kid, Pickup, Snowball, Team, TeamBuff } from "./types";
+import type { Difficulty, Fort, GameState, Kid, Pickup, Snowball, Team, TeamBuff } from "./types";
 
 export function clamp(v: number, a: number, b: number) {
   return Math.max(a, Math.min(b, v));
@@ -92,6 +100,7 @@ function makeKid(state: GameState, team: Team, x: number, y: number): Kid {
     moving: false,
     hideFuel: 1,
     hideSession: false,
+    lastThrowAt: -99,
     ai: makeBrain(x, y),
   };
 }
@@ -106,7 +115,7 @@ export function makeForts(hp = 0): Fort[] {
 export function createState(
   level: number,
   versus = false,
-  opts: { fortHp?: number; buriedRed?: boolean[]; hard?: boolean } = {},
+  opts: { fortHp?: number; buriedRed?: boolean[]; hard?: boolean; difficulty?: Difficulty; reviveAt?: number } = {},
 ): GameState {
   const state: GameState = {
     kids: [],
@@ -123,12 +132,16 @@ export function createState(
     time: 0,
     trauma: 0,
     hard: !!opts.hard,
+    difficulty: versus ? "easy" : (opts.difficulty ?? (opts.hard ? "hard" : "easy")),
     pvp: versus,
     godSpeed: false,
     pickup: null,
+    kits: [],
     pickupCd: 2.5,
     lootPop: null,
     buffs: { red: null, green: null },
+    reviveHint: false,
+    enemyFireLock: 0,
   };
 
   const redYs = [128, 270, 412];
@@ -139,6 +152,8 @@ export function createState(
       kid.state = "buried";
       kid.stateT = 0;
       kid.fidget = null;
+    } else if (opts.reviveAt === i) {
+      kid.hp = 1;
     }
     state.kids.push(kid);
   }
@@ -333,10 +348,37 @@ export function closestEnemy(kid: Kid, kids: Kid[]) {
   return best;
 }
 
+export function incomingAt(state: GameState, kid: Kid) {
+  const other: Team = kid.team === "red" ? "green" : "red";
+  const win = state.pvp ? SWEET_WINDOW_PVP : SWEET_WINDOW;
+  for (const b of state.balls) {
+    if (!b.alive || b.ghost || b.team !== other || b.big) continue;
+    const dx = kid.x - b.x;
+    const dy = kid.y - b.y;
+    const sp2 = b.vx * b.vx + b.vy * b.vy;
+    if (sp2 < 1) continue;
+    const t = (dx * b.vx + dy * b.vy) / sp2;
+    if (t < 0 || t > win) continue;
+    const cx = dx - b.vx * t;
+    const cy = dy - b.vy * t;
+    const hit = KID_RADIUS + b.r + 18;
+    if (cx * cx + cy * cy <= hit * hit) return true;
+  }
+  return false;
+}
+
+export function sweetReady(state: GameState, kid: Kid) {
+  if (incomingAt(state, kid)) return true;
+  const foe = closestHittableEnemy(kid, state.kids, state.forts);
+  if (!foe) return false;
+  const at = foe.lastThrowAt ?? foe.ai?.lastThrowAt ?? -99;
+  return counterSweet(state.time - at, state.pvp);
+}
+
 export function throwSnowball(
   state: GameState,
   kid: Kid,
-  charge: number,
+  _charge: number,
   dirX: number,
   dirY: number,
   local = false,
@@ -346,8 +388,6 @@ export function throwSnowball(
   if (kid.packT > 0 || kid.state === "pack") return 0;
   if (inFort(kid.x, kid.y, state.forts)) return 0;
   const star = state.godSpeed && kid.team === "red";
-  const wantBig = user && !!state.buffs[kid.team] && state.buffs[kid.team]!.shots > 0 && state.buffs[kid.team]!.t > 0;
-  const power = state.pvp ? 1 : holdPower(charge, star, wantBig);
   let len = Math.hypot(dirX, dirY);
   if (len < 0.001) {
     dirX = kid.team === "red" ? -1 : 1;
@@ -356,12 +396,12 @@ export function throwSnowball(
   }
   const nx = dirX / len;
   const ny = dirY / len;
-  const sweet = user && sweetCharge(charge, star, wantBig);
-  let speed = state.pvp ? PVP_SPEED : throwSpeed(power) * (state.hard ? 2 : 1);
-  if (star) speed *= 3;
-  const range = state.pvp ? PVP_RANGE : throwRange(power);
-  const cover = inFort(kid.x, kid.y, state.forts);
   const big = user && takeBigBuff(state, kid.team, consume);
+  const sweet = user && !big && sweetReady(state, kid);
+  let speed = state.pvp ? PVP_SPEED : MAX_THROW_SPEED * (state.hard ? 2 : 1);
+  if (star) speed *= 3;
+  const range = state.pvp ? PVP_RANGE : MAX_RANGE;
+  const cover = inFort(kid.x, kid.y, state.forts);
   const ball: Snowball = {
     x: kid.x + nx * 30,
     y: kid.y + ny * 10 - 6,
@@ -387,10 +427,23 @@ export function throwSnowball(
   kid.cooldown = THROW_COOLDOWN;
   kid.packT = state.godSpeed && kid.team === "red" ? STAR_PACK_TIME : PACK_TIME;
   kid.facing = faceFromDir(nx, ny, kid.facing);
+  kid.lastThrowAt = state.time;
+  if (kid.ai) kid.ai.lastThrowAt = state.time;
   clearFidget(kid);
   burst(state, kid.x + nx * 22, kid.y, nx * 40, big ? 16 : 8, "puff");
   if (big) burst(state, kid.x + nx * 22, kid.y, nx * 20, 10, "spark");
-  return power;
+  if (user && kid.team === "red") armEnemyFireLock(state);
+  return 1;
+}
+
+export function enemyFireLockTime(state: GameState) {
+  if (state.pvp || state.difficulty === "hard") return 0;
+  return state.difficulty === "easy" ? ENEMY_FIRE_LOCK_EASY : ENEMY_FIRE_LOCK_NORMAL;
+}
+
+export function armEnemyFireLock(state: GameState) {
+  const t = enemyFireLockTime(state);
+  if (t > 0) state.enemyFireLock = t;
 }
 
 export function burst(
@@ -513,6 +566,9 @@ function clashBalls(state: GameState, onClash?: () => void) {
       if (dx * dx + dy * dy > rr * rr) continue;
       const mx = (a.x + b.x) / 2;
       const my = (a.y + b.y) / 2;
+      const aSweet = !!a.sweet && !a.big;
+      const bSweet = !!b.sweet && !b.big;
+      if (aSweet && bSweet) continue;
       burst(state, mx, my, 0, 18, "spark");
       burst(state, mx, my, 0, 10, "puff");
       state.trauma = Math.min(1, state.trauma + 0.18);
@@ -528,6 +584,14 @@ function clashBalls(state: GameState, onClash?: () => void) {
           shrinkBigBall(b);
           a.alive = false;
         }
+        continue;
+      }
+      if (aSweet) {
+        b.alive = false;
+        continue;
+      }
+      if (bSweet) {
+        a.alive = false;
         continue;
       }
       a.alive = false;
@@ -620,7 +684,11 @@ function hitKid(
   state.trauma = Math.min(1, state.trauma + (kid.hp <= 0 ? 0.55 : 0.32));
   state.freeze = kid.hp <= 0 ? 0.07 : 0.045;
   onHit(kid.hp <= 0);
-  if (kid.hp <= 0 && kid.team === "red") maybeArmComeback(state);
+  if (kid.hp <= 0) {
+    if (kid.team === "red") maybeArmComeback(state);
+    maybeDropKit(state, kid.x, kid.y, ball.team);
+    maybeComebackKit(state);
+  }
 }
 
 export function playerComeback(state: GameState) {
@@ -628,16 +696,51 @@ export function playerComeback(state: GameState) {
   return living(state.kids, "red").length === 1;
 }
 
+/** After a Hard win: revive one buried Maltese (cap 3). */
+export function hardRoundReward(buried: boolean[]) {
+  const next = buried.slice(0, PLAYER_COUNT);
+  while (next.length < PLAYER_COUNT) next.push(false);
+  const livingN = next.filter((b) => !b).length;
+  if (livingN >= PLAYER_COUNT) return { buried: next.map(() => false), revived: false, reviveAt: -1 };
+  const i = next.findIndex((b) => b);
+  if (i < 0) return { buried: next, revived: false, reviveAt: -1 };
+  next[i] = false;
+  return { buried: next, revived: true, reviveAt: i };
+}
+
+export function teamNeedsHeal(state: GameState, team: Team) {
+  return living(state.kids, team).some((k) => k.hp < (k.maxHp || HP));
+}
+
+function healLowest(state: GameState, team: Team) {
+  const hurt = living(state.kids, team).filter((k) => k.hp < (k.maxHp || HP)).sort((a, b) => a.hp - b.hp || a.id - b.id);
+  const dog = hurt[0];
+  if (!dog) return false;
+  dog.hp = Math.min(dog.maxHp || HP, dog.hp + 1);
+  burst(state, dog.x, dog.y, 0, 12, "spark");
+  return true;
+}
+
 export function maybeArmComeback(state: GameState) {
   if (!playerComeback(state) || state.pickup) return;
   state.pickupCd = Math.max(state.pickupCd, COMEBACK_WAIT + Math.random() * 1.5);
 }
 
-function healComeback(state: GameState, team: Team) {
-  if (state.pvp || team !== "red") return;
-  const hurt = living(state.kids, "red").sort((a, b) => a.hp - b.hp || a.id - b.id);
-  const dog = hurt.find((k) => k.hp < (k.maxHp || HP));
-  if (dog) dog.hp += 1;
+export function maybeComebackKit(state: GameState) {
+  if (state.pvp || state.kits.length >= KIT_MAX || !playerComeback(state) || !teamNeedsHeal(state, "red")) return;
+  const last = living(state.kids, "red")[0];
+  if (!last) return;
+  placeKit(state, last.x + rand(-50, 20), last.y + rand(-36, 36));
+}
+
+export function maybeDropKit(state: GameState, x: number, y: number, killer: Team, chance = KIT_CHANCE) {
+  if (state.kits.length >= KIT_MAX) return null;
+  if (!state.pvp && (killer !== "red" || state.level < KIT_MIN_LEVEL)) return null;
+  if (!teamNeedsHeal(state, killer)) return null;
+  if (Math.random() > chance) return null;
+  const ox = x + rand(-56, 56);
+  const oy = y + rand(-40, 40);
+  return placeKit(state, ox, oy);
 }
 
 /** Fly one ball for catch-up, hitting kids at historical (or current) positions. */
@@ -862,11 +965,61 @@ export function claimPickup(state: GameState, team: Team): boolean {
   if (!state.pickup || (state.phase !== "fight" && state.phase !== "intro")) return false;
   if (!canTeamClaimPickup(state, team)) return false;
   grantBigBuff(state, team);
-  healComeback(state, team);
   burstLoot(state, state.pickup.x, state.pickup.y);
   state.pickup = null;
   state.pickupCd = PICKUP_CD_MIN + Math.random() * (PICKUP_CD_MAX - PICKUP_CD_MIN);
   return true;
+}
+
+export function claimKit(state: GameState, team: Team, kit?: Pickup | null): boolean {
+  if (state.phase !== "fight" && state.phase !== "intro") return false;
+  if (!canTeamClaimPickup(state, team)) return false;
+  const target = kit && state.kits.includes(kit) ? kit : state.kits[0];
+  if (!target) return false;
+  healLowest(state, team);
+  burst(state, target.x, target.y, 0, 14, "puff");
+  burst(state, target.x, target.y, 0, 10, "spark");
+  state.lootPop = { x: target.x, y: target.y, t: 0.45 };
+  state.kits = state.kits.filter((k) => k !== target);
+  return true;
+}
+
+export function nearestKit(state: GameState, x: number, y: number, r: number): Pickup | null {
+  let best: Pickup | null = null;
+  let bestD = r;
+  for (const kit of state.kits) {
+    const d = Math.hypot(kit.x - x, kit.y - y);
+    if (d <= bestD) {
+      bestD = d;
+      best = kit;
+    }
+  }
+  return best;
+}
+
+export function placePickup(state: GameState, x = 480, y = 270): Pickup {
+  const orb: Pickup = { x, y, kind: "big", life: PICKUP_LIFE, maxLife: PICKUP_LIFE };
+  state.pickup = orb;
+  state.pickupCd = PICKUP_CD_MIN;
+  burst(state, x, y, 0, 18, "spark");
+  return orb;
+}
+
+export function placeKit(state: GameState, x: number, y: number): Pickup | null {
+  if (state.kits.length >= KIT_MAX) return null;
+  const kit: Pickup = {
+    x: clamp(x, MARGIN + 20, WORLD_W - MARGIN - 20),
+    y: clamp(y, MARGIN + 20, WORLD_H - MARGIN - 20),
+    kind: "heal",
+    life: KIT_LIFE,
+    maxLife: KIT_LIFE,
+  };
+  if (inFort(kit.x, kit.y, state.forts)) {
+    kit.x = clamp(kit.x + 50, MARGIN + 20, WORLD_W - MARGIN - 20);
+  }
+  state.kits.push(kit);
+  burst(state, kit.x, kit.y, 0, 10, "puff");
+  return kit;
 }
 
 export function takeBigBuff(state: GameState, team: Team, consume: boolean) {
@@ -877,14 +1030,6 @@ export function takeBigBuff(state: GameState, team: Team, consume: boolean) {
     if (buff.shots <= 0) state.buffs[team] = null;
   }
   return true;
-}
-
-export function placePickup(state: GameState, x = 480, y = 270): Pickup {
-  const orb: Pickup = { x, y, kind: "big", life: PICKUP_LIFE, maxLife: PICKUP_LIFE };
-  state.pickup = orb;
-  state.pickupCd = PICKUP_CD_MIN;
-  burst(state, x, y, 0, 18, "spark");
-  return orb;
 }
 
 function spawnPickup(state: GameState): Pickup {
@@ -920,9 +1065,23 @@ export function stepPickups(state: GameState, dt: number, spawn: boolean) {
         break;
       }
     }
-    return;
   }
-  if (!spawn || state.phase !== "fight") return;
+  if (state.kits.length) {
+    for (const kit of state.kits) kit.life -= dt;
+    state.kits = state.kits.filter((k) => k.life > 0);
+    if (spawn) {
+      outer: for (const kit of state.kits) {
+        for (const kid of state.kids) {
+          if (isOut(kid)) continue;
+          if (!canTeamClaimPickup(state, kid.team)) continue;
+          if (Math.hypot(kid.x - kit.x, kid.y - kit.y) > pickupRadius()) continue;
+          claimKit(state, kid.team, kit);
+          break outer;
+        }
+      }
+    }
+  }
+  if (state.pickup || !spawn || state.phase !== "fight") return;
   state.pickupCd -= dt;
   if (state.pickupCd <= 0) spawnPickup(state);
 }
@@ -957,6 +1116,8 @@ export function stepSim(
   separate(state, dt);
   faceNearest(state);
   stepFx(state, dt);
+
+  if (state.enemyFireLock > 0) state.enemyFireLock = Math.max(0, state.enemyFireLock - dt);
 
   const reds = living(state.kids, "red").length;
   const greens = living(state.kids, "green").length;

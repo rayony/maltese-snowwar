@@ -13,6 +13,9 @@ export const MIN_THROW_SPEED = 360;
 export const MAX_THROW_SPEED = 500;
 export const THROW_COOLDOWN = 0.12;
 export const PACK_TIME = 0.92;
+/** After a player throw, Easy/Normal enemies cannot release (still may wind up). */
+export const ENEMY_FIRE_LOCK_EASY = 0.3;
+export const ENEMY_FIRE_LOCK_NORMAL = 0.22;
 export const STAR_PACK_TIME = 0.32;
 export const STAR_CHARGE = 0.4;
 export const PVP_RANGE = 520;
@@ -25,8 +28,14 @@ export const BIG_CHARGE = 1.2;
 export const PICKUP_LIFE = 10;
 export const PICKUP_CD_MIN = 8;
 export const PICKUP_CD_MAX = 12;
+export const KIT_LIFE = 30;
+export const KIT_BLINK = 5;
+export const KIT_CHANCE = 0.7;
+export const KIT_MIN_LEVEL = 3;
+export const KIT_MAX = 3;
 export const COMEBACK_WAIT = 6.5;
-export const SWEET_WINDOW = 0.3;
+export const SWEET_WINDOW = 0.35;
+export const SWEET_WINDOW_PVP = 0.42;
 export const INTRO_TIME = 3;
 export const MARGIN = 34;
 export const SAVE_KEY = "snowcraft-v1";
@@ -52,17 +61,10 @@ export function chargeCap(star = false, big = false) {
   return (star ? STAR_CHARGE : MAX_CHARGE) * (big ? BIG_CHARGE : 1);
 }
 
-/** Last 0.3s of the charge (shorter on Star). Juice only — does not change speed. */
-export function sweetCharge(seconds: number, star = false, big = false) {
-  const cap = chargeCap(star, big);
-  const win = Math.min(SWEET_WINDOW, cap * 0.4);
-  return seconds >= cap - win;
-}
-
-export function sweetFrom(star = false, big = false) {
-  const cap = chargeCap(star, big);
-  const win = Math.min(SWEET_WINDOW, cap * 0.4);
-  return (cap - win) / cap;
+/** Counter-throw window after the aimed foe's last shot. */
+export function counterSweet(sinceFoeThrow: number, pvp = false) {
+  const win = pvp ? SWEET_WINDOW_PVP : SWEET_WINDOW;
+  return sinceFoeThrow >= 0 && sinceFoeThrow <= win;
 }
 
 export function enemyCountForLevel(level: number) {
@@ -115,4 +117,9 @@ export function pickupRadius(cssW = 0) {
   const feel = playFeel(cssW);
   const orb = feel.ball * (BIG_BALL_RADIUS / BALL_RADIUS) * 0.48;
   return orb + feel.hit * 0.9;
+}
+
+/** Nearby tap radius for a medkit — looser than walking into it. */
+export function kitClickRadius(cssW = 0) {
+  return pickupRadius(cssW) * 1.85;
 }

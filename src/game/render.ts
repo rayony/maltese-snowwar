@@ -1,7 +1,7 @@
-import { BALL_RADIUS, BIG_BALL_RADIUS, holdPower, isCompactPlay, MARGIN, PACK_TIME, PVP_RANGE, STAR_PACK_TIME, sweetCharge, sweetFrom, throwRange, WORLD_H, WORLD_W } from "./constants";
+import { BALL_RADIUS, BIG_BALL_RADIUS, isCompactPlay, KIT_BLINK, MARGIN, MAX_RANGE, PACK_TIME, PVP_RANGE, STAR_PACK_TIME, WORLD_H, WORLD_W } from "./constants";
 import { readLang, tr } from "./i18n";
 import type { Assets } from "./assets";
-import { aimFromKid, clamp, inFort, isOut } from "./sim";
+import { aimFromKid, clamp, inFort, isOut, sweetReady } from "./sim";
 import type { Fort, GameState, Grab, Kid, Snowball, View } from "./types";
 
 let field: HTMLCanvasElement | null = null;
@@ -269,7 +269,7 @@ export function render(
     const y = kid.viewY ?? kid.y;
     layers.push({
       y,
-      draw: () => drawKid(ctx, kid, assets, view, state.forts),
+      draw: () => drawKid(ctx, kid, assets, view, state),
     });
   }
   layers.sort((a, b) => a.y - b.y);
@@ -277,6 +277,9 @@ export function render(
 
   if (state.pickup) {
     drawFieldPickup(ctx, state.pickup.x, state.pickup.y, goldOrbRadius(view.ballSize), state.time);
+  }
+  for (const kit of state.kits) {
+    drawMedkit(ctx, kit.x, kit.y, state.time, kit.life);
   }
   for (const kid of state.kids) {
     const buff = state.buffs[kid.team];
@@ -310,6 +313,7 @@ export function render(
         ctx.arc(0, 0, s * 0.38, 0, Math.PI * 2);
         ctx.fill();
       }
+      if (ball.sweet) drawSweetRim(ctx, s * 0.42, state.time);
       ctx.restore();
     }
   } else {
@@ -323,6 +327,12 @@ export function render(
       ctx.beginPath();
       ctx.arc(ball.x, ball.y - ballHop(ball), view.ballSize * 0.38, 0, Math.PI * 2);
       ctx.fill();
+      if (ball.sweet) {
+        ctx.save();
+        ctx.translate(ball.x, ball.y - ballHop(ball));
+        drawSweetRim(ctx, view.ballSize * 0.42, state.time);
+        ctx.restore();
+      }
     }
   }
 
@@ -377,7 +387,7 @@ export function render(
   if (view.grab && state.phase === "fight") {
     const kid = state.kids.find((k) => k.id === view.grab!.id);
     if (kid && !isOut(kid)) {
-      drawThrowPreview(ctx, kid, view.grab, state.kids, state.forts, view.pvp, view.godSpeed, view.bigCharge);
+      drawThrowPreview(ctx, kid, view.grab, state, view);
     }
   }
 
@@ -388,7 +398,8 @@ export function render(
   if (state.phase === "intro") {
     const n = Math.max(1, Math.ceil(state.introT));
     const lang = readLang();
-    drawCountdown(ctx, view.pvp ? tr(lang, "pvpMode") : tr(lang, "level", { n: state.level }), String(n));
+    const hint = state.reviveHint ? tr(lang, "reviveHint") : "";
+    drawCountdown(ctx, view.pvp ? tr(lang, "pvpMode") : tr(lang, "level", { n: state.level }), String(n), hint);
   }
 }
 
@@ -487,7 +498,7 @@ function drawEdgeArrow(
   ctx.restore();
 }
 
-function drawCountdown(ctx: CanvasRenderingContext2D, kicker: string, n: string) {
+function drawCountdown(ctx: CanvasRenderingContext2D, kicker: string, n: string, hint = "") {
   const lang = readLang();
   const kickerFont = lang === "ja"
     ? '600 22px "Klee One","YuKyokasho","Yu Kyokasho",sans-serif'
@@ -509,12 +520,16 @@ function drawCountdown(ctx: CanvasRenderingContext2D, kicker: string, n: string)
         : "700 96px Fraunces, Georgia, serif";
   ctx.save();
   ctx.fillStyle = "rgba(21,32,43,0.4)";
-  ctx.fillRect(0, WORLD_H / 2 - 88, WORLD_W, 176);
+  ctx.fillRect(0, WORLD_H / 2 - (hint ? 108 : 88), WORLD_W, hint ? 216 : 176);
   ctx.fillStyle = "rgba(244,247,250,0.85)";
   ctx.font = kickerFont;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(kicker, WORLD_W / 2, WORLD_H / 2 - 52);
+  ctx.fillText(kicker, WORLD_W / 2, WORLD_H / 2 - (hint ? 70 : 52));
+  if (hint) {
+    ctx.fillStyle = "#e8c547";
+    ctx.fillText(hint, WORLD_W / 2, WORLD_H / 2 - 40);
+  }
   ctx.fillStyle = "#f4f7fa";
   ctx.font = numFont;
   ctx.fillText(n, WORLD_W / 2, WORLD_H / 2 + 18);
@@ -526,8 +541,9 @@ function drawKid(
   kid: Kid,
   assets: Assets | null,
   view: View,
-  forts: Fort[],
+  state: GameState,
 ) {
+  const forts = state.forts;
   const lifted = kid.state === "grabbed" ? 8 : 0;
   const buried = kid.state === "buried";
   const px = kid.viewX ?? kid.x;
@@ -576,11 +592,8 @@ function drawKid(
   if (!cover && mine && (hovered || view.grab?.id === kid.id) && !isOut(kid)) {
     const grab = view.grab?.id === kid.id ? view.grab : null;
     const packing = !!grab && kid.packT > 0;
-    const holdSec = !grab || packing ? 0 : Math.max(0, (performance.now() - grab.startedAt) / 1000 - grab.packLeft);
-    const star = view.godSpeed && kid.team === "red";
-    const power = view.pvp ? 0.7 : holdPower(holdSec, star, view.bigCharge);
-    const sweet = !view.pvp && !!grab && !packing && sweetCharge(holdSec, star, view.bigCharge);
-    drawBullseye(ctx, power, view.pickRadius, sweet, sweetFrom(star, view.bigCharge));
+    const sweet = !!grab && !packing && sweetReady(state, kid);
+    drawBullseye(ctx, view.pickRadius, sweet);
   }
   ctx.restore();
 }
@@ -707,40 +720,28 @@ function drawPackMeter(ctx: CanvasRenderingContext2D, packT: number, packMax = P
   ctx.restore();
 }
 
-function drawBullseye(ctx: CanvasRenderingContext2D, power: number, pick: number, sweet = false, sweetAt = 0.75) {
+function drawBullseye(ctx: CanvasRenderingContext2D, pick: number, sweet = false) {
   ctx.save();
   ctx.translate(0, -10);
   const r = Math.max(28, pick * 0.55);
-  ctx.strokeStyle = "rgba(196,59,59,0.55)";
+  ctx.strokeStyle = sweet ? "rgba(232,197,71,0.85)" : "rgba(196,59,59,0.55)";
   ctx.lineWidth = 2;
   ctx.setLineDash([4, 5]);
   ctx.beginPath();
   ctx.arc(0, 0, r, 0, Math.PI * 2);
   ctx.stroke();
   ctx.setLineDash([]);
-  ctx.strokeStyle = "rgba(196,59,59,0.85)";
+  ctx.strokeStyle = sweet ? "#e8c547" : "rgba(196,59,59,0.85)";
   ctx.beginPath();
   ctx.arc(0, 0, 5, 0, Math.PI * 2);
   ctx.stroke();
-  ctx.strokeStyle = "rgba(232,197,71,0.55)";
-  ctx.lineWidth = 6;
-  ctx.beginPath();
-  ctx.arc(0, 0, r + 8, -Math.PI / 2 + sweetAt * Math.PI * 2, -Math.PI / 2 + Math.PI * 2);
-  ctx.stroke();
-  if (power > 0) {
-    ctx.strokeStyle = sweet || power >= sweetAt ? "#e8c547" : "#c43b3b";
-    ctx.lineWidth = sweet ? 7 : 5;
+  if (sweet) {
+    const pulse = 0.55 + 0.45 * Math.abs(Math.sin(performance.now() / 140));
+    ctx.strokeStyle = `rgba(255,236,150,${pulse})`;
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.arc(0, 0, r + 8, -Math.PI / 2, -Math.PI / 2 + power * Math.PI * 2, false);
+    ctx.arc(0, 0, r + 10, 0, Math.PI * 2);
     ctx.stroke();
-    if (sweet) {
-      const pulse = 0.55 + 0.45 * Math.abs(Math.sin(performance.now() / 140));
-      ctx.strokeStyle = `rgba(255,236,150,${pulse})`;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(0, 0, r + 15, 0, Math.PI * 2);
-      ctx.stroke();
-    }
   }
   ctx.restore();
 }
@@ -749,21 +750,15 @@ function drawThrowPreview(
   ctx: CanvasRenderingContext2D,
   kid: Kid,
   grab: Grab,
-  kids: Kid[],
-  forts: Fort[],
-  pvp: boolean,
-  godSpeed = false,
-  big = false,
+  state: GameState,
+  view: View,
 ) {
   const packing = kid.packT > 0;
-  const seconds = packing ? 0 : Math.max(0, (performance.now() - grab.startedAt) / 1000 - grab.packLeft);
-  const star = godSpeed && kid.team === "red";
-  const power = pvp ? 1 : holdPower(seconds, star, big);
-  const range = packing ? 0 : pvp ? PVP_RANGE : throwRange(power);
-  const sweet = !pvp && !packing && sweetCharge(seconds, star, big);
+  const range = packing ? 0 : view.pvp ? PVP_RANGE : MAX_RANGE;
+  const sweet = !packing && sweetReady(state, kid);
   const extraX = kid.x - grab.originX + grab.vx;
   const extraY = kid.y - grab.originY + grab.vy;
-  const dir = aimFromKid(kid, kids, extraX, extraY, false, godSpeed && kid.team === "red", forts);
+  const dir = aimFromKid(kid, state.kids, extraX, extraY, false, view.godSpeed && kid.team === "red", state.forts);
   if (!dir.ok) return;
   const len = Math.hypot(dir.dx, dir.dy) || 1;
   const nx = dir.dx / len;
@@ -782,11 +777,23 @@ function drawThrowPreview(
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.beginPath();
-  ctx.arc(ex, ey, 7 + power * 5, 0, Math.PI * 2);
-  ctx.strokeStyle = power >= 0.98 ? "rgba(196,59,59,0.9)" : "rgba(21,32,43,0.5)";
+  ctx.arc(ex, ey, 12, 0, Math.PI * 2);
+  ctx.strokeStyle = sweet ? "rgba(232,197,71,0.9)" : "rgba(196,59,59,0.9)";
   ctx.lineWidth = 2;
   ctx.stroke();
   ctx.restore();
+}
+
+function drawSweetRim(ctx: CanvasRenderingContext2D, r: number, time: number) {
+  const glow = 0.55 + 0.45 * Math.abs(Math.sin(time * 10));
+  ctx.strokeStyle = `rgba(255, 214, 72, ${0.65 + 0.35 * glow})`;
+  ctx.lineWidth = Math.max(2.4, r * 0.22);
+  ctx.shadowColor = "rgba(255, 196, 64, 0.85)";
+  ctx.shadowBlur = r * 0.9;
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 1.08, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
 }
 
 function ballHop(ball: Snowball) {
@@ -818,6 +825,34 @@ function drawFieldPickup(ctx: CanvasRenderingContext2D, x: number, y: number, ra
     ctx.arc(x + Math.cos(a) * rr, py + Math.sin(a) * rr * 0.55, 2.4, 0, Math.PI * 2);
     ctx.fill();
   }
+}
+
+function drawMedkit(ctx: CanvasRenderingContext2D, x: number, y: number, time: number, life = 99) {
+  const bob = Math.sin(time * 3.2) * 5;
+  const s = 22;
+  const blink = life <= KIT_BLINK;
+  const flick = blink ? 0.22 + 0.78 * (0.5 + 0.5 * Math.sin(time * (life <= 2 ? 18 : 12))) : 1;
+  ctx.save();
+  ctx.globalAlpha = flick;
+  ctx.translate(x, y + bob);
+  ctx.save();
+  ctx.globalAlpha = 0.28 * flick;
+  ctx.fillStyle = "#4a6578";
+  ctx.beginPath();
+  ctx.ellipse(0, 16, 16, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  ctx.fillStyle = "#f4f7fa";
+  ctx.strokeStyle = "#c43b3b";
+  ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  ctx.roundRect(-s * 0.55, -s * 0.42, s * 1.1, s * 0.84, 5);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#c43b3b";
+  ctx.fillRect(-3.2, -s * 0.28, 6.4, s * 0.56);
+  ctx.fillRect(-s * 0.28, -3.2, s * 0.56, 6.4);
+  ctx.restore();
 }
 
 /** White snowball with a pulsing gold rim — field pickup and thrown big balls. */

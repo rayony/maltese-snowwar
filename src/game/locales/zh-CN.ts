@@ -24,7 +24,7 @@ const dict: Record<I18nKey, string> = {
   producedBy: "制作：Gary.TC",
   aiHow1: "1. 按住一只小白",
   aiHow2: "2. 拖动闪避、对准通道",
-  aiHow3: "3. 轻点近扔，长按扔得更远",
+  aiHow3: "3. 放手即扔，每次一样远。对方刚出手时扔可贯穿对方的球。",
   easyBlurb: "简单是原版 SnowCraft 节奏。过 5 关即胜利。",
   normal: "普通",
   normalBlurb: "困难的 AI 思路，简单的走速与球速。",
@@ -32,7 +32,8 @@ const dict: Record<I18nKey, string> = {
   hard1: "大家移动更快；雪球快 2 倍",
   hard2: "小金毛会换目标、更懂闪",
   hard3: "雪堆要打 10 下",
-  hard4: "倒下的小白下一回合不会复活",
+  hard4: "过关可复活 1 只倒下的小白（1 血，最多 3 只）",
+  reviveHint: "小白复活（1 血）！",
   easy: "简单",
   back: "返回",
   vsFriendLead: "开房分享 6 位代码，或输入对方的码。你操控小白；对方操控小金毛。",
@@ -80,7 +81,7 @@ const dict: Record<I18nKey, string> = {
   decline: "拒绝",
   leaveRoom: "离开房间",
   rotate: "请把手机转横 · landscape is better",
-  hintAi: "按住{dog} · 轻点近扔 · 长按远扔 · 出手后搓雪",
+  hintAi: "按住{dog} · 放手扔出 · 固定射程 · 出手后搓雪",
   hintPvp: "按住{dog} · 轻点扔出 · 自动瞄最近 · 固定射程 · 出手后搓雪",
   maltese: "小白",
   retriever: "小金毛",
@@ -110,6 +111,7 @@ const dict: Record<I18nKey, string> = {
   pickupBig: "大雪球出现了！快去抢！",
   pickupHold: "大雪球 · 剩 {n} 球 · {s}秒",
   pickupFoe: "对方持有大雪球！",
+  pickupKit: "药箱掉了！走近或点附近可补一格血。",
 };
 
 export default dict;
