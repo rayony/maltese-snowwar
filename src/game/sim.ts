@@ -388,7 +388,6 @@ export function throwSnowball(
   if (kid.packT > 0 || kid.state === "pack") return 0;
   if (inFort(kid.x, kid.y, state.forts)) return 0;
   const star = state.godSpeed && kid.team === "red";
-  const wantBig = user && !!state.buffs[kid.team] && state.buffs[kid.team]!.shots > 0 && state.buffs[kid.team]!.t > 0;
   let len = Math.hypot(dirX, dirY);
   if (len < 0.001) {
     dirX = kid.team === "red" ? -1 : 1;
