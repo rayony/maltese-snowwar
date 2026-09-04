@@ -33,7 +33,6 @@ import {
   tickHideFuel,
   sweetReady,
   incomingAt,
-  armEnemyFireLock,
 } from "./sim";
 import { BIG_SPEED, kitClickRadius, MAX_RANGE, MAX_THROW_SPEED, pickupRadius, SWEET_WINDOW, WORLD_W } from "./constants";
 import { aiThrowAim, arenaBalls, arenaCanThrow, arenaBallMax, bigBallRoles, draggedMate, fortCoverSpot, grabShooters, huntPressers, mateThrewRecently, shouldHideInPile, stepAi, surroundLast, teamJob, teamReactsToBig, teamSurging, throwAimForStance } from "./ai";
