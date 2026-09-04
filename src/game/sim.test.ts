@@ -35,7 +35,7 @@ import {
   incomingAt,
 } from "./sim";
 import { BIG_SPEED, kitClickRadius, MAX_RANGE, MAX_THROW_SPEED, pickupRadius, SWEET_WINDOW, WORLD_W } from "./constants";
-import { aiThrowAim, arenaBalls, arenaCanThrow, arenaBallMax, bigBallRoles, draggedMate, fortCoverSpot, grabShooters, huntPressers, mateThrewRecently, shouldHideInPile, stepAi, surroundLast, teamJob, teamReactsToBig, teamSurging, throwAimForStance } from "./ai";
+import { aiThrowAim, arenaBalls, arenaCanThrow, arenaBallMax, bigBallRoles, draggedMate, fortCoverSpot, grabShooters, mateThrewRecently, shouldHideInPile, stepAi, surroundLast, teamJob, teamReactsToBig, teamSurging, throwAimForStance } from "./ai";
 import type { Kid } from "./types";
 
 function kid(partial: Partial<Kid> & Pick<Kid, "id" | "team" | "x" | "y">): Kid {
