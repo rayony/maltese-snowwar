@@ -162,6 +162,8 @@ html[lang="ko"] {
   #app {
     min-height: 100%;
     height: 100%;
+    height: 100svh;
+    overflow: hidden;
   }
 
   body {
@@ -176,6 +178,22 @@ html[lang="ko"] {
     -webkit-user-select: none;
     user-select: none;
     -webkit-touch-callout: none;
+    /* svh = URL-bar-visible height. iPhone Safari first paint / QR-open
+       otherwise uses a tall dvh and clips the top HUD under the chrome. */
+    height: 100svh;
+    max-height: 100svh;
+    min-height: 100svh;
+    min-height: -webkit-fill-available;
+  }
+
+  .hud-layer {
+    position: fixed;
+    z-index: 20;
+    top: var(--vv-top, 0px);
+    right: var(--vv-right, 0px);
+    bottom: var(--vv-bottom, 0px);
+    left: var(--vv-left, 0px);
+    pointer-events: none;
   }
 
   .game-shell input,
