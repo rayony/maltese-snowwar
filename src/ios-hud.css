@@ -1,0 +1,17 @@
+/* Unlayered so it wins over Tailwind h-dvh / absolute inset-0. */
+.game-shell {
+  height: 100svh !important;
+  max-height: 100svh !important;
+  min-height: 100svh !important;
+}
+
+.hud-layer,
+.game-shell > .pointer-events-none.absolute.inset-0.z-10 {
+  position: fixed !important;
+  z-index: 20;
+  top: var(--vv-top, 0px) !important;
+  right: var(--vv-right, 0px) !important;
+  bottom: var(--vv-bottom, 0px) !important;
+  left: var(--vv-left, 0px) !important;
+  pointer-events: none;
+}

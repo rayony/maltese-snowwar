@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import appCss from "../styles.css?url";
+import iosHudCss from "../ios-hud.css?url";
 
 const APP_NAME = "Maltese Snow War";
 
@@ -24,6 +25,7 @@ export const Route = createRootRoute({
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
       { rel: "stylesheet", href: appCss },
+      { rel: "stylesheet", href: iosHudCss },
       { rel: "manifest", href: "/__grok/manifest.webmanifest" },
       { rel: "apple-touch-icon", href: "/__grok/icon-180.png" },
       { rel: "preload", href: "/images/title-bg.jpg?v=3", as: "image" },
